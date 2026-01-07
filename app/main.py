@@ -1,0 +1,247 @@
+from pathlib import Path
+from datetime import datetime
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from app.models import AskRequest, AskResponse
+from app.logging_config import setup_logging
+from app.rag_service import answer_question
+from app.config import settings
+
+app = FastAPI(title="b_rag API")
+setup_logging()
+
+# Serve static files
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+# ============== Request/Response Models ==============
+
+class SyncLocalRequest(BaseModel):
+    directory: str = "data/raw"
+    tenant_id: str = "default"
+    recreate: bool = False
+
+
+class SyncDriveRequest(BaseModel):
+    credentials_path: str
+    folder_id: str | None = None
+    tenant_id: str = "default"
+    recreate: bool = False
+
+
+class SyncResponse(BaseModel):
+    status: str
+    connector: str
+    documents_found: int
+    documents_processed: int
+    chunks_created: int
+    errors: list[str]
+    duration_seconds: float | None
+    last_sync_at: str | None = None
+
+
+class SourceInfo(BaseModel):
+    name: str
+    type: str
+    available: bool
+    description: str
+
+
+class ConnectorState(BaseModel):
+    tenant_id: str
+    source: str
+    last_sync_at: str | None
+    documents_synced: int | None
+    chunks_created: int | None
+
+
+# ============== Endpoints ==============
+
+@app.get("/")
+def serve_frontend():
+    """Serve the main frontend page."""
+    index_path = static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    return {"message": "b_rag API is running. POST to /ask to query documents."}
+
+
+@app.post("/ask", response_model=AskResponse)
+def ask(request: AskRequest):
+    """Answer a question using RAG."""
+    return answer_question(request.query)
+
+
+@app.get("/sources", response_model=list[SourceInfo])
+def list_sources():
+    """List available data source connectors."""
+    sources = [
+        SourceInfo(
+            name="Local Files",
+            type="local",
+            available=True,
+            description="Ingest files from local directory (PDF, DOCX, XLSX, TXT, MD)",
+        ),
+        SourceInfo(
+            name="Google Drive",
+            type="google_drive",
+            available=True,
+            description="Sync files from Google Drive folder (requires service account)",
+        ),
+    ]
+    return sources
+
+
+@app.get("/state", response_model=list[ConnectorState])
+def list_connector_states(tenant_id: str | None = None):
+    """List connector sync states."""
+    from connectors.state_store import get_state_store
+    
+    store = get_state_store()
+    states = store.list_states(tenant_id=tenant_id)
+    
+    return [
+        ConnectorState(
+            tenant_id=s["tenant_id"],
+            source=s["source"],
+            last_sync_at=s["state"].get("last_sync_at"),
+            documents_synced=s["state"].get("documents_synced"),
+            chunks_created=s["state"].get("chunks_created"),
+        )
+        for s in states
+    ]
+
+
+@app.get("/state/{tenant_id}/{source}", response_model=ConnectorState)
+def get_connector_state(tenant_id: str, source: str):
+    """Get connector sync state for a specific tenant/source."""
+    from connectors.state_store import get_state_store
+    
+    store = get_state_store()
+    state = store.get_state(tenant_id, source)
+    
+    if not state:
+        raise HTTPException(status_code=404, detail="State not found")
+    
+    return ConnectorState(
+        tenant_id=tenant_id,
+        source=source,
+        last_sync_at=state.get("last_sync_at"),
+        documents_synced=state.get("documents_synced"),
+        chunks_created=state.get("chunks_created"),
+    )
+
+
+@app.post("/sync/local", response_model=SyncResponse)
+def sync_local(request: SyncLocalRequest):
+    """
+    Sync documents from local directory.
+    
+    This is a synchronous operation - for large directories,
+    consider using the CLI instead.
+    
+    Idempotent: re-syncing same files won't create duplicates.
+    """
+    from connectors import LocalFilesConnector
+    from connectors.state_store import get_state_store
+    from ingest.pipeline import ingest
+    
+    directory = Path(request.directory)
+    if not directory.exists():
+        raise HTTPException(status_code=404, detail=f"Directory not found: {directory}")
+    
+    # Get previous state
+    store = get_state_store()
+    prev_state = store.get_state(request.tenant_id, "local_file")
+    
+    connector = LocalFilesConnector(
+        directory=directory,
+        tenant_id=request.tenant_id,
+    )
+    
+    stats = ingest(connector, recreate=request.recreate)
+    
+    # Get updated state
+    new_state = store.get_state(request.tenant_id, "local_file")
+    
+    return SyncResponse(
+        status="completed",
+        connector=stats.connector_name,
+        documents_found=stats.documents_found,
+        documents_processed=stats.documents_processed,
+        chunks_created=stats.chunks_created,
+        errors=stats.errors,
+        duration_seconds=stats.duration_seconds,
+        last_sync_at=new_state.get("last_sync_at") if new_state else None,
+    )
+
+
+@app.post("/sync/google-drive", response_model=SyncResponse)
+def sync_google_drive(request: SyncDriveRequest):
+    """
+    Sync documents from Google Drive.
+    
+    Requires:
+    - Service account credentials JSON file
+    - Folder shared with service account email
+    
+    Idempotent: re-syncing same files won't create duplicates.
+    """
+    from connectors import GoogleDriveConnector
+    from connectors.state_store import get_state_store
+    from ingest.pipeline import ingest
+    
+    credentials_path = Path(request.credentials_path)
+    if not credentials_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Credentials file not found: {credentials_path}"
+        )
+    
+    # Get previous state
+    store = get_state_store()
+    prev_state = store.get_state(request.tenant_id, "google_drive")
+    
+    connector = GoogleDriveConnector(
+        credentials_path=str(credentials_path),
+        folder_id=request.folder_id,
+        tenant_id=request.tenant_id,
+    )
+    
+    stats = ingest(connector, recreate=request.recreate)
+    
+    if stats.documents_found == 0 and not stats.errors:
+        raise HTTPException(
+            status_code=400,
+            detail="No documents found. Check folder ID and sharing permissions."
+        )
+    
+    # Get updated state
+    new_state = store.get_state(request.tenant_id, "google_drive")
+    
+    return SyncResponse(
+        status="completed",
+        connector=stats.connector_name,
+        documents_found=stats.documents_found,
+        documents_processed=stats.documents_processed,
+        chunks_created=stats.chunks_created,
+        errors=stats.errors,
+        duration_seconds=stats.duration_seconds,
+        last_sync_at=new_state.get("last_sync_at") if new_state else None,
+    )
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "qdrant_url": settings.qdrant_url,
+        "collection": settings.qdrant_collection,
+    }
