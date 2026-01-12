@@ -1,7 +1,9 @@
 from pathlib import Path
 from datetime import datetime
+from functools import lru_cache
+import secrets
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -10,6 +12,92 @@ from app.models import AskRequest, AskResponse
 from app.logging_config import setup_logging
 from app.rag_service import answer_question
 from app.config import settings
+
+
+# ============== Security ==============
+
+def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")):
+    """
+    Verify API key for protected endpoints.
+    If API_KEY is not configured, authentication is disabled (for development).
+    """
+    if not settings.api_key:
+        # API key not configured - allow access (development mode)
+        return True
+
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Provide X-API-Key header.",
+        )
+
+    # Use constant-time comparison to prevent timing attacks
+    if not secrets.compare_digest(x_api_key, settings.api_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key.",
+        )
+
+    return True
+
+
+def validate_sync_directory(directory: Path) -> Path:
+    """
+    Validate that a directory is allowed for sync operations.
+    Prevents path traversal attacks.
+    """
+    # Resolve to absolute path and normalize
+    resolved = directory.resolve()
+
+    # If allowed directories are configured, enforce them
+    if settings.allowed_sync_directories:
+        allowed = False
+        for allowed_dir in settings.allowed_sync_directories:
+            allowed_path = Path(allowed_dir).resolve()
+            try:
+                resolved.relative_to(allowed_path)
+                allowed = True
+                break
+            except ValueError:
+                continue
+
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Directory not in allowed list. Allowed directories: {settings.allowed_sync_directories}",
+            )
+
+    # Always block sensitive system directories
+    blocked_prefixes = ["/etc", "/root", "/var", "/usr", "/bin", "/sbin", "/proc", "/sys"]
+    for prefix in blocked_prefixes:
+        if str(resolved).startswith(prefix):
+            raise HTTPException(
+                status_code=403,
+                detail="Access to system directories is not allowed.",
+            )
+
+    return resolved
+
+
+def validate_credentials_path(credentials_path: Path) -> Path:
+    """
+    Validate that credentials file is within the allowed credentials directory.
+    Prevents path traversal attacks.
+    """
+    resolved = credentials_path.resolve()
+
+    # Credentials must be in the configured credentials directory
+    creds_dir = Path(settings.credentials_directory).resolve()
+
+    try:
+        resolved.relative_to(creds_dir)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Credentials must be located in: {creds_dir}",
+        )
+
+    return resolved
 
 app = FastAPI(title="b_rag API")
 setup_logging()
@@ -72,6 +160,18 @@ def serve_frontend():
     return {"message": "b_rag API is running. POST to /ask to query documents."}
 
 
+@app.get("/config/frontend")
+def get_frontend_config():
+    """
+    Return frontend configuration.
+    Only exposes non-sensitive values needed by the frontend.
+    """
+    return {
+        "supabase_url": settings.supabase_url,
+        "supabase_anon_key": settings.supabase_anon_key,
+    }
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest):
     """Answer a question using RAG."""
@@ -98,14 +198,14 @@ def list_sources():
     return sources
 
 
-@app.get("/state", response_model=list[ConnectorState])
+@app.get("/state", response_model=list[ConnectorState], dependencies=[Depends(verify_api_key)])
 def list_connector_states(tenant_id: str | None = None):
-    """List connector sync states."""
+    """List connector sync states. Requires API key authentication."""
     from connectors.state_store import get_state_store
-    
+
     store = get_state_store()
     states = store.list_states(tenant_id=tenant_id)
-    
+
     return [
         ConnectorState(
             tenant_id=s["tenant_id"],
@@ -118,17 +218,17 @@ def list_connector_states(tenant_id: str | None = None):
     ]
 
 
-@app.get("/state/{tenant_id}/{source}", response_model=ConnectorState)
+@app.get("/state/{tenant_id}/{source}", response_model=ConnectorState, dependencies=[Depends(verify_api_key)])
 def get_connector_state(tenant_id: str, source: str):
-    """Get connector sync state for a specific tenant/source."""
+    """Get connector sync state for a specific tenant/source. Requires API key authentication."""
     from connectors.state_store import get_state_store
-    
+
     store = get_state_store()
     state = store.get_state(tenant_id, source)
-    
+
     if not state:
         raise HTTPException(status_code=404, detail="State not found")
-    
+
     return ConnectorState(
         tenant_id=tenant_id,
         source=source,
@@ -138,38 +238,43 @@ def get_connector_state(tenant_id: str, source: str):
     )
 
 
-@app.post("/sync/local", response_model=SyncResponse)
+@app.post("/sync/local", response_model=SyncResponse, dependencies=[Depends(verify_api_key)])
 def sync_local(request: SyncLocalRequest):
     """
     Sync documents from local directory.
-    
+    Requires API key authentication.
+
     This is a synchronous operation - for large directories,
     consider using the CLI instead.
-    
+
     Idempotent: re-syncing same files won't create duplicates.
     """
     from connectors import LocalFilesConnector
     from connectors.state_store import get_state_store
     from ingest.pipeline import ingest
-    
+
     directory = Path(request.directory)
-    if not directory.exists():
-        raise HTTPException(status_code=404, detail=f"Directory not found: {directory}")
-    
+
+    # Validate directory to prevent path traversal attacks
+    validated_directory = validate_sync_directory(directory)
+
+    if not validated_directory.exists():
+        raise HTTPException(status_code=404, detail="Directory not found")
+
     # Get previous state
     store = get_state_store()
     prev_state = store.get_state(request.tenant_id, "local_file")
-    
+
     connector = LocalFilesConnector(
-        directory=directory,
+        directory=validated_directory,
         tenant_id=request.tenant_id,
     )
-    
+
     stats = ingest(connector, recreate=request.recreate)
-    
+
     # Get updated state
     new_state = store.get_state(request.tenant_id, "local_file")
-    
+
     return SyncResponse(
         status="completed",
         connector=stats.connector_name,
@@ -182,49 +287,54 @@ def sync_local(request: SyncLocalRequest):
     )
 
 
-@app.post("/sync/google-drive", response_model=SyncResponse)
+@app.post("/sync/google-drive", response_model=SyncResponse, dependencies=[Depends(verify_api_key)])
 def sync_google_drive(request: SyncDriveRequest):
     """
     Sync documents from Google Drive.
-    
+    Requires API key authentication.
+
     Requires:
-    - Service account credentials JSON file
+    - Service account credentials JSON file (must be in credentials directory)
     - Folder shared with service account email
-    
+
     Idempotent: re-syncing same files won't create duplicates.
     """
     from connectors import GoogleDriveConnector
     from connectors.state_store import get_state_store
     from ingest.pipeline import ingest
-    
+
     credentials_path = Path(request.credentials_path)
-    if not credentials_path.exists():
+
+    # Validate credentials path to prevent path traversal attacks
+    validated_credentials = validate_credentials_path(credentials_path)
+
+    if not validated_credentials.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"Credentials file not found: {credentials_path}"
+            detail="Credentials file not found",
         )
-    
+
     # Get previous state
     store = get_state_store()
     prev_state = store.get_state(request.tenant_id, "google_drive")
-    
+
     connector = GoogleDriveConnector(
-        credentials_path=str(credentials_path),
+        credentials_path=str(validated_credentials),
         folder_id=request.folder_id,
         tenant_id=request.tenant_id,
     )
-    
+
     stats = ingest(connector, recreate=request.recreate)
-    
+
     if stats.documents_found == 0 and not stats.errors:
         raise HTTPException(
             status_code=400,
-            detail="No documents found. Check folder ID and sharing permissions."
+            detail="No documents found. Check folder ID and sharing permissions.",
         )
-    
+
     # Get updated state
     new_state = store.get_state(request.tenant_id, "google_drive")
-    
+
     return SyncResponse(
         status="completed",
         connector=stats.connector_name,
@@ -239,9 +349,7 @@ def sync_google_drive(request: SyncDriveRequest):
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint."""
+    """Health check endpoint. Returns minimal status information."""
     return {
         "status": "healthy",
-        "qdrant_url": settings.qdrant_url,
-        "collection": settings.qdrant_collection,
     }

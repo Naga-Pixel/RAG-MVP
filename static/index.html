@@ -4,15 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>b_rag — Document Q&A</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         @font-face {
-            font-family: 'Heming';
-            src: url('/static/Heming_Variable.ttf') format('truetype');
+            font-family: 'Space Grotesk';
+            src: url('/static/fonts/SpaceGrotesk-Variable.ttf') format('truetype');
             font-weight: 100 900;
             font-style: normal;
+            font-display: swap;
         }
 
         :root {
@@ -27,16 +25,13 @@
             --accent-glow: rgba(59, 130, 246, 0.15);
             --success: #10b981;
             --error: #ef4444;
+            --warning: #f59e0b;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Heming', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -50,27 +45,116 @@
             padding-top: calc(3rem + 80px);
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
+        header { text-align: center; margin-bottom: 3rem; }
+        h1 { font-size: 160px; font-weight: 600; letter-spacing: -0.02em; }
+        .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
 
-        h1 {
-            font-size: 160px;
-            font-weight: 600;
-            letter-spacing: -0.02em;
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+        .btn:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: var(--bg-tertiary); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--bg-secondary); border-color: var(--text-muted); }
+        .btn-danger { background: var(--error); }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+        .btn-icon { padding: 0.3rem 0.5rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-icon:hover { background: var(--error); border-color: var(--error); color: white; }
 
-        .subtitle {
-            color: var(--text-secondary);
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .panel h2 {
             font-size: 1rem;
-            margin-top: 0.5rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
+        .panel-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+        .panel-row:last-child { margin-bottom: 0; }
 
-        .search-container {
-            position: relative;
-            margin-bottom: 2rem;
+        .input-group { flex: 1; min-width: 150px; }
+        .input-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .input-group input {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
         }
+        .input-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        .auth-buttons { display: flex; gap: 0.5rem; }
+        .auth-status { margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary); }
+        .auth-status.success { color: var(--success); }
+        .auth-status.error { color: var(--error); }
+        .auth-status.warning { color: var(--warning); }
+
+        .logged-in-info { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .logged-in-info .user-email { color: var(--success); font-weight: 500; }
+
+        .output-area {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .output-area.error-text { color: var(--error); }
+        .output-area.success-text { color: var(--success); }
+        .output-area.warning-text { color: var(--warning); }
+
+        .folder-list { margin: 1rem 0; }
+        .folder-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+        }
+        .folder-item .folder-path { color: var(--text-primary); word-break: break-all; }
+        .folder-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 0.5rem 0; }
+
+        .state-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
         .search-box {
             background: var(--bg-secondary);
@@ -78,13 +162,9 @@
             border-radius: 16px;
             padding: 1.25rem 1.5rem;
             transition: all 0.2s ease;
+            margin-bottom: 2rem;
         }
-
-        .search-box:focus-within {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 4px var(--accent-glow);
-        }
-
+        .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
         .search-input {
             width: 100%;
             background: transparent;
@@ -97,11 +177,7 @@
             min-height: 1.6em;
             max-height: 200px;
         }
-
-        .search-input::placeholder {
-            color: var(--text-muted);
-        }
-
+        .search-input::placeholder { color: var(--text-muted); }
         .search-footer {
             display: flex;
             justify-content: space-between;
@@ -110,65 +186,19 @@
             padding-top: 1rem;
             border-top: 1px solid var(--border);
         }
-
-        .hint {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
+        .hint { font-size: 0.85rem; color: var(--text-muted); }
         .hint kbd {
             background: var(--bg-tertiary);
             padding: 0.2em 0.5em;
             border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
             font-size: 0.8em;
             border: 1px solid var(--border);
         }
 
-        .submit-btn {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.6rem 1.25rem;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .submit-btn:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-        }
-
-        .submit-btn:active {
-            transform: translateY(0);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .submit-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .results {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; color: var(--text-secondary); }
+        .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .answer-card {
             background: var(--bg-secondary);
@@ -176,8 +206,9 @@
             border-radius: 16px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
+            animation: fadeIn 0.3s ease;
         }
-
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .answer-header {
             display: flex;
             align-items: center;
@@ -189,96 +220,19 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+        .answer-header svg { width: 16px; height: 16px; color: var(--success); }
+        .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--text-primary); }
 
-        .answer-header svg {
-            width: 16px;
-            height: 16px;
-            color: var(--success);
-        }
+        .sources-section { margin-top: 1.5rem; }
+        .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .source-item { background: var(--bg-tertiary); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid transparent; transition: border-color 0.15s ease; }
+        .source-item:hover { border-color: var(--border); }
+        .source-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .source-id { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--accent); background: var(--accent-glow); padding: 0.2em 0.5em; border-radius: 4px; }
+        .source-title { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
+        .source-snippet { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 
-        .answer-text {
-            font-size: 1.05rem;
-            line-height: 1.7;
-            color: var(--text-primary);
-        }
-
-        .sources-section {
-            margin-top: 1.5rem;
-        }
-
-        .sources-header {
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .source-item {
-            background: var(--bg-tertiary);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            border: 1px solid transparent;
-            transition: border-color 0.15s ease;
-        }
-
-        .source-item:hover {
-            border-color: var(--border);
-        }
-
-        .source-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .source-id {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--accent);
-            background: var(--accent-glow);
-            padding: 0.2em 0.5em;
-            border-radius: 4px;
-        }
-
-        .source-title {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .source-snippet {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            padding: 2rem;
-            color: var(--text-secondary);
-        }
-
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error {
+        .error-box {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.3);
             border-radius: 12px;
@@ -288,48 +242,17 @@
             align-items: center;
             gap: 0.75rem;
         }
+        .error-box svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-        .error svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
+        .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state p { max-width: 300px; margin: 0 auto; }
 
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: var(--text-muted);
-        }
+        footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
+        footer a { color: var(--text-secondary); text-decoration: none; }
+        footer a:hover { color: var(--accent); }
 
-        .empty-state svg {
-            width: 48px;
-            height: 48px;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        .empty-state p {
-            max-width: 300px;
-            margin: 0 auto;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-
-        footer a {
-            color: var(--text-secondary);
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            color: var(--accent);
-        }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -339,24 +262,75 @@
             <p class="subtitle">Ask questions about your indexed documents</p>
         </header>
 
-        <div class="search-container">
-            <div class="search-box">
-                <textarea 
-                    id="query" 
-                    class="search-input" 
-                    placeholder="What would you like to know?"
-                    rows="1"
-                ></textarea>
-                <div class="search-footer">
-                    <span class="hint">Press <kbd>Enter</kbd> to search</span>
-                    <button id="submit" class="submit-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.3-4.3"></path>
-                        </svg>
-                        Ask
-                    </button>
+        <!-- Auth Section -->
+        <div class="panel">
+            <h2>Authentication</h2>
+            <div id="auth-logged-out">
+                <div class="panel-row">
+                    <div class="input-group">
+                        <label for="auth-email">Email</label>
+                        <input type="email" id="auth-email" placeholder="you@example.com">
+                    </div>
+                    <div class="input-group">
+                        <label for="auth-password">Password</label>
+                        <input type="password" id="auth-password" placeholder="••••••••">
+                    </div>
+                    <div class="auth-buttons">
+                        <button id="btn-signup" class="btn btn-secondary btn-small">Sign up</button>
+                        <button id="btn-login" class="btn btn-small">Log in</button>
+                    </div>
                 </div>
+            </div>
+            <div id="auth-logged-in" class="hidden">
+                <div class="logged-in-info">
+                    <span>Logged in as <span id="user-email" class="user-email"></span></span>
+                    <button id="btn-logout" class="btn btn-danger btn-small">Log out</button>
+                </div>
+            </div>
+            <div id="auth-status" class="auth-status"></div>
+        </div>
+
+        <!-- Local Sync Section -->
+        <div class="panel">
+            <h2>Local Sync</h2>
+            <div class="panel-row">
+                <div class="input-group">
+                    <label for="folder-input">Directory Path</label>
+                    <input type="text" id="folder-input" placeholder="./data or /path/to/folder">
+                </div>
+                <button id="btn-add-folder" class="btn btn-secondary btn-small">Add Folder</button>
+            </div>
+            <div id="folder-list" class="folder-list">
+                <div class="folder-empty">No folders added yet</div>
+            </div>
+            <div class="panel-row">
+                <button id="btn-sync-local" class="btn btn-small">Sync Local Now</button>
+            </div>
+            <div id="sync-status" class="output-area hidden"></div>
+        </div>
+
+        <!-- State Section -->
+        <div class="panel">
+            <h2>Connector State</h2>
+            <div class="state-buttons">
+                <button id="btn-state-local" class="btn btn-secondary btn-small">Refresh Local State</button>
+                <button id="btn-state-drive" class="btn btn-secondary btn-small">Refresh Drive State</button>
+            </div>
+            <div id="state-output" class="output-area hidden"></div>
+        </div>
+
+        <!-- Q&A Section -->
+        <div class="search-box">
+            <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
+            <div class="search-footer">
+                <span class="hint">Press <kbd>Enter</kbd> to search</span>
+                <button id="submit" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                    Ask
+                </button>
             </div>
         </div>
 
@@ -378,18 +352,441 @@
         </footer>
     </div>
 
-    <script>
+    <!-- ================================================================
+         SINGLE <script type="module"> BLOCK
+         ESM import - NO window.supabase, NO unpkg CDN script tag
+         ================================================================ -->
+    <script type="module">
+        // =================================================================
+        // ESM Import of Supabase - createClient imported directly
+        // =================================================================
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+        // =================================================================
+        // Supabase Configuration - fetched from backend
+        // =================================================================
+        let supabase = null;
+        let supabaseConfigLoaded = false;
+
+        async function loadSupabaseConfig() {
+            try {
+                const response = await fetch('/config/frontend');
+                if (!response.ok) {
+                    throw new Error('Failed to load configuration');
+                }
+                const config = await response.json();
+
+                if (!config.supabase_url || !config.supabase_anon_key) {
+                    console.warn('Supabase not configured. Authentication features disabled.');
+                    return false;
+                }
+
+                supabase = createClient(config.supabase_url, config.supabase_anon_key);
+                supabaseConfigLoaded = true;
+                return true;
+            } catch (err) {
+                console.error('Failed to load Supabase config:', err);
+                return false;
+            }
+        }
+
+        // =================================================================
+        // localStorage key
+        // =================================================================
+        const STORAGE_KEY = 'rag_local_folders';
+
+        // =================================================================
+        // DOM Elements
+        // =================================================================
+        const authLoggedOut = document.getElementById('auth-logged-out');
+        const authLoggedIn = document.getElementById('auth-logged-in');
+        const authStatus = document.getElementById('auth-status');
+        const userEmailSpan = document.getElementById('user-email');
+        const emailInput = document.getElementById('auth-email');
+        const passwordInput = document.getElementById('auth-password');
+        const btnSignup = document.getElementById('btn-signup');
+        const btnLogin = document.getElementById('btn-login');
+        const btnLogout = document.getElementById('btn-logout');
+
+        const folderInput = document.getElementById('folder-input');
+        const btnAddFolder = document.getElementById('btn-add-folder');
+        const folderListEl = document.getElementById('folder-list');
+        const btnSyncLocal = document.getElementById('btn-sync-local');
+        const syncStatus = document.getElementById('sync-status');
+
+        const btnStateLocal = document.getElementById('btn-state-local');
+        const btnStateDrive = document.getElementById('btn-state-drive');
+        const stateOutput = document.getElementById('state-output');
+
         const queryInput = document.getElementById('query');
         const submitBtn = document.getElementById('submit');
         const resultsDiv = document.getElementById('results');
 
-        // Auto-resize textarea
+        // =================================================================
+        // State
+        // =================================================================
+        let folderList = [];
+
+        // =================================================================
+        // Utilities
+        // =================================================================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // =================================================================
+        // Auth Helpers
+        // =================================================================
+        async function getAccessToken() {
+            if (!supabaseConfigLoaded || !supabase) {
+                return null;
+            }
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                return session?.access_token || null;
+            } catch (err) {
+                console.error('getAccessToken error:', err);
+                return null;
+            }
+        }
+
+        async function isLoggedIn() {
+            if (!supabaseConfigLoaded) {
+                return false;
+            }
+            return !!(await getAccessToken());
+        }
+
+        // =================================================================
+        // apiFetch - Authenticated API calls
+        // =================================================================
+        async function apiFetch(path, options = {}) {
+            const token = await getAccessToken();
+
+            if (!token) {
+                throw new Error('Not authenticated. Please log in first.');
+            }
+
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                ...(options.headers || {}),
+            };
+
+            let body = options.body;
+
+            // JSON-stringify body if it's an object
+            if (body && typeof body === 'object' && !(body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+                body = JSON.stringify(body);
+            }
+
+            const response = await fetch(path, {
+                method: options.method || 'GET',
+                headers,
+                body,
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Request failed (${response.status})`;
+                try {
+                    const errData = await response.json();
+                    errorMsg = errData.detail || errData.message || errorMsg;
+                } catch {}
+                if (response.status === 401) {
+                    errorMsg = 'Session expired or invalid. Please log in again.';
+                }
+                throw new Error(errorMsg);
+            }
+
+            return response.json();
+        }
+
+        // =================================================================
+        // Auth UI
+        // =================================================================
+        function updateAuthUI(session) {
+            if (session?.user) {
+                authLoggedOut.classList.add('hidden');
+                authLoggedIn.classList.remove('hidden');
+                userEmailSpan.textContent = session.user.email;
+                showAuthStatus('', '');
+            } else {
+                authLoggedOut.classList.remove('hidden');
+                authLoggedIn.classList.add('hidden');
+                userEmailSpan.textContent = '';
+                showAuthStatus('Please log in to use sync and state features.', 'warning');
+            }
+        }
+
+        function showAuthStatus(message, type) {
+            authStatus.textContent = message;
+            authStatus.className = 'auth-status' + (type ? ' ' + type : '');
+        }
+
+        async function initAuth() {
+            // First load Supabase configuration from backend
+            const configLoaded = await loadSupabaseConfig();
+
+            if (!configLoaded) {
+                showAuthStatus('Authentication not configured. Contact admin.', 'warning');
+                // Hide auth UI when not configured
+                authLoggedOut.classList.add('hidden');
+                authLoggedIn.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                updateAuthUI(session);
+                supabase.auth.onAuthStateChange((event, session) => {
+                    updateAuthUI(session);
+                });
+            } catch (err) {
+                console.error('initAuth error:', err);
+                showAuthStatus('Auth initialization failed.', 'error');
+            }
+        }
+
+        // Auth button handlers
+        btnSignup.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                showAuthStatus('Authentication not configured', 'error');
+                return;
+            }
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            btnSignup.disabled = true;
+            showAuthStatus('Signing up...', '');
+            try {
+                const { data, error } = await supabase.auth.signUp({ email, password });
+                if (error) {
+                    showAuthStatus(error.message, 'error');
+                } else if (data.user && !data.session) {
+                    showAuthStatus('Check your email to confirm your account', 'success');
+                } else {
+                    showAuthStatus('Signed up successfully!', 'success');
+                }
+            } catch (err) {
+                showAuthStatus('Signup failed: ' + err.message, 'error');
+            } finally {
+                btnSignup.disabled = false;
+            }
+        });
+
+        btnLogin.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                showAuthStatus('Authentication not configured', 'error');
+                return;
+            }
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            btnLogin.disabled = true;
+            showAuthStatus('Logging in...', '');
+            try {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    showAuthStatus(error.message, 'error');
+                } else {
+                    showAuthStatus('Logged in!', 'success');
+                    passwordInput.value = '';
+                }
+            } catch (err) {
+                showAuthStatus('Login failed: ' + err.message, 'error');
+            } finally {
+                btnLogin.disabled = false;
+            }
+        });
+
+        btnLogout.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                return;
+            }
+            btnLogout.disabled = true;
+            try {
+                await supabase.auth.signOut();
+                showAuthStatus('Logged out.', '');
+            } catch (err) {
+                showAuthStatus('Logout failed: ' + err.message, 'error');
+            } finally {
+                btnLogout.disabled = false;
+            }
+        });
+
+        // =================================================================
+        // Folder List (localStorage persistence)
+        // =================================================================
+        function loadFolders() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                folderList = stored ? JSON.parse(stored) : [];
+            } catch {
+                folderList = [];
+            }
+        }
+
+        function saveFolders() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(folderList));
+        }
+
+        function renderFolders() {
+            if (folderList.length === 0) {
+                folderListEl.innerHTML = '<div class="folder-empty">No folders added yet</div>';
+                return;
+            }
+            folderListEl.innerHTML = folderList.map((f, i) => `
+                <div class="folder-item">
+                    <span class="folder-path">${escapeHtml(f)}</span>
+                    <button class="btn btn-icon btn-small" data-idx="${i}" title="Remove">✕</button>
+                </div>
+            `).join('');
+
+            folderListEl.querySelectorAll('button[data-idx]').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const idx = parseInt(e.target.dataset.idx, 10);
+                    folderList.splice(idx, 1);
+                    saveFolders();
+                    renderFolders();
+                });
+            });
+        }
+
+        btnAddFolder.addEventListener('click', () => {
+            const val = folderInput.value.trim();
+            if (val && !folderList.includes(val)) {
+                folderList.push(val);
+                saveFolders();
+                renderFolders();
+            }
+            folderInput.value = '';
+        });
+
+        folderInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                btnAddFolder.click();
+            }
+        });
+
+        // =================================================================
+        // Sync (on-demand, sequential)
+        // =================================================================
+        function showSyncStatus(msg, type = '') {
+            syncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
+            if (type) syncStatus.classList.add(type + '-text');
+            syncStatus.textContent = msg;
+        }
+
+        btnSyncLocal.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showSyncStatus('Not authenticated. Please log in first.', 'error');
+                return;
+            }
+            if (folderList.length === 0) {
+                showSyncStatus('No folders to sync. Add at least one folder.', 'warning');
+                return;
+            }
+
+            btnSyncLocal.disabled = true;
+            const results = [];
+            const total = folderList.length;
+
+            for (let i = 0; i < total; i++) {
+                const folder = folderList[i];
+                showSyncStatus(`Syncing ${i + 1}/${total}: ${folder}...`);
+                try {
+                    const data = await apiFetch('/sync/local', {
+                        method: 'POST',
+                        body: { directory: folder },
+                    });
+                    results.push({ folder, ok: true, data });
+                } catch (err) {
+                    results.push({ folder, ok: false, err: err.message });
+                }
+            }
+
+            let summary = `Sync completed (${total} folder${total > 1 ? 's' : ''}):\n\n`;
+            let hasErr = false;
+            for (const r of results) {
+                if (r.ok) {
+                    summary += `✓ ${r.folder}\n  ${JSON.stringify(r.data)}\n`;
+                } else {
+                    hasErr = true;
+                    summary += `✗ ${r.folder}\n  Error: ${r.err}\n`;
+                }
+            }
+            showSyncStatus(summary, hasErr ? 'warning' : 'success');
+            btnSyncLocal.disabled = false;
+        });
+
+        // =================================================================
+        // State Display
+        // =================================================================
+        function showStateOutput(msg, type = '') {
+            stateOutput.classList.remove('hidden', 'error-text', 'success-text');
+            if (type) stateOutput.classList.add(type + '-text');
+            stateOutput.textContent = msg;
+        }
+
+        btnStateLocal.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showStateOutput('Not authenticated. Please log in first.', 'error');
+                return;
+            }
+            btnStateLocal.disabled = true;
+            showStateOutput('Loading local state...');
+            try {
+                const data = await apiFetch('/state/local');
+                let out = JSON.stringify(data, null, 2);
+                if (data.last_sync_at) {
+                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
+                }
+                showStateOutput(out);
+            } catch (err) {
+                showStateOutput(err.message, 'error');
+            } finally {
+                btnStateLocal.disabled = false;
+            }
+        });
+
+        btnStateDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showStateOutput('Not authenticated. Please log in first.', 'error');
+                return;
+            }
+            btnStateDrive.disabled = true;
+            showStateOutput('Loading Google Drive state...');
+            try {
+                const data = await apiFetch('/state/google-drive');
+                let out = JSON.stringify(data, null, 2);
+                if (data.last_sync_at) {
+                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
+                }
+                showStateOutput(out);
+            } catch (err) {
+                showStateOutput(err.message, 'error');
+            } finally {
+                btnStateDrive.disabled = false;
+            }
+        });
+
+        // =================================================================
+        // Q&A
+        // =================================================================
         queryInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
 
-        // Handle Enter key (Shift+Enter for newline)
         queryInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -403,40 +800,30 @@
             const query = queryInput.value.trim();
             if (!query) return;
 
-            // Show loading state
             submitBtn.disabled = true;
-            resultsDiv.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <span>Searching documents...</span>
-                </div>
-            `;
+            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>Searching documents...</span></div>`;
 
             try {
                 const response = await fetch('/ask', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query }),
                 });
-
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Request failed');
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Request failed');
                 }
-
                 const data = await response.json();
                 displayResults(data);
-            } catch (error) {
+            } catch (err) {
                 resultsDiv.innerHTML = `
-                    <div class="error">
+                    <div class="error-box">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" x2="12" y1="8" y2="12"></line>
                             <line x1="12" x2="12.01" y1="16" y2="16"></line>
                         </svg>
-                        <span>${escapeHtml(error.message)}</span>
+                        <span>${escapeHtml(err.message)}</span>
                     </div>
                 `;
             } finally {
@@ -446,17 +833,17 @@
 
         function displayResults(data) {
             let sourcesHtml = '';
-            if (data.sources && data.sources.length > 0) {
+            if (data.sources?.length) {
                 sourcesHtml = `
                     <div class="sources-section">
                         <div class="sources-header">Sources</div>
-                        ${data.sources.map(source => `
+                        ${data.sources.map(s => `
                             <div class="source-item">
                                 <div class="source-meta">
-                                    <span class="source-id">${escapeHtml(source.doc_id)}</span>
-                                    ${source.title ? `<span class="source-title">${escapeHtml(source.title)}</span>` : ''}
+                                    <span class="source-id">${escapeHtml(s.doc_id)}</span>
+                                    ${s.title ? `<span class="source-title">${escapeHtml(s.title)}</span>` : ''}
                                 </div>
-                                <div class="source-snippet">${escapeHtml(source.snippet)}</div>
+                                <div class="source-snippet">${escapeHtml(s.snippet)}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -464,27 +851,26 @@
             }
 
             resultsDiv.innerHTML = `
-                <div class="results">
-                    <div class="answer-card">
-                        <div class="answer-header">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                            Answer
-                        </div>
-                        <div class="answer-text">${escapeHtml(data.answer)}</div>
-                        ${sourcesHtml}
+                <div class="answer-card">
+                    <div class="answer-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        Answer
                     </div>
+                    <div class="answer-text">${escapeHtml(data.answer)}</div>
+                    ${sourcesHtml}
                 </div>
             `;
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // =================================================================
+        // Initialize
+        // =================================================================
+        loadFolders();
+        renderFolders();
+        initAuth();
     </script>
 </body>
 </html>

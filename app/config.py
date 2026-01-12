@@ -55,6 +55,33 @@ class Settings(BaseSettings):
         alias="GOOGLE_DRIVE_FOLDER_ID",
     )
 
+    # Supabase settings (for frontend auth)
+    supabase_url: str | None = Field(
+        default=None,
+        alias="SUPABASE_URL",
+    )
+    supabase_anon_key: str | None = Field(
+        default=None,
+        alias="SUPABASE_ANON_KEY",
+    )
+
+    # API Security
+    api_key: str | None = Field(
+        default=None,
+        alias="API_KEY",
+        description="API key for authenticating sync/admin endpoints",
+    )
+    allowed_sync_directories: list[str] = Field(
+        default_factory=list,
+        alias="ALLOWED_SYNC_DIRECTORIES",
+        description="Comma-separated list of allowed directories for local sync",
+    )
+    credentials_directory: str = Field(
+        default="credentials",
+        alias="CREDENTIALS_DIRECTORY",
+        description="Directory where credentials files must be located",
+    )
+
     # ---- Compatibility properties ----
 
     @property
