@@ -249,17 +249,18 @@ def sync_local(request: SyncLocalRequest):
 
     Idempotent: re-syncing same files won't create duplicates.
     """
-    from connectors import LocalFilesConnector
-    from connectors.state_store import get_state_store
-    from ingest.pipeline import ingest
-
     directory = Path(request.directory)
 
-    # Validate directory to prevent path traversal attacks
+    # Validate directory to prevent path traversal attacks (before any other operations)
     validated_directory = validate_sync_directory(directory)
 
     if not validated_directory.exists():
         raise HTTPException(status_code=404, detail="Directory not found")
+
+    # Import after validation to ensure security checks run first
+    from connectors import LocalFilesConnector
+    from connectors.state_store import get_state_store
+    from ingest.pipeline import ingest
 
     # Get previous state
     store = get_state_store()
@@ -299,13 +300,9 @@ def sync_google_drive(request: SyncDriveRequest):
 
     Idempotent: re-syncing same files won't create duplicates.
     """
-    from connectors import GoogleDriveConnector
-    from connectors.state_store import get_state_store
-    from ingest.pipeline import ingest
-
     credentials_path = Path(request.credentials_path)
 
-    # Validate credentials path to prevent path traversal attacks
+    # Validate credentials path to prevent path traversal attacks (before any other operations)
     validated_credentials = validate_credentials_path(credentials_path)
 
     if not validated_credentials.exists():
@@ -313,6 +310,11 @@ def sync_google_drive(request: SyncDriveRequest):
             status_code=404,
             detail="Credentials file not found",
         )
+
+    # Import after validation to ensure security checks run first
+    from connectors import GoogleDriveConnector
+    from connectors.state_store import get_state_store
+    from ingest.pipeline import ingest
 
     # Get previous state
     store = get_state_store()
