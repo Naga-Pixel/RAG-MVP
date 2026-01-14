@@ -12,6 +12,11 @@ client = QdrantClient(
 )
 
 
+def get_qdrant_client() -> QdrantClient:
+    """Return the Qdrant client singleton."""
+    return client
+
+
 def collection_exists() -> bool:
     """Check if the configured collection exists."""
     collections = client.get_collections().collections
