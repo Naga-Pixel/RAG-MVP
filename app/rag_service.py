@@ -13,13 +13,15 @@ from app.models import AskResponse, Source
 client = OpenAI(api_key=settings.openai_api_key)
 
 
-def retrieve(query: str, top_k: int | None = None):
+def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None):
     """
     Embed the query and retrieve top_k most similar chunks from Qdrant.
     Uses query_points (current qdrant-client API).
     """
     if top_k is None:
         top_k = settings.retrieval_limit
+    if tenant_id is None:
+        tenant_id = settings.default_tenant_id
 
     try:
         emb_resp = client.embeddings.create(
@@ -39,7 +41,7 @@ def retrieve(query: str, top_k: int | None = None):
         must=[
             FieldCondition(
                 key="tenant_id",
-                match=MatchValue(value=settings.default_tenant_id),
+                match=MatchValue(value=tenant_id),
             )
         ]
     )
@@ -88,14 +90,14 @@ def build_context(points):
     return context, sources
 
 
-def answer_question(query: str) -> AskResponse:
+def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
     """
     Full RAG pipeline:
       1. Retrieve top chunks from Qdrant
       2. Build context
       3. Ask OpenAI to answer using ONLY that context
     """
-    points = retrieve(query)
+    points = retrieve(query, tenant_id=tenant_id)
 
     if not points:
         return AskResponse(

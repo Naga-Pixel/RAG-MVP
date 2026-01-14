@@ -12,7 +12,7 @@ from app.models import AskRequest, AskResponse
 from app.logging_config import setup_logging
 from app.rag_service import answer_question
 from app.config import settings
-from app.google_drive_auth import router as drive_router
+from app.google_drive_auth import router as drive_router, verify_supabase_token
 
 
 # ============== Security ==============
@@ -177,9 +177,9 @@ def get_frontend_config():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(request: AskRequest):
+async def ask(request: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG."""
-    return answer_question(request.query)
+    return answer_question(request.query, tenant_id=user["user_id"])
 
 
 @app.get("/sources", response_model=list[SourceInfo])
