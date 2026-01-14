@@ -677,6 +677,7 @@ async def sync_drive(user: dict = Depends(verify_supabase_token)):
                 mime_queries = [f"mimeType='{mime}'" for mime in SUPPORTED_MIME_TYPES.keys()]
                 mime_filter = " or ".join(mime_queries)
                 query = f"({mime_filter}) and '{folder_id}' in parents and trashed=false"
+                logger.info(f"Drive query: {query}")
 
                 # List files with pagination
                 page_token = None
@@ -706,6 +707,8 @@ async def sync_drive(user: dict = Depends(verify_supabase_token)):
 
                 total_found += len(files)
                 logger.info(f"Found {len(files)} files in folder {folder_name}")
+                for f in files:
+                    logger.info(f"  - {f['name']} ({f['mimeType']})")
 
                 # Process each file
                 for file in files:
