@@ -13,3 +13,8 @@ pytest
 # Google Drive integration
 google-api-python-client
 google-auth
+# OAuth token encryption
+cryptography
+httpx
+# Postgres
+psycopg2-binary

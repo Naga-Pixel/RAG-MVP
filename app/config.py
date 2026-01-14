@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 
-    # Google Drive settings (optional)
+    # Google Drive settings (optional - for service account auth)
     google_credentials_path: str | None = Field(
         default=None,
         alias="GOOGLE_CREDENTIALS_PATH",
@@ -53,6 +53,36 @@ class Settings(BaseSettings):
     google_drive_folder_id: str | None = Field(
         default=None,
         alias="GOOGLE_DRIVE_FOLDER_ID",
+    )
+
+    # Google Drive OAuth settings (for user-based auth with Picker)
+    google_drive_client_id: str | None = Field(
+        default=None,
+        alias="GOOGLE_DRIVE_CLIENT_ID",
+    )
+    google_drive_client_secret: str | None = Field(
+        default=None,
+        alias="GOOGLE_DRIVE_CLIENT_SECRET",
+    )
+    google_drive_redirect_uri: str = Field(
+        default="http://localhost:8000/oauth/google/drive/callback",
+        alias="GOOGLE_DRIVE_REDIRECT_URI",
+    )
+    google_picker_api_key: str | None = Field(
+        default=None,
+        alias="GOOGLE_PICKER_API_KEY",
+    )
+    drive_token_encryption_key: str | None = Field(
+        default=None,
+        alias="DRIVE_TOKEN_ENCRYPTION_KEY",
+        description="Fernet key for encrypting Drive refresh tokens",
+    )
+
+    # Database (Postgres via Supabase or direct connection)
+    database_url: str | None = Field(
+        default=None,
+        alias="DATABASE_URL",
+        description="Postgres connection string for Drive OAuth data",
     )
 
     # Supabase settings (for frontend auth)

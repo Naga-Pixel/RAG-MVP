@@ -12,6 +12,7 @@ from app.models import AskRequest, AskResponse
 from app.logging_config import setup_logging
 from app.rag_service import answer_question
 from app.config import settings
+from app.google_drive_auth import router as drive_router
 
 
 # ============== Security ==============
@@ -101,6 +102,9 @@ def validate_credentials_path(credentials_path: Path) -> Path:
 
 app = FastAPI(title="b_rag API")
 setup_logging()
+
+# Include Google Drive OAuth routes
+app.include_router(drive_router)
 
 # Serve static files
 static_dir = Path(__file__).parent.parent / "static"

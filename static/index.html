@@ -58,8 +58,10 @@
 
         header { text-align: center; margin-bottom: 3rem; }
         h1 { font-size: 120px; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); }
-        .landing-title { font-size: clamp(5rem, 20vw, 14rem); }
+        .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
+        .landing-title { font-size: clamp(5rem, 20vw, 14rem); line-height: 1; }
         .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
+        .auth-container .subtitle { margin-top: 8px; }
 
         .btn {
             background: var(--accent);
@@ -375,6 +377,32 @@
             <div id="sync-status" class="output-area hidden"></div>
         </div>
 
+        <!-- Google Drive Section -->
+        <div class="panel">
+            <h2>Google Drive</h2>
+            <div id="drive-not-connected">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Connect your Google Drive to sync documents from specific folders.
+                </p>
+                <button id="btn-connect-drive" class="btn">
+                    <svg viewBox="0 0 24 24" style="width:18px;height:18px;margin-right:4px">
+                        <path fill="currentColor" d="M7.71 3.5L1.15 15l3.43 6h13.71l3.42-6L15.86 3.5H7.71zm.86 1.5h6.86l5.14 9h-6.86L7.71 5zm-.57 1L2 14.5l2.57 4.5h6.86l-2.57-4.5L2.57 6z"/>
+                    </svg>
+                    Connect Google Drive
+                </button>
+            </div>
+            <div id="drive-connected" class="hidden">
+                <div id="drive-folder-list" class="folder-list">
+                    <div class="folder-empty">No folders selected yet</div>
+                </div>
+                <div class="panel-row" style="margin-top: 1rem;">
+                    <button id="btn-add-drive-folder" class="btn btn-secondary btn-small">+ Add Folder</button>
+                    <button id="btn-sync-drive" class="btn btn-small">Sync Drive Now</button>
+                </div>
+                <div id="drive-sync-status" class="output-area hidden"></div>
+            </div>
+        </div>
+
         <!-- State Section -->
         <div class="panel">
             <h2>Connector State</h2>
@@ -489,10 +517,22 @@
         const submitBtn = document.getElementById('submit');
         const resultsDiv = document.getElementById('results');
 
+        // Google Drive elements
+        const driveNotConnected = document.getElementById('drive-not-connected');
+        const driveConnected = document.getElementById('drive-connected');
+        const btnConnectDrive = document.getElementById('btn-connect-drive');
+        const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+        const btnSyncDrive = document.getElementById('btn-sync-drive');
+        const driveFolderListEl = document.getElementById('drive-folder-list');
+        const driveSyncStatus = document.getElementById('drive-sync-status');
+
         // =================================================================
         // State
         // =================================================================
         let folderList = [];
+        let driveFolders = [];
+        let driveConnectedState = false;
+        let publicConfig = null;
 
         // =================================================================
         // Utilities
@@ -878,6 +918,240 @@
         });
 
         // =================================================================
+        // Google Drive Integration
+        // =================================================================
+        let pickerApiLoaded = false;
+
+        async function loadPublicConfig() {
+            try {
+                const response = await fetch('/config/public');
+                if (response.ok) {
+                    publicConfig = await response.json();
+                }
+            } catch (err) {
+                console.error('Failed to load public config:', err);
+            }
+        }
+
+        async function loadPickerApi() {
+            if (pickerApiLoaded) return true;
+            return new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = 'https://apis.google.com/js/api.js';
+                script.onload = () => {
+                    gapi.load('picker', () => {
+                        pickerApiLoaded = true;
+                        resolve(true);
+                    });
+                };
+                script.onerror = () => resolve(false);
+                document.head.appendChild(script);
+            });
+        }
+
+        function showDriveSyncStatus(msg, type = '') {
+            driveSyncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
+            if (type) driveSyncStatus.classList.add(type + '-text');
+            driveSyncStatus.textContent = msg;
+        }
+
+        function renderDriveFolders() {
+            if (driveFolders.length === 0) {
+                driveFolderListEl.innerHTML = '<div class="folder-empty">No folders selected yet</div>';
+                return;
+            }
+            driveFolderListEl.innerHTML = driveFolders.map((f) => `
+                <div class="folder-item">
+                    <span class="folder-path">${escapeHtml(f.folder_name || f.folder_id)}</span>
+                    <button class="btn btn-icon btn-small" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">✕</button>
+                </div>
+            `).join('');
+
+            driveFolderListEl.querySelectorAll('button[data-folder-id]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const folderId = e.target.dataset.folderId;
+                    btn.disabled = true;
+                    try {
+                        const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, {
+                            method: 'DELETE',
+                        });
+                        driveFolders = data.folders || [];
+                        renderDriveFolders();
+                    } catch (err) {
+                        showDriveSyncStatus('Failed to remove folder: ' + err.message, 'error');
+                        btn.disabled = false;
+                    }
+                });
+            });
+        }
+
+        function updateDriveUI() {
+            if (driveConnectedState) {
+                driveNotConnected.classList.add('hidden');
+                driveConnected.classList.remove('hidden');
+                renderDriveFolders();
+            } else {
+                driveNotConnected.classList.remove('hidden');
+                driveConnected.classList.add('hidden');
+            }
+        }
+
+        async function refreshDriveStatus() {
+            try {
+                const data = await apiFetch('/sources/drive/status');
+                driveConnectedState = data.connected;
+                driveFolders = data.folders || [];
+                updateDriveUI();
+            } catch (err) {
+                console.error('Failed to refresh Drive status:', err);
+            }
+        }
+
+        // Connect Drive button
+        btnConnectDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+            btnConnectDrive.disabled = true;
+            try {
+                const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
+                const authUrl = data.auth_url;
+
+                // Open popup
+                const width = 600;
+                const height = 700;
+                const left = window.screenX + (window.outerWidth - width) / 2;
+                const top = window.screenY + (window.outerHeight - height) / 2;
+                const popup = window.open(
+                    authUrl,
+                    'drive_oauth',
+                    `width=${width},height=${height},left=${left},top=${top}`
+                );
+
+                // Listen for postMessage from popup
+                const messageHandler = async (event) => {
+                    if (event.data?.type === 'drive_oauth_success') {
+                        window.removeEventListener('message', messageHandler);
+                        await refreshDriveStatus();
+                        showDriveSyncStatus('Google Drive connected successfully!', 'success');
+                    } else if (event.data?.type === 'drive_oauth_error') {
+                        window.removeEventListener('message', messageHandler);
+                        showDriveSyncStatus('Connection failed: ' + (event.data.error || 'Unknown error'), 'error');
+                    }
+                };
+                window.addEventListener('message', messageHandler);
+
+            } catch (err) {
+                showDriveSyncStatus('Failed to start connection: ' + err.message, 'error');
+            } finally {
+                btnConnectDrive.disabled = false;
+            }
+        });
+
+        // Add Drive folder button
+        btnAddDriveFolder.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+
+            // Load Picker API if not loaded
+            if (!pickerApiLoaded) {
+                showDriveSyncStatus('Loading Google Picker...', '');
+                const loaded = await loadPickerApi();
+                if (!loaded) {
+                    showDriveSyncStatus('Failed to load Google Picker', 'error');
+                    return;
+                }
+            }
+
+            // Get access token for Picker
+            btnAddDriveFolder.disabled = true;
+            try {
+                const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+                const accessToken = tokenData.access_token;
+
+                if (!publicConfig?.google_picker_api_key) {
+                    showDriveSyncStatus('Google Picker API key not configured', 'error');
+                    btnAddDriveFolder.disabled = false;
+                    return;
+                }
+
+                // Create and show Picker for folder selection
+                const view = new google.picker.DocsView()
+                    .setIncludeFolders(true)
+                    .setSelectFolderEnabled(true)
+                    .setMimeTypes('application/vnd.google-apps.folder');
+
+                const picker = new google.picker.PickerBuilder()
+                    .addView(view)
+                    .setOAuthToken(accessToken)
+                    .setDeveloperKey(publicConfig.google_picker_api_key)
+                    .setCallback(async (data) => {
+                        if (data.action === google.picker.Action.PICKED) {
+                            const folder = data.docs[0];
+                            try {
+                                const result = await apiFetch('/sources/drive/folders', {
+                                    method: 'POST',
+                                    body: {
+                                        folder_id: folder.id,
+                                        folder_name: folder.name,
+                                    },
+                                });
+                                driveFolders = result.folders || [];
+                                renderDriveFolders();
+                                showDriveSyncStatus(`Added folder: ${folder.name}`, 'success');
+                            } catch (err) {
+                                showDriveSyncStatus('Failed to add folder: ' + err.message, 'error');
+                            }
+                        }
+                        btnAddDriveFolder.disabled = false;
+                    })
+                    .setTitle('Select a folder to sync')
+                    .build();
+
+                picker.setVisible(true);
+
+            } catch (err) {
+                showDriveSyncStatus('Failed to open folder picker: ' + err.message, 'error');
+                btnAddDriveFolder.disabled = false;
+            }
+        });
+
+        // Sync Drive button
+        btnSyncDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+            if (driveFolders.length === 0) {
+                showDriveSyncStatus('No folders to sync. Add at least one folder first.', 'warning');
+                return;
+            }
+
+            btnSyncDrive.disabled = true;
+            showDriveSyncStatus('Syncing Drive folders...');
+
+            try {
+                const data = await apiFetch('/sync/drive', { method: 'POST' });
+                let summary = `Sync completed in ${data.duration_seconds}s\n`;
+                summary += `Folders: ${data.folders_synced}\n`;
+                summary += `Documents found: ${data.documents_found}\n`;
+                summary += `Documents processed: ${data.documents_processed}\n`;
+                summary += `Chunks created: ${data.chunks_created}`;
+                if (data.errors?.length > 0) {
+                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
+                }
+                showDriveSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
+            } catch (err) {
+                showDriveSyncStatus('Sync failed: ' + err.message, 'error');
+            } finally {
+                btnSyncDrive.disabled = false;
+            }
+        });
+
+        // =================================================================
         // Q&A
         // =================================================================
         queryInput.addEventListener('input', function() {
@@ -968,7 +1242,17 @@
         // =================================================================
         loadFolders();
         renderFolders();
+        loadPublicConfig();
         initAuth();
+
+        // Refresh Drive status when auth state changes
+        const originalUpdateAuthUI = updateAuthUI;
+        function updateAuthUI(session) {
+            originalUpdateAuthUI(session);
+            if (session?.user) {
+                refreshDriveStatus();
+            }
+        }
     </script>
 </body>
 </html>
