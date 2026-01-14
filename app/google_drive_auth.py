@@ -667,196 +667,228 @@ async def sync_drive(user: dict = Depends(verify_supabase_token)):
 
     temp_dir = tempfile.mkdtemp()
 
+    def get_all_folder_ids(parent_id: str, parent_name: str) -> list[dict]:
+        """Recursively get all folder IDs including sub-folders."""
+        all_folders = [{"id": parent_id, "name": parent_name}]
+        try:
+            query = f"mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+            page_token = None
+            while True:
+                results = service.files().list(
+                    q=query,
+                    pageSize=100,
+                    fields="nextPageToken, files(id, name)",
+                    pageToken=page_token,
+                ).execute()
+                for subfolder in results.get("files", []):
+                    subfolder_path = f"{parent_name}/{subfolder['name']}"
+                    logger.info(f"Found sub-folder: {subfolder_path}")
+                    all_folders.extend(get_all_folder_ids(subfolder["id"], subfolder_path))
+                page_token = results.get("nextPageToken")
+                if not page_token:
+                    break
+        except Exception as e:
+            logger.error(f"Error listing sub-folders of {parent_name}: {e}")
+        return all_folders
+
     try:
         for folder in folders:
             folder_id = folder["folder_id"]
             folder_name = folder["folder_name"]
 
-            try:
-                # Build query for supported file types
-                mime_queries = [f"mimeType='{mime}'" for mime in SUPPORTED_MIME_TYPES.keys()]
-                mime_filter = " or ".join(mime_queries)
-                query = f"({mime_filter}) and '{folder_id}' in parents and trashed=false"
-                logger.info(f"Drive query: {query}")
+            # Get all folders including sub-folders
+            all_folder_ids = get_all_folder_ids(folder_id, folder_name)
+            logger.info(f"Processing {len(all_folder_ids)} folders (including sub-folders)")
 
-                # List files with pagination
-                page_token = None
-                files = []
+            for current_folder in all_folder_ids:
+                current_id = current_folder["id"]
+                current_name = current_folder["name"]
 
-                while True:
-                    try:
-                        results = service.files().list(
-                            q=query,
-                            pageSize=100,
-                            fields="nextPageToken, files(id, name, mimeType, modifiedTime, size)",
-                            pageToken=page_token,
-                        ).execute()
+                try:
+                    # Build query for supported file types
+                    mime_queries = [f"mimeType='{mime}'" for mime in SUPPORTED_MIME_TYPES.keys()]
+                    mime_filter = " or ".join(mime_queries)
+                    query = f"({mime_filter}) and '{current_id}' in parents and trashed=false"
+                    logger.info(f"Drive query for {current_name}")
 
-                        files.extend(results.get("files", []))
-                        page_token = results.get("nextPageToken")
+                    # List files with pagination
+                    page_token = None
+                    files = []
 
-                        if not page_token:
-                            break
-
-                    except Exception as e:
-                        if "429" in str(e):
-                            # Rate limited - wait and retry
-                            time.sleep(2)
-                            continue
-                        raise
-
-                total_found += len(files)
-                logger.info(f"Found {len(files)} files in folder {folder_name}")
-                for f in files:
-                    logger.info(f"  - {f['name']} ({f['mimeType']})")
-
-                # Process each file
-                for file in files:
-                    try:
-                        file_id = file["id"]
-                        file_name = file["name"]
-                        mime_type = file["mimeType"]
-                        modified_at = file.get("modifiedTime", "")
-
-                        # Download or export file
-                        if mime_type in EXPORT_MIME_TYPES:
-                            # Google native format - export
-                            export_mime = EXPORT_MIME_TYPES[mime_type]
-                            extension = SUPPORTED_MIME_TYPES[mime_type]
-                            content = service.files().export(
-                                fileId=file_id,
-                                mimeType=export_mime
+                    while True:
+                        try:
+                            results = service.files().list(
+                                q=query,
+                                pageSize=100,
+                                fields="nextPageToken, files(id, name, mimeType, modifiedTime, size)",
+                                pageToken=page_token,
                             ).execute()
-                        else:
-                            # Regular file - download
-                            extension = SUPPORTED_MIME_TYPES.get(mime_type, ".txt")
-                            request = service.files().get_media(fileId=file_id)
-                            buffer = io.BytesIO()
-                            downloader = MediaIoBaseDownload(buffer, request)
-                            done = False
-                            while not done:
-                                _, done = downloader.next_chunk()
-                            content = buffer.getvalue()
 
-                        if not content:
-                            continue
+                            files.extend(results.get("files", []))
+                            page_token = results.get("nextPageToken")
 
-                        # Save to temp file
-                        temp_path = Path(temp_dir) / f"{file_id}{extension}"
-                        if isinstance(content, bytes):
-                            temp_path.write_bytes(content)
-                        else:
-                            temp_path.write_bytes(content)
+                            if not page_token:
+                                break
 
-                        # Load and parse content
-                        result = load_file_content(temp_path)
+                        except Exception as e:
+                            if "429" in str(e):
+                                # Rate limited - wait and retry
+                                time.sleep(2)
+                                continue
+                            raise
 
-                        extra_metadata = {}
-                        if isinstance(result, tuple):
-                            text_content, sheet_metadata = result
-                            if sheet_metadata:
-                                sheet_names = [s["sheet_name"] for s in sheet_metadata]
-                                extra_metadata["sheet_name"] = ", ".join(sheet_names)
-                        else:
-                            text_content = result
+                    total_found += len(files)
+                    logger.info(f"Found {len(files)} files in folder {current_name}")
+                    for f in files:
+                        logger.info(f"  - {f['name']} ({f['mimeType']})")
 
-                        if not text_content or not text_content.strip():
+                    # Process each file
+                    for file in files:
+                        try:
+                            file_id = file["id"]
+                            file_name = file["name"]
+                            mime_type = file["mimeType"]
+                            modified_at = file.get("modifiedTime", "")
+
+                            # Download or export file
+                            if mime_type in EXPORT_MIME_TYPES:
+                                # Google native format - export
+                                export_mime = EXPORT_MIME_TYPES[mime_type]
+                                extension = SUPPORTED_MIME_TYPES[mime_type]
+                                content = service.files().export(
+                                    fileId=file_id,
+                                    mimeType=export_mime
+                                ).execute()
+                            else:
+                                # Regular file - download
+                                extension = SUPPORTED_MIME_TYPES.get(mime_type, ".txt")
+                                request = service.files().get_media(fileId=file_id)
+                                buffer = io.BytesIO()
+                                downloader = MediaIoBaseDownload(buffer, request)
+                                done = False
+                                while not done:
+                                    _, done = downloader.next_chunk()
+                                content = buffer.getvalue()
+
+                            if not content:
+                                continue
+
+                            # Save to temp file
+                            temp_path = Path(temp_dir) / f"{file_id}{extension}"
+                            if isinstance(content, bytes):
+                                temp_path.write_bytes(content)
+                            else:
+                                temp_path.write_bytes(content)
+
+                            # Load and parse content
+                            result = load_file_content(temp_path)
+
+                            extra_metadata = {}
+                            if isinstance(result, tuple):
+                                text_content, sheet_metadata = result
+                                if sheet_metadata:
+                                    sheet_names = [s["sheet_name"] for s in sheet_metadata]
+                                    extra_metadata["sheet_name"] = ", ".join(sheet_names)
+                            else:
+                                text_content = result
+
+                            if not text_content or not text_content.strip():
+                                temp_path.unlink()
+                                continue
+
+                            # Clean up temp file
                             temp_path.unlink()
-                            continue
 
-                        # Clean up temp file
-                        temp_path.unlink()
+                            # Create document
+                            doc = Document(
+                                content=text_content,
+                                source_type=SourceType.GOOGLE_DRIVE,
+                                source_id=file_id,
+                                external_id=file_id,
+                                title=Path(file_name).stem,
+                                doc_id=Path(file_name).stem,
+                                tenant_id=tenant_id,
+                                metadata={
+                                    "source_file": file_name,
+                                    "mime_type": mime_type,
+                                    "drive_file_id": file_id,
+                                    "folder_id": current_id,
+                                    "folder_name": current_name,
+                                    **extra_metadata,
+                                },
+                                modified_at=datetime.fromisoformat(
+                                    modified_at.replace("Z", "+00:00")
+                                ) if modified_at else None,
+                            )
 
-                        # Create document
-                        doc = Document(
-                            content=text_content,
-                            source_type=SourceType.GOOGLE_DRIVE,
-                            source_id=file_id,
-                            external_id=file_id,
-                            title=Path(file_name).stem,
-                            doc_id=Path(file_name).stem,
-                            tenant_id=tenant_id,
-                            metadata={
-                                "source_file": file_name,
-                                "mime_type": mime_type,
-                                "drive_file_id": file_id,
-                                "folder_id": folder_id,
-                                "folder_name": folder_name,
-                                **extra_metadata,
-                            },
-                            modified_at=datetime.fromisoformat(
-                                modified_at.replace("Z", "+00:00")
-                            ) if modified_at else None,
-                        )
+                            # Ingest document using existing pipeline
+                            from ingest.chunking import chunk_text
+                            from ingest.embedder import get_embeddings
+                            from app.qdrant_client import get_qdrant_client
+                            import uuid
 
-                        # Ingest document using existing pipeline
-                        from ingest.chunking import chunk_text
-                        from ingest.embedder import get_embeddings
-                        from app.qdrant_client import get_qdrant_client
-                        import uuid
+                            # Chunk the document
+                            chunks = chunk_text(
+                                doc.content,
+                                doc.doc_id or doc.source_id,
+                                chunk_size=settings.chunk_size,
+                                chunk_overlap=settings.chunk_overlap,
+                                metadata=doc.metadata,
+                            )
 
-                        # Chunk the document
-                        chunks = chunk_text(
-                            doc.content,
-                            doc.doc_id or doc.source_id,
-                            chunk_size=settings.chunk_size,
-                            chunk_overlap=settings.chunk_overlap,
-                            metadata=doc.metadata,
-                        )
+                            if not chunks:
+                                continue
 
-                        if not chunks:
-                            continue
+                            # Generate embeddings
+                            texts = [c["text"] for c in chunks]
+                            embeddings, _ = get_embeddings(texts)
 
-                        # Generate embeddings
-                        texts = [c["text"] for c in chunks]
-                        embeddings, _ = get_embeddings(texts)
+                            # Generate point IDs and prepare points
+                            points = []
+                            updated_at_str = doc.modified_at.isoformat() if doc.modified_at else datetime.utcnow().isoformat()
 
-                        # Generate point IDs and prepare points
-                        points = []
-                        updated_at_str = doc.modified_at.isoformat() if doc.modified_at else datetime.utcnow().isoformat()
+                            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                                key = f"{tenant_id}:google_drive:{doc.external_id}:{updated_at_str}:{i}"
+                                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, key))
 
-                        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                            key = f"{tenant_id}:google_drive:{doc.external_id}:{updated_at_str}:{i}"
-                            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, key))
+                                payload = {
+                                    "tenant_id": tenant_id,
+                                    "source": "google_drive",
+                                    "external_id": doc.external_id,
+                                    "doc_id": doc.doc_id,
+                                    "title": doc.title,
+                                    "text": chunk["text"],
+                                    "chunk_index": i,
+                                    "updated_at": updated_at_str,
+                                    **doc.metadata,
+                                }
 
-                            payload = {
-                                "tenant_id": tenant_id,
-                                "source": "google_drive",
-                                "external_id": doc.external_id,
-                                "doc_id": doc.doc_id,
-                                "title": doc.title,
-                                "text": chunk["text"],
-                                "chunk_index": i,
-                                "updated_at": updated_at_str,
-                                **doc.metadata,
-                            }
+                                from qdrant_client.models import PointStruct
+                                points.append(PointStruct(
+                                    id=point_id,
+                                    vector=embedding,
+                                    payload=payload,
+                                ))
 
-                            from qdrant_client.models import PointStruct
-                            points.append(PointStruct(
-                                id=point_id,
-                                vector=embedding,
-                                payload=payload,
-                            ))
+                            # Upsert to Qdrant
+                            client = get_qdrant_client()
+                            client.upsert(
+                                collection_name=settings.qdrant_collection,
+                                points=points,
+                            )
 
-                        # Upsert to Qdrant
-                        client = get_qdrant_client()
-                        client.upsert(
-                            collection_name=settings.qdrant_collection,
-                            points=points,
-                        )
+                            total_processed += 1
+                            total_chunks += len(chunks)
 
-                        total_processed += 1
-                        total_chunks += len(chunks)
+                        except Exception as e:
+                            error_msg = f"Error processing {file.get('name', 'unknown')}: {str(e)}"
+                            logger.error(error_msg)
+                            errors.append(error_msg)
 
-                    except Exception as e:
-                        error_msg = f"Error processing {file.get('name', 'unknown')}: {str(e)}"
-                        logger.error(error_msg)
-                        errors.append(error_msg)
-
-            except Exception as e:
-                error_msg = f"Error listing folder {folder_name}: {str(e)}"
-                logger.error(error_msg)
-                errors.append(error_msg)
+                except Exception as e:
+                    error_msg = f"Error listing folder {current_name}: {str(e)}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
 
     finally:
         # Clean up temp directory
