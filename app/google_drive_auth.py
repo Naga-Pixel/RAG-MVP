@@ -805,7 +805,7 @@ async def sync_drive(user: dict = Depends(verify_supabase_token)):
                             continue
 
                         # Generate embeddings
-                        texts = [c.text for c in chunks]
+                        texts = [c["text"] for c in chunks]
                         embeddings, _ = get_embeddings(texts)
 
                         # Generate point IDs and prepare points
@@ -822,7 +822,7 @@ async def sync_drive(user: dict = Depends(verify_supabase_token)):
                                 "external_id": doc.external_id,
                                 "doc_id": doc.doc_id,
                                 "title": doc.title,
-                                "text": chunk.text,
+                                "text": chunk["text"],
                                 "chunk_index": i,
                                 "updated_at": updated_at_str,
                                 **doc.metadata,
