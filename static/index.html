@@ -630,6 +630,7 @@
             if (session?.user) {
                 userEmailSpan.textContent = session.user.email;
                 showAppView();
+                refreshDriveStatus();
             } else {
                 userEmailSpan.textContent = '';
                 showAuthView();
@@ -1245,14 +1246,6 @@
         loadPublicConfig();
         initAuth();
 
-        // Refresh Drive status when auth state changes
-        const originalUpdateAuthUI = updateAuthUI;
-        function updateAuthUI(session) {
-            originalUpdateAuthUI(session);
-            if (session?.user) {
-                refreshDriveStatus();
-            }
-        }
     </script>
 </body>
 </html>
