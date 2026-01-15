@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ravelous — Document Q&A</title>
+    <title>Oku — Document Q&A</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
     <style>
         @font-face {
             font-family: 'Bricolage Grotesque';
@@ -14,7 +17,7 @@
         }
 
         :root {
-            --bg-primary: #181918;
+            --bg-primary: #f0fff0;
             --bg-secondary: #1f201f;
             --bg-tertiary: #282928;
             --border: #3a3b3a;
@@ -32,7 +35,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -57,10 +60,10 @@
         }
 
         header { text-align: center; margin-bottom: 3rem; }
-        h1 { font-size: 120px; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); }
+        h1 { font-size: 120px; font-weight: 600; letter-spacing: -0.02em; color: var(--bg-secondary); }
         .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
         .landing-title { font-size: clamp(5rem, 20vw, 14rem); line-height: 1; }
-        .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
+        .subtitle { color: var(--accent-glow); font-size: 1rem; margin-top: 0.5rem; }
         .auth-container .subtitle { margin-top: 8px; }
 
         .btn {
@@ -68,7 +71,7 @@
             color: #181918;
             border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            border-radius: 9999px;
             font-family: inherit;
             font-size: 0.95rem;
             font-weight: 600;
@@ -151,7 +154,7 @@
             font-family: inherit;
             font-size: 0.95rem;
         }
-        .input-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .input-group input:focus { outline: none; border-color: var(--accent); }
 
         .auth-buttons { display: flex; gap: 0.5rem; }
         .auth-status { margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary); text-align: center; }
@@ -216,7 +219,7 @@
             transition: all 0.2s ease;
             margin-bottom: 2rem;
         }
-        .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
+        .search-box:focus-within { border-color: var(--accent); }
         .search-input {
             width: 100%;
             background: transparent;
@@ -276,6 +279,26 @@
         .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--text-primary); }
 
         .sources-section { margin-top: 1.5rem; }
+        .sources-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            padding: 0.4rem 0.75rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .sources-toggle:hover { border-color: var(--text-muted); color: var(--text-primary); }
+        .sources-toggle svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
+        .sources-toggle.expanded svg { transform: rotate(180deg); }
+        .sources-list { display: none; margin-top: 0.75rem; }
+        .sources-list.visible { display: block; }
         .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .source-item { background: var(--bg-tertiary); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid transparent; transition: border-color 0.15s ease; }
         .source-item:hover { border-color: var(--border); }
@@ -311,7 +334,7 @@
     <!-- Auth View (shown when logged out) -->
     <div id="authView" class="auth-container">
         <header>
-            <h1 class="landing-title">Ravelous</h1>
+            <h1 class="landing-title">Oku</h1>
             <p class="subtitle">Ask questions about your indexed documents</p>
         </header>
 
@@ -356,6 +379,34 @@
                 <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
             </div>
             <button id="btn-logout" class="btn btn-danger btn-small">Log out</button>
+        </div>
+
+        <!-- Q&A Section (moved to top) -->
+        <div class="search-box">
+            <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
+            <div class="search-footer">
+                <span class="hint">Press <kbd>Enter</kbd> to search</span>
+                <button id="submit" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                    Ask
+                </button>
+            </div>
+        </div>
+
+        <div id="results">
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" x2="8" y1="13" y2="13"></line>
+                    <line x1="16" x2="8" y1="17" y2="17"></line>
+                    <line x1="10" x2="8" y1="9" y2="9"></line>
+                </svg>
+                <p>Enter a question to search your documents and get AI-powered answers</p>
+            </div>
         </div>
 
         <!-- Local Sync Section -->
@@ -411,34 +462,6 @@
                 <button id="btn-state-drive" class="btn btn-secondary btn-small">Refresh Drive State</button>
             </div>
             <div id="state-output" class="output-area hidden"></div>
-        </div>
-
-        <!-- Q&A Section -->
-        <div class="search-box">
-            <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
-            <div class="search-footer">
-                <span class="hint">Press <kbd>Enter</kbd> to search</span>
-                <button id="submit" class="btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.3-4.3"></path>
-                    </svg>
-                    Ask
-                </button>
-            </div>
-        </div>
-
-        <div id="results">
-            <div class="empty-state">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" x2="8" y1="13" y2="13"></line>
-                    <line x1="16" x2="8" y1="17" y2="17"></line>
-                    <line x1="10" x2="8" y1="9" y2="9"></line>
-                </svg>
-                <p>Enter a question to search your documents and get AI-powered answers</p>
-            </div>
         </div>
 
         <footer>
@@ -1201,18 +1224,27 @@
         function displayResults(data) {
             let sourcesHtml = '';
             if (data.sources?.length) {
+                const sourceItems = data.sources.map(s => `
+                    <div class="source-item">
+                        <div class="source-meta">
+                            <span class="source-id">${escapeHtml(s.doc_id)}</span>
+                            ${s.title ? `<span class="source-title">${escapeHtml(s.title)}</span>` : ''}
+                        </div>
+                        <div class="source-snippet">${escapeHtml(s.snippet)}</div>
+                    </div>
+                `).join('');
+
                 sourcesHtml = `
                     <div class="sources-section">
-                        <div class="sources-header">Sources</div>
-                        ${data.sources.map(s => `
-                            <div class="source-item">
-                                <div class="source-meta">
-                                    <span class="source-id">${escapeHtml(s.doc_id)}</span>
-                                    ${s.title ? `<span class="source-title">${escapeHtml(s.title)}</span>` : ''}
-                                </div>
-                                <div class="source-snippet">${escapeHtml(s.snippet)}</div>
-                            </div>
-                        `).join('')}
+                        <button class="sources-toggle" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('visible');">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                            ${data.sources.length} source${data.sources.length > 1 ? 's' : ''}
+                        </button>
+                        <div class="sources-list">
+                            ${sourceItems}
+                        </div>
                     </div>
                 `;
             }
