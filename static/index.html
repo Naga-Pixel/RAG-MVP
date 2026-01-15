@@ -17,19 +17,28 @@
         }
 
         :root {
-            --bg-primary: #f0fff0;
-            --bg-secondary: #1f201f;
-            --bg-tertiary: #282928;
-            --border: #3a3b3a;
-            --text-primary: #eeffed;
-            --text-secondary: #b8c9b6;
-            --text-muted: #7a8a78;
+            /* Light mode (default for non-Q&A sections) */
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f3f4;
+            --border: #1a1a1a;
+            --border-light: #d0d0d0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #6a6a6a;
             --accent: #03ff85;
             --accent-hover: #02cc6a;
             --accent-glow: rgba(3, 255, 133, 0.15);
-            --success: #03ff85;
-            --error: #ff4444;
-            --warning: #dda4f6;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            /* Dark mode vars for Q&A */
+            --qa-bg: #1f201f;
+            --qa-bg-secondary: #282928;
+            --qa-border: #3a3b3a;
+            --qa-text: #eeffed;
+            --qa-text-secondary: #b8c9b6;
+            --qa-text-muted: #7a8a78;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -85,13 +94,18 @@
         .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
         .btn:active { transform: translateY(0); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .btn-secondary { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary); }
-        .btn-secondary:hover { background: var(--bg-secondary); border-color: var(--text-muted); }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--bg-tertiary); border-color: var(--text-primary); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-outline:hover { background: var(--bg-tertiary); }
         .btn-danger { background: var(--error); color: white; }
-        .btn-danger:hover { background: #cc3636; }
+        .btn-danger:hover { background: #dc2626; }
         .btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
         .btn-icon { padding: 0.3rem 0.5rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
         .btn-icon:hover { background: var(--error); border-color: var(--error); color: white; }
+        /* Panel buttons - dark/transparent for light sections */
+        .panel .btn:not(.btn-secondary):not(.btn-danger) { background: var(--text-primary); color: var(--bg-secondary); }
+        .panel .btn:not(.btn-secondary):not(.btn-danger):hover { background: var(--text-secondary); }
 
         .btn-google {
             background: white;
@@ -120,15 +134,15 @@
 
         .panel {
             background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            border: 2px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
         .panel h2 {
             font-size: 1rem;
-            font-weight: 500;
-            color: var(--text-secondary);
+            font-weight: 600;
+            color: var(--text-primary);
             margin-bottom: 1rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -211,36 +225,61 @@
 
         .state-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
+        /* Q&A Section - Dark mode styling */
         .search-box {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            background: var(--qa-bg);
+            border: 2px solid var(--border);
             border-radius: 16px;
             padding: 1.25rem 1.5rem;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             margin-bottom: 2rem;
+            position: relative;
         }
-        .search-box:focus-within { border-color: var(--accent); }
+        .search-box:focus-within {
+            border-color: var(--border);
+            box-shadow: 4px 4px 0 0 var(--border);
+            transform: translate(-2px, -2px);
+        }
         .search-input {
             width: 100%;
             background: transparent;
             border: none;
             outline: none;
-            color: var(--text-primary);
+            color: var(--qa-text);
             font-size: 1.1rem;
             font-family: inherit;
             resize: none;
             min-height: 1.6em;
             max-height: 200px;
         }
-        .search-input::placeholder { color: var(--text-muted); }
+        .search-input::placeholder { color: var(--qa-text-muted); }
         .search-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 1rem;
             padding-top: 1rem;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid var(--qa-border);
         }
+        .search-footer .hint { font-size: 0.85rem; color: var(--qa-text-muted); }
+        .search-footer .hint kbd {
+            background: var(--qa-bg-secondary);
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.8em;
+            border: 1px solid var(--qa-border);
+            color: var(--qa-text-secondary);
+        }
+        .search-footer .btn {
+            background: var(--accent);
+            color: #181918;
+        }
+        .search-footer .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        /* General hint styling (for light sections) */
         .hint { font-size: 0.85rem; color: var(--text-muted); }
         .hint kbd {
             background: var(--bg-tertiary);
@@ -251,16 +290,30 @@
             border: 1px solid var(--border);
         }
 
-        .loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; color: var(--text-secondary); }
-        .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        /* Results area - Dark mode */
+        #results {
+            background: var(--qa-bg);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            min-height: 80px;
+        }
+        #results:empty {
+            display: none;
+        }
+
+        /* Q&A Loading and answer styles - Dark mode */
+        .loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; color: var(--qa-text-secondary); }
+        .spinner { width: 20px; height: 20px; border: 2px solid var(--qa-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .answer-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            background: var(--qa-bg-secondary);
+            border: 1px solid var(--qa-border);
             border-radius: 16px;
             padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 0;
             animation: fadeIn 0.3s ease;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -269,14 +322,14 @@
             align-items: center;
             gap: 0.5rem;
             margin-bottom: 1rem;
-            color: var(--text-secondary);
+            color: var(--qa-text-secondary);
             font-size: 0.85rem;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         .answer-header svg { width: 16px; height: 16px; color: var(--success); }
-        .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--text-primary); }
+        .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--qa-text); }
 
         .sources-section { margin-top: 1.5rem; }
         .sources-toggle {
@@ -284,44 +337,43 @@
             align-items: center;
             gap: 0.5rem;
             background: transparent;
-            border: 1px solid var(--border);
+            border: 1px solid var(--qa-border);
             border-radius: 9999px;
             padding: 0.4rem 0.75rem;
             font-family: inherit;
             font-size: 0.8rem;
             font-weight: 500;
-            color: var(--text-secondary);
+            color: var(--qa-text-secondary);
             cursor: pointer;
             transition: all 0.15s ease;
         }
-        .sources-toggle:hover { border-color: var(--text-muted); color: var(--text-primary); }
+        .sources-toggle:hover { border-color: var(--qa-text-muted); color: var(--qa-text); }
         .sources-toggle svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
         .sources-toggle.expanded svg { transform: rotate(180deg); }
         .sources-list { display: none; margin-top: 0.75rem; }
         .sources-list.visible { display: block; }
-        .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .source-item { background: var(--bg-tertiary); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid transparent; transition: border-color 0.15s ease; }
-        .source-item:hover { border-color: var(--border); }
+        .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--qa-text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .source-item { background: var(--qa-bg); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid var(--qa-border); transition: border-color 0.15s ease; }
+        .source-item:hover { border-color: var(--accent); }
         .source-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
         .source-id { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--accent); background: var(--accent-glow); padding: 0.2em 0.5em; border-radius: 4px; }
-        .source-title { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
-        .source-snippet { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+        .source-title { font-size: 0.9rem; font-weight: 500; color: var(--qa-text); }
+        .source-snippet { font-size: 0.85rem; color: var(--qa-text-secondary); line-height: 1.5; }
 
         .error-box {
-            background: rgba(255, 68, 68, 0.1);
-            border: 1px solid rgba(255, 68, 68, 0.3);
+            background: rgba(255, 68, 68, 0.15);
+            border: 1px solid rgba(255, 68, 68, 0.4);
             border-radius: 12px;
             padding: 1rem 1.25rem;
-            color: var(--error);
+            color: #ff6b6b;
             display: flex;
             align-items: center;
             gap: 0.75rem;
         }
         .error-box svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-        .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
-        .empty-state svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5; }
-        .empty-state p { max-width: 300px; margin: 0 auto; }
+        .empty-state { text-align: center; padding: 2rem 1rem; color: var(--qa-text-muted); }
+        .empty-state p { max-width: 300px; margin: 0 auto; font-size: 0.95rem; }
 
         footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
         footer a { color: var(--text-secondary); text-decoration: none; }
@@ -375,7 +427,7 @@
     <div id="appView" class="container hidden">
         <div class="app-header">
             <div class="app-header-left">
-                <h1 style="color: var(--accent);">Ravelous</h1>
+                <h1 style="color: var(--accent);">Oku</h1>
                 <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
             </div>
             <button id="btn-logout" class="btn btn-danger btn-small">Log out</button>
@@ -396,37 +448,7 @@
             </div>
         </div>
 
-        <div id="results">
-            <div class="empty-state">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" x2="8" y1="13" y2="13"></line>
-                    <line x1="16" x2="8" y1="17" y2="17"></line>
-                    <line x1="10" x2="8" y1="9" y2="9"></line>
-                </svg>
-                <p>Enter a question to search your documents and get AI-powered answers</p>
-            </div>
-        </div>
-
-        <!-- Local Sync Section -->
-        <div class="panel">
-            <h2>Local Sync</h2>
-            <div class="panel-row">
-                <div class="input-group">
-                    <label for="folder-input">Directory Path</label>
-                    <input type="text" id="folder-input" placeholder="./data or /path/to/folder">
-                </div>
-                <button id="btn-add-folder" class="btn btn-secondary btn-small">Add Folder</button>
-            </div>
-            <div id="folder-list" class="folder-list">
-                <div class="folder-empty">No folders added yet</div>
-            </div>
-            <div class="panel-row">
-                <button id="btn-sync-local" class="btn btn-small">Sync Local Now</button>
-            </div>
-            <div id="sync-status" class="output-area hidden"></div>
-        </div>
+        <div id="results"></div>
 
         <!-- Google Drive Section -->
         <div class="panel">
@@ -454,6 +476,25 @@
             </div>
         </div>
 
+        <!-- Local Sync Section -->
+        <div class="panel">
+            <h2>Local Sync</h2>
+            <div class="panel-row">
+                <div class="input-group">
+                    <label for="folder-input">Directory Path</label>
+                    <input type="text" id="folder-input" placeholder="./data or /path/to/folder">
+                </div>
+                <button id="btn-add-folder" class="btn btn-secondary btn-small">Add Folder</button>
+            </div>
+            <div id="folder-list" class="folder-list">
+                <div class="folder-empty">No folders added yet</div>
+            </div>
+            <div class="panel-row">
+                <button id="btn-sync-local" class="btn btn-small">Sync Local Now</button>
+            </div>
+            <div id="sync-status" class="output-area hidden"></div>
+        </div>
+
         <!-- State Section -->
         <div class="panel">
             <h2>Connector State</h2>
@@ -465,7 +506,7 @@
         </div>
 
         <footer>
-            Ravelous powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
+            Oku powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
         </footer>
     </div>
 
