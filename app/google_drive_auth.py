@@ -94,6 +94,36 @@ def _decrypt_token(encrypted: str) -> str:
 
 # ============== Supabase JWT Auth ==============
 
+# Cache for JWKS public keys
+_jwks_cache = {"keys": None, "fetched_at": None}
+
+def _get_jwks_public_key():
+    """Fetch and cache Supabase JWKS public keys."""
+    import time
+
+    # Cache for 1 hour
+    if _jwks_cache["keys"] and _jwks_cache["fetched_at"]:
+        if time.time() - _jwks_cache["fetched_at"] < 3600:
+            return _jwks_cache["keys"]
+
+    if not settings.supabase_url:
+        return None
+
+    try:
+        import urllib.request
+        import json
+        jwks_url = f"{settings.supabase_url}/.well-known/jwks.json"
+        with urllib.request.urlopen(jwks_url, timeout=5) as response:
+            jwks = json.loads(response.read().decode())
+            _jwks_cache["keys"] = jwks
+            _jwks_cache["fetched_at"] = time.time()
+            logger.info(f"Fetched JWKS from {jwks_url}")
+            return jwks
+    except Exception as e:
+        logger.error(f"Failed to fetch JWKS: {e}")
+        return None
+
+
 async def verify_supabase_token(authorization: str | None = Header(None)) -> dict:
     """
     Verify Supabase JWT token and return user info.
@@ -111,34 +141,57 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
 
     token = authorization[7:]  # Remove "Bearer " prefix
 
-    # Check if JWT secret is configured
-    if not settings.supabase_jwt_secret:
-        logger.warning("SUPABASE_JWT_SECRET not configured - JWT signature verification disabled")
-        # Fall back to unverified decode (for development only)
-        return _decode_jwt_unverified(token)
-
     try:
         # First, peek at the token header to see the algorithm
         token_alg = None
+        token_kid = None
         try:
             unverified_header = jwt.get_unverified_header(token)
             token_alg = unverified_header.get('alg')
+            token_kid = unverified_header.get('kid')
         except Exception as e:
             logger.warning(f"Could not read JWT header: {e}")
 
-        # Verify JWT signature and decode payload
-        # Supabase uses HS256, but we also allow HS384/HS512 for compatibility
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256", "HS384", "HS512"],
-            audience="authenticated",
-            options={
-                "require": ["exp", "sub"],
-                "verify_exp": True,
-                "verify_aud": True,
-            }
-        )
+        # Handle ES256 (asymmetric) - fetch public key from JWKS
+        if token_alg == "ES256":
+            jwks = _get_jwks_public_key()
+            if not jwks:
+                logger.warning("Could not fetch JWKS - falling back to unverified decode")
+                return _decode_jwt_unverified(token)
+
+            # Find the matching key by kid
+            from jwt import PyJWKClient
+            jwks_url = f"{settings.supabase_url}/.well-known/jwks.json"
+            jwks_client = PyJWKClient(jwks_url)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256"],
+                audience="authenticated",
+                options={
+                    "require": ["exp", "sub"],
+                    "verify_exp": True,
+                    "verify_aud": True,
+                }
+            )
+        # Handle HS256 (symmetric) - use JWT secret
+        elif settings.supabase_jwt_secret:
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256", "HS384", "HS512"],
+                audience="authenticated",
+                options={
+                    "require": ["exp", "sub"],
+                    "verify_exp": True,
+                    "verify_aud": True,
+                }
+            )
+        else:
+            logger.warning("No JWT verification method available - falling back to unverified decode")
+            return _decode_jwt_unverified(token)
 
         user_id = payload.get("sub")
         if not user_id:
@@ -157,13 +210,13 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
         logger.warning("JWT signature verification failed - possible token forgery attempt")
         raise HTTPException(status_code=401, detail="Invalid token signature")
     except jwt.InvalidAlgorithmError as e:
-        logger.error(f"JWT algorithm mismatch: token uses '{token_alg}', allowed: HS256/HS384/HS512")
+        logger.error(f"JWT algorithm mismatch: token uses '{token_alg}'")
         raise HTTPException(status_code=401, detail="Invalid token algorithm")
     except jwt.DecodeError as e:
         logger.error(f"JWT decode error: {e}")
         raise HTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
-        logger.error(f"JWT verification failed (token alg: {token_alg}): {e}")
+        logger.error(f"JWT verification failed (alg: {token_alg}): {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
