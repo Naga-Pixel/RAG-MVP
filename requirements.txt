@@ -18,3 +18,5 @@ cryptography
 httpx
 # Postgres
 psycopg2-binary
+# JWT verification
+PyJWT

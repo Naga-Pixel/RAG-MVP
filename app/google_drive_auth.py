@@ -93,10 +93,11 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
     """
     Verify Supabase JWT token and return user info.
 
-    Extracts user_id from the JWT without full verification
-    (Supabase handles token validation on the client side).
-    For production, you'd want to verify the JWT signature.
+    Verifies the JWT signature using the Supabase JWT secret,
+    checks expiration, and extracts user information.
     """
+    import jwt
+
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
 
@@ -105,13 +106,59 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
 
     token = authorization[7:]  # Remove "Bearer " prefix
 
-    try:
-        # Decode JWT payload (base64url encoded, no signature verification here)
-        # In production, you should verify the signature using Supabase JWT secret
-        import base64
-        import json
+    # Check if JWT secret is configured
+    if not settings.supabase_jwt_secret:
+        logger.warning("SUPABASE_JWT_SECRET not configured - JWT signature verification disabled")
+        # Fall back to unverified decode (for development only)
+        return _decode_jwt_unverified(token)
 
-        # JWT format: header.payload.signature
+    try:
+        # Verify JWT signature and decode payload
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={
+                "require": ["exp", "sub"],
+                "verify_exp": True,
+                "verify_aud": True,
+            }
+        )
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
+
+        return {
+            "user_id": user_id,
+            "email": payload.get("email"),
+        }
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidAudienceError:
+        raise HTTPException(status_code=401, detail="Invalid token audience")
+    except jwt.InvalidSignatureError:
+        logger.warning("JWT signature verification failed - possible token forgery attempt")
+        raise HTTPException(status_code=401, detail="Invalid token signature")
+    except jwt.DecodeError as e:
+        logger.error(f"JWT decode error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token format")
+    except Exception as e:
+        logger.error(f"JWT verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def _decode_jwt_unverified(token: str) -> dict:
+    """
+    Decode JWT without signature verification.
+    WARNING: Only for development when JWT secret is not configured.
+    """
+    import base64
+    import json
+
+    try:
         parts = token.split(".")
         if len(parts) != 3:
             raise HTTPException(status_code=401, detail="Invalid JWT format")
@@ -141,7 +188,7 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"JWT verification failed: {e}")
+        logger.error(f"JWT decode failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 

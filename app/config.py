@@ -94,6 +94,11 @@ class Settings(BaseSettings):
         default=None,
         alias="SUPABASE_ANON_KEY",
     )
+    supabase_jwt_secret: str | None = Field(
+        default=None,
+        alias="SUPABASE_JWT_SECRET",
+        description="Supabase JWT secret for verifying access tokens",
+    )
 
     # API Security
     api_key: str | None = Field(
