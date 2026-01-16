@@ -21,7 +21,7 @@
             --bg-primary: #f8f9fa;
             --bg-secondary: #ffffff;
             --bg-tertiary: #f1f3f4;
-            --border: #1a1a1a;
+            --border: #c9c9c9;
             --border-light: #d0d0d0;
             --text-primary: #1a1a1a;
             --text-secondary: #4a4a4a;
@@ -35,7 +35,7 @@
             /* Dark mode vars for Q&A */
             --qa-bg: #1f201f;
             --qa-bg-secondary: #282928;
-            --qa-border: #3a3b3a;
+            --qa-border: #888888;
             --qa-text: #eeffed;
             --qa-text-secondary: #b8c9b6;
             --qa-text-muted: #7a8a78;
@@ -71,9 +71,26 @@
         header { text-align: center; margin-bottom: 3rem; }
         h1 { font-size: 120px; font-weight: 600; letter-spacing: -0.02em; color: var(--bg-secondary); }
         .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
-        .landing-title { font-size: clamp(5rem, 20vw, 14rem); line-height: 1; }
-        .subtitle { color: var(--accent-glow); font-size: 1rem; margin-top: 0.5rem; }
+        .landing-title {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            font-size: clamp(5rem, 20vw, 14rem);
+            line-height: 1;
+            color: var(--text-primary);
+        }
+        .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
         .auth-container .subtitle { margin-top: 8px; }
+
+        /* Oku branding - logged in state */
+        .brand-box {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            background: #1f201f;
+            color: var(--qa-text);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
 
         .btn {
             background: var(--accent);
@@ -134,7 +151,7 @@
 
         .panel {
             background: var(--bg-secondary);
-            border: 2px solid var(--border);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
@@ -427,7 +444,7 @@
     <div id="appView" class="container hidden">
         <div class="app-header">
             <div class="app-header-left">
-                <h1 style="color: var(--accent);">Oku</h1>
+                <span class="brand-box">Oku</span>
                 <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
             </div>
             <button id="btn-logout" class="btn btn-danger btn-small">Log out</button>
@@ -506,7 +523,7 @@
         </div>
 
         <footer>
-            Oku powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600;">Oku</span> powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
         </footer>
     </div>
 
