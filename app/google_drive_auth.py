@@ -118,11 +118,19 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
         return _decode_jwt_unverified(token)
 
     try:
+        # First, peek at the token header to see the algorithm
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            logger.info(f"JWT algorithm from token: {unverified_header.get('alg')}")
+        except Exception as e:
+            logger.warning(f"Could not read JWT header: {e}")
+
         # Verify JWT signature and decode payload
+        # Supabase uses HS256, but we also allow HS384/HS512 for compatibility
         payload = jwt.decode(
             token,
             settings.supabase_jwt_secret,
-            algorithms=["HS256"],
+            algorithms=["HS256", "HS384", "HS512"],
             audience="authenticated",
             options={
                 "require": ["exp", "sub"],
