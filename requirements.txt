@@ -20,3 +20,5 @@ httpx
 psycopg2-binary
 # JWT verification
 PyJWT
+# Rate limiting
+slowapi

@@ -3,16 +3,26 @@ from datetime import datetime
 from functools import lru_cache
 import secrets
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.models import AskRequest, AskResponse
-from app.logging_config import setup_logging
+from app.logging_config import setup_logging, get_logger
 from app.rag_service import answer_question
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
+
+logger = get_logger(__name__)
+
+# ============== Rate Limiting ==============
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ============== Security ==============
@@ -103,6 +113,24 @@ def validate_credentials_path(credentials_path: Path) -> Path:
 app = FastAPI(title="b_rag API")
 setup_logging()
 
+# ============== Middleware ==============
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS - configure allowed origins
+# In production, set CORS_ORIGINS env var to your domain(s)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+logger.info(f"CORS enabled for origins: {settings.cors_origins}")
+
 # Include Google Drive OAuth routes
 app.include_router(drive_router)
 
@@ -177,9 +205,10 @@ def get_frontend_config():
 
 
 @app.post("/ask", response_model=AskResponse)
-async def ask(request: AskRequest, user: dict = Depends(verify_supabase_token)):
-    """Answer a question using RAG."""
-    return answer_question(request.query, tenant_id=user["user_id"])
+@limiter.limit(settings.rate_limit_ask)
+async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
+    """Answer a question using RAG. Rate limited to prevent API abuse."""
+    return answer_question(body.query, tenant_id=user["user_id"])
 
 
 @app.get("/sources", response_model=list[SourceInfo])
@@ -243,7 +272,8 @@ def get_connector_state(tenant_id: str, source: str):
 
 
 @app.post("/sync/local", response_model=SyncResponse, dependencies=[Depends(verify_api_key)])
-def sync_local(request: SyncLocalRequest):
+@limiter.limit(settings.rate_limit_sync)
+def sync_local(request: Request, body: SyncLocalRequest):
     """
     Sync documents from local directory.
     Requires API key authentication.
@@ -253,7 +283,7 @@ def sync_local(request: SyncLocalRequest):
 
     Idempotent: re-syncing same files won't create duplicates.
     """
-    directory = Path(request.directory)
+    directory = Path(body.directory)
 
     # Validate directory to prevent path traversal attacks (before any other operations)
     validated_directory = validate_sync_directory(directory)
@@ -268,17 +298,17 @@ def sync_local(request: SyncLocalRequest):
 
     # Get previous state
     store = get_state_store()
-    prev_state = store.get_state(request.tenant_id, "local_file")
+    prev_state = store.get_state(body.tenant_id, "local_file")
 
     connector = LocalFilesConnector(
         directory=validated_directory,
-        tenant_id=request.tenant_id,
+        tenant_id=body.tenant_id,
     )
 
-    stats = ingest(connector, recreate=request.recreate)
+    stats = ingest(connector, recreate=body.recreate)
 
     # Get updated state
-    new_state = store.get_state(request.tenant_id, "local_file")
+    new_state = store.get_state(body.tenant_id, "local_file")
 
     return SyncResponse(
         status="completed",
@@ -293,10 +323,11 @@ def sync_local(request: SyncLocalRequest):
 
 
 @app.post("/sync/google-drive", response_model=SyncResponse, dependencies=[Depends(verify_api_key)])
-def sync_google_drive(request: SyncDriveRequest):
+@limiter.limit(settings.rate_limit_sync)
+def sync_google_drive(request: Request, body: SyncDriveRequest):
     """
     Sync documents from Google Drive.
-    Requires API key authentication.
+    Requires API key authentication. Rate limited.
 
     Requires:
     - Service account credentials JSON file (must be in credentials directory)
@@ -304,7 +335,7 @@ def sync_google_drive(request: SyncDriveRequest):
 
     Idempotent: re-syncing same files won't create duplicates.
     """
-    credentials_path = Path(request.credentials_path)
+    credentials_path = Path(body.credentials_path)
 
     # Validate credentials path to prevent path traversal attacks (before any other operations)
     validated_credentials = validate_credentials_path(credentials_path)
@@ -322,15 +353,15 @@ def sync_google_drive(request: SyncDriveRequest):
 
     # Get previous state
     store = get_state_store()
-    prev_state = store.get_state(request.tenant_id, "google_drive")
+    prev_state = store.get_state(body.tenant_id, "google_drive")
 
     connector = GoogleDriveConnector(
         credentials_path=str(validated_credentials),
-        folder_id=request.folder_id,
-        tenant_id=request.tenant_id,
+        folder_id=body.folder_id,
+        tenant_id=body.tenant_id,
     )
 
-    stats = ingest(connector, recreate=request.recreate)
+    stats = ingest(connector, recreate=body.recreate)
 
     if stats.documents_found == 0 and not stats.errors:
         raise HTTPException(
@@ -339,7 +370,7 @@ def sync_google_drive(request: SyncDriveRequest):
         )
 
     # Get updated state
-    new_state = store.get_state(request.tenant_id, "google_drive")
+    new_state = store.get_state(body.tenant_id, "google_drive")
 
     return SyncResponse(
         status="completed",

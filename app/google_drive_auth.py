@@ -18,9 +18,14 @@ from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from cryptography.fernet import Fernet, InvalidToken
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.logging_config import get_logger
+
+# Rate limiter for Drive endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 logger = get_logger(__name__)
 
@@ -598,10 +603,12 @@ async def get_public_config():
 # ============== Sync Endpoint ==============
 
 @router.post("/sync/drive", response_model=DriveSyncResponse)
-async def sync_drive(user: dict = Depends(verify_supabase_token)):
+@limiter.limit(settings.rate_limit_sync)
+async def sync_drive(request: Request, user: dict = Depends(verify_supabase_token)):
     """
     Sync documents from all user's connected Drive folders.
     On-demand sync - processes all supported files in selected folders.
+    Rate limited to prevent API abuse.
     """
     user_id = user["user_id"]
     start_time = time.time()

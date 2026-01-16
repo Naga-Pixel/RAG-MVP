@@ -106,6 +106,21 @@ class Settings(BaseSettings):
         alias="API_KEY",
         description="API key for authenticating sync/admin endpoints",
     )
+    cors_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:8000"],
+        alias="CORS_ORIGINS",
+        description="Comma-separated list of allowed CORS origins",
+    )
+    rate_limit_ask: str = Field(
+        default="10/minute",
+        alias="RATE_LIMIT_ASK",
+        description="Rate limit for /ask endpoint (e.g., 10/minute)",
+    )
+    rate_limit_sync: str = Field(
+        default="5/minute",
+        alias="RATE_LIMIT_SYNC",
+        description="Rate limit for sync endpoints (e.g., 5/minute)",
+    )
     allowed_sync_directories: list[str] = Field(
         default_factory=list,
         alias="ALLOWED_SYNC_DIRECTORIES",
