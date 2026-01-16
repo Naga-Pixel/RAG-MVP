@@ -73,9 +73,10 @@
         .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
         .landing-title {
             font-family: 'Bricolage Grotesque', sans-serif;
-            font-size: clamp(5rem, 20vw, 14rem);
+            font-size: 80px;
             line-height: 1;
             color: var(--text-primary);
+            text-align: center;
         }
         .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
         .auth-container .subtitle { margin-top: 8px; }
@@ -83,10 +84,9 @@
         /* Oku branding - logged in state */
         .brand-box {
             font-family: 'Bricolage Grotesque', sans-serif;
-            background: #1f201f;
-            color: var(--accent);
-            padding: 0.4rem 0.8rem;
-            border-radius: 8px;
+            background: transparent;
+            color: #1f201f;
+            padding: 0;
             font-size: 1.5rem;
             font-weight: 500;
             letter-spacing: -0.01em;
@@ -117,6 +117,8 @@
         .btn-outline:hover { background: var(--bg-tertiary); }
         .btn-danger { background: var(--error); color: white; }
         .btn-danger:hover { background: #dc2626; }
+        .btn-dark { background: var(--text-primary); color: var(--bg-secondary); }
+        .btn-dark:hover { background: var(--text-secondary); }
         .btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
         .btn-icon { padding: 0.3rem 0.5rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
         .btn-icon:hover { background: var(--error); border-color: var(--error); color: white; }
@@ -245,7 +247,7 @@
         /* Q&A Section - Dark mode styling */
         .search-box {
             background: var(--qa-bg);
-            border: 2px solid var(--border);
+            border: none;
             border-radius: 16px;
             padding: 1.25rem 1.5rem;
             transition: all 0.15s ease;
@@ -253,9 +255,8 @@
             position: relative;
         }
         .search-box:focus-within {
-            border-color: var(--border);
-            box-shadow: 4px 4px 0 0 var(--border);
-            transform: translate(-2px, -2px);
+            box-shadow: none;
+            transform: none;
         }
         .search-input {
             width: 100%;
@@ -310,7 +311,7 @@
         /* Results area - Dark mode */
         #results {
             background: var(--qa-bg);
-            border: 2px solid var(--border);
+            border: none;
             border-radius: 16px;
             padding: 1.5rem;
             margin-bottom: 2rem;
@@ -447,7 +448,7 @@
                 <span class="brand-box">Oku</span>
                 <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
             </div>
-            <button id="btn-logout" class="btn btn-danger btn-small">Log out</button>
+            <button id="btn-logout" class="btn btn-dark btn-small">Log out</button>
         </div>
 
         <!-- Q&A Section (moved to top) -->
