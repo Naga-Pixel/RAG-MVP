@@ -119,9 +119,10 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
 
     try:
         # First, peek at the token header to see the algorithm
+        token_alg = None
         try:
             unverified_header = jwt.get_unverified_header(token)
-            logger.info(f"JWT algorithm from token: {unverified_header.get('alg')}")
+            token_alg = unverified_header.get('alg')
         except Exception as e:
             logger.warning(f"Could not read JWT header: {e}")
 
@@ -155,11 +156,14 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
     except jwt.InvalidSignatureError:
         logger.warning("JWT signature verification failed - possible token forgery attempt")
         raise HTTPException(status_code=401, detail="Invalid token signature")
+    except jwt.InvalidAlgorithmError as e:
+        logger.error(f"JWT algorithm mismatch: token uses '{token_alg}', allowed: HS256/HS384/HS512")
+        raise HTTPException(status_code=401, detail="Invalid token algorithm")
     except jwt.DecodeError as e:
         logger.error(f"JWT decode error: {e}")
         raise HTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
-        logger.error(f"JWT verification failed: {e}")
+        logger.error(f"JWT verification failed (token alg: {token_alg}): {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
