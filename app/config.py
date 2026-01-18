@@ -42,6 +42,33 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
     retrieval_limit: int = Field(default=12, alias="RETRIEVAL_LIMIT")
 
+    # Retrieval and reranking settings
+    retrieve_k: int = Field(
+        default=12,
+        alias="RETRIEVE_K",
+        description="Number of candidates to retrieve from vector search",
+    )
+    final_k: int = Field(
+        default=6,
+        alias="FINAL_K",
+        description="Number of chunks to include in final context after reranking",
+    )
+    rerank_enabled: bool = Field(
+        default=False,
+        alias="RERANK_ENABLED",
+        description="Enable reranking of retrieved candidates",
+    )
+    rerank_k: int | None = Field(
+        default=None,
+        alias="RERANK_K",
+        description="Number of candidates to rerank (defaults to RETRIEVE_K)",
+    )
+    max_chunks_per_doc: int = Field(
+        default=3,
+        alias="MAX_CHUNKS_PER_DOC",
+        description="Maximum chunks from same document in final results (diversity)",
+    )
+
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 
