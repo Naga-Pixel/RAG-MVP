@@ -76,8 +76,8 @@ class VectorScoreReranker:
                 )
             )
 
-        # Sort by rerank score (descending)
-        ranked.sort(key=lambda x: x.rerank_score, reverse=True)
+        # Sort by rerank score (descending), then by point_id for determinism
+        ranked.sort(key=lambda x: (-x.rerank_score, x.point_id))
 
         if top_k is not None:
             ranked = ranked[:top_k]
@@ -158,6 +158,16 @@ def apply_diversity(
     return diverse
 
 
+@dataclass
+class RerankerStats:
+    """Statistics from the rerank pipeline."""
+    input_count: int
+    after_rerank: int
+    after_dedup: int
+    after_diversity: int
+    final_count: int
+
+
 def rerank_and_filter(
     query: str,
     chunks: list[dict],
@@ -165,7 +175,7 @@ def rerank_and_filter(
     final_k: int = 6,
     max_per_doc: int = 3,
     reranker: Reranker | None = None,
-) -> list[RankedChunk]:
+) -> tuple[list[RankedChunk], RerankerStats]:
     """
     Full rerank pipeline: rerank → deduplicate → apply diversity → limit to final_k.
 
@@ -178,27 +188,34 @@ def rerank_and_filter(
         reranker: Reranker instance (defaults to VectorScoreReranker).
 
     Returns:
-        List of RankedChunk ready for context building.
+        Tuple of (list of RankedChunk, RerankerStats).
     """
     if reranker is None:
         reranker = get_reranker()
 
+    input_count = len(chunks)
+
     # Rerank
     ranked = reranker.rerank(query, chunks, top_k=rerank_k)
-    logger.debug(f"Reranked {len(chunks)} chunks → {len(ranked)} candidates")
+    after_rerank = len(ranked)
 
     # Deduplicate
     deduped = deduplicate_chunks(ranked)
-    if len(deduped) < len(ranked):
-        logger.debug(f"Deduplicated: {len(ranked)} → {len(deduped)} chunks")
+    after_dedup = len(deduped)
 
     # Apply diversity
     diverse = apply_diversity(deduped, max_per_doc=max_per_doc)
-    if len(diverse) < len(deduped):
-        logger.debug(f"Diversity filter: {len(deduped)} → {len(diverse)} chunks")
+    after_diversity = len(diverse)
 
     # Limit to final_k
     result = diverse[:final_k]
-    logger.debug(f"Final selection: {len(result)} chunks")
 
-    return result
+    stats = RerankerStats(
+        input_count=input_count,
+        after_rerank=after_rerank,
+        after_dedup=after_dedup,
+        after_diversity=after_diversity,
+        final_count=len(result),
+    )
+
+    return result, stats

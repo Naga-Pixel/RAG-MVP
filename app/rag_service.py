@@ -11,7 +11,7 @@ from app.config import settings
 from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client
 from app.models import AskResponse, Source
-from app.reranker import rerank_and_filter, RankedChunk
+from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
@@ -143,16 +143,14 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         # When rerank disabled, use retrieval_limit for backwards compatibility
         retrieve_count = settings.retrieval_limit
 
-    logger.debug(
-        f"[{query_id}] RAG query | rerank_enabled={settings.rerank_enabled} | "
-        f"retrieve_k={retrieve_count} | final_k={settings.final_k}"
-    )
-
     points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id)
-    logger.debug(f"[{query_id}] Retrieved {len(points)} candidates from Qdrant")
 
     if not points:
-        logger.debug(f"[{query_id}] No results found")
+        logger.debug(
+            f"[{query_id}] RAG retrieval | "
+            f"rerank_enabled={settings.rerank_enabled} | "
+            f"retrieved=0 | final=0 | selected=[]"
+        )
         return AskResponse(
             answer="No relevant information found in the indexed documents.",
             sources=[],
@@ -173,7 +171,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
 
         # Rerank, deduplicate, and apply diversity
         rerank_k = settings.rerank_k if settings.rerank_k else settings.retrieve_k
-        ranked_chunks = rerank_and_filter(
+        ranked_chunks, stats = rerank_and_filter(
             query=query,
             chunks=chunks,
             rerank_k=rerank_k,
@@ -181,15 +179,40 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
             max_per_doc=settings.max_chunks_per_doc,
         )
 
-        # Log selected chunks
-        selected_ids = [(c.point_id, c.doc_id) for c in ranked_chunks]
-        logger.debug(f"[{query_id}] Final chunks: {selected_ids}")
+        # Build selected list: (doc_id, chunk_id)
+        selected = [(c.doc_id, c.point_id) for c in ranked_chunks]
+
+        # ONE structured debug log per request
+        logger.debug(
+            f"[{query_id}] RAG retrieval | "
+            f"rerank_enabled=True | "
+            f"retrieved={stats.input_count} | "
+            f"after_dedup={stats.after_dedup} | "
+            f"after_diversity={stats.after_diversity} | "
+            f"final={stats.final_count} | "
+            f"selected={selected}"
+        )
 
         context, sources = build_context_from_ranked(ranked_chunks)
     else:
         # Original behavior without reranking
+        chosen = points[:settings.final_k]
+        selected = [
+            (p.payload.get("doc_id", "unknown"), str(p.id))
+            for p in chosen
+            if p.payload
+        ]
+
+        # ONE structured debug log per request
+        logger.debug(
+            f"[{query_id}] RAG retrieval | "
+            f"rerank_enabled=False | "
+            f"retrieved={len(points)} | "
+            f"final={len(chosen)} | "
+            f"selected={selected}"
+        )
+
         context, sources = build_context(points)
-        logger.debug(f"[{query_id}] Using top {len(sources)} chunks (no rerank)")
 
     messages = [
         {
@@ -219,5 +242,4 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         ) from e
 
     answer = chat_resp.choices[0].message.content
-    logger.debug(f"[{query_id}] Answer generated successfully")
     return AskResponse(answer=answer, sources=sources)
