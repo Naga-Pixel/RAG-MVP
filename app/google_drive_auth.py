@@ -94,44 +94,92 @@ def _decrypt_token(encrypted: str) -> str:
 
 # ============== Supabase JWT Auth ==============
 
-# Cache for JWKS public keys
-_jwks_cache = {"keys": None, "fetched_at": None}
+# Cache for OpenID discovery and JWKS
+_oidc_cache = {
+    "jwks_uri": None,
+    "jwks_uri_fetched_at": None,
+    "jwks_keys": None,
+    "jwks_keys_fetched_at": None,
+}
+
+# Cache TTL in seconds (1 hour)
+_CACHE_TTL = 3600
 
 
-def _get_supabase_certs_url() -> str:
-    """Get the Supabase JWKS/certs URL."""
+def _discover_jwks_uri() -> str:
+    """
+    Discover the JWKS URI from Supabase OpenID Connect configuration.
+
+    Fetches: SUPABASE_URL/auth/v1/.well-known/openid-configuration
+    Returns the jwks_uri field.
+
+    Raises HTTPException(401) on failure - fail closed.
+    """
+    import time
+    import urllib.request
+    import json
+
+    # Return cached value if still valid
+    if _oidc_cache["jwks_uri"] and _oidc_cache["jwks_uri_fetched_at"]:
+        if time.time() - _oidc_cache["jwks_uri_fetched_at"] < _CACHE_TTL:
+            return _oidc_cache["jwks_uri"]
+
     if not settings.supabase_url:
+        logger.error("SUPABASE_URL not configured")
         raise HTTPException(status_code=401, detail="Invalid token")
-    # Supabase uses /auth/v1/certs (not /.well-known/jwks.json)
-    return f"{settings.supabase_url}/auth/v1/certs"
+
+    oidc_config_url = f"{settings.supabase_url}/auth/v1/.well-known/openid-configuration"
+
+    try:
+        logger.debug(f"Fetching OpenID configuration from Supabase")
+        with urllib.request.urlopen(oidc_config_url, timeout=5) as response:
+            config = json.loads(response.read().decode())
+
+        jwks_uri = config.get("jwks_uri")
+        if not jwks_uri:
+            logger.error("OpenID configuration missing jwks_uri")
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        # Cache the discovered URI
+        _oidc_cache["jwks_uri"] = jwks_uri
+        _oidc_cache["jwks_uri_fetched_at"] = time.time()
+        logger.info("Discovered JWKS URI from OpenID configuration")
+        return jwks_uri
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch OpenID configuration: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def _get_jwks_public_key():
     """
-    Fetch and cache Supabase JWKS public keys.
+    Fetch and cache Supabase JWKS public keys using discovered jwks_uri.
     Raises HTTPException(401) if fetch fails - fail closed, no fallback.
     """
     import time
+    import urllib.request
+    import json
 
-    # Cache for 1 hour
-    if _jwks_cache["keys"] and _jwks_cache["fetched_at"]:
-        if time.time() - _jwks_cache["fetched_at"] < 3600:
-            return _jwks_cache["keys"]
+    # Return cached keys if still valid
+    if _oidc_cache["jwks_keys"] and _oidc_cache["jwks_keys_fetched_at"]:
+        if time.time() - _oidc_cache["jwks_keys_fetched_at"] < _CACHE_TTL:
+            return _oidc_cache["jwks_keys"]
 
-    jwks_url = _get_supabase_certs_url()
+    # Discover JWKS URI (also cached)
+    jwks_uri = _discover_jwks_uri()
 
     try:
-        import urllib.request
-        import json
-        with urllib.request.urlopen(jwks_url, timeout=5) as response:
+        logger.debug("Fetching JWKS from discovered URI")
+        with urllib.request.urlopen(jwks_uri, timeout=5) as response:
             jwks = json.loads(response.read().decode())
-            _jwks_cache["keys"] = jwks
-            _jwks_cache["fetched_at"] = time.time()
-            logger.info(f"Fetched JWKS from Supabase")
+            _oidc_cache["jwks_keys"] = jwks
+            _oidc_cache["jwks_keys_fetched_at"] = time.time()
+            logger.info("Fetched JWKS from Supabase")
             return jwks
     except Exception as e:
-        logger.error(f"Failed to fetch JWKS from Supabase: {e}")
-        # Fail closed - do not allow unverified tokens
+        logger.error(f"Failed to fetch JWKS: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
@@ -163,19 +211,19 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
         except Exception as e:
             logger.warning(f"Could not read JWT header: {e}")
 
-        # Handle ES256 (asymmetric) - fetch public key from JWKS
+        # Handle ES256 (asymmetric) - fetch public key from JWKS via OpenID discovery
         if token_alg == "ES256":
-            # _get_jwks_public_key raises HTTPException(401) on failure - no fallback
+            # Discover JWKS URI and fetch keys (raises HTTPException(401) on failure)
+            jwks_uri = _discover_jwks_uri()
             _get_jwks_public_key()
 
-            # Get signing key from Supabase certs endpoint
+            # Get signing key using discovered JWKS URI
             from jwt import PyJWKClient
-            jwks_url = _get_supabase_certs_url()
             try:
-                jwks_client = PyJWKClient(jwks_url)
+                jwks_client = PyJWKClient(jwks_uri)
                 signing_key = jwks_client.get_signing_key_from_jwt(token)
             except Exception as e:
-                logger.error(f"Failed to get signing key: {e}")
+                logger.error(f"Failed to get signing key from JWKS: {e}")
                 raise HTTPException(status_code=401, detail="Invalid token")
 
             payload = jwt.decode(
