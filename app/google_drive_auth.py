@@ -97,8 +97,20 @@ def _decrypt_token(encrypted: str) -> str:
 # Cache for JWKS public keys
 _jwks_cache = {"keys": None, "fetched_at": None}
 
+
+def _get_supabase_certs_url() -> str:
+    """Get the Supabase JWKS/certs URL."""
+    if not settings.supabase_url:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # Supabase uses /auth/v1/certs (not /.well-known/jwks.json)
+    return f"{settings.supabase_url}/auth/v1/certs"
+
+
 def _get_jwks_public_key():
-    """Fetch and cache Supabase JWKS public keys."""
+    """
+    Fetch and cache Supabase JWKS public keys.
+    Raises HTTPException(401) if fetch fails - fail closed, no fallback.
+    """
     import time
 
     # Cache for 1 hour
@@ -106,22 +118,21 @@ def _get_jwks_public_key():
         if time.time() - _jwks_cache["fetched_at"] < 3600:
             return _jwks_cache["keys"]
 
-    if not settings.supabase_url:
-        return None
+    jwks_url = _get_supabase_certs_url()
 
     try:
         import urllib.request
         import json
-        jwks_url = f"{settings.supabase_url}/.well-known/jwks.json"
         with urllib.request.urlopen(jwks_url, timeout=5) as response:
             jwks = json.loads(response.read().decode())
             _jwks_cache["keys"] = jwks
             _jwks_cache["fetched_at"] = time.time()
-            logger.info(f"Fetched JWKS from {jwks_url}")
+            logger.info(f"Fetched JWKS from Supabase")
             return jwks
     except Exception as e:
-        logger.error(f"Failed to fetch JWKS: {e}")
-        return None
+        logger.error(f"Failed to fetch JWKS from Supabase: {e}")
+        # Fail closed - do not allow unverified tokens
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 async def verify_supabase_token(authorization: str | None = Header(None)) -> dict:
@@ -154,16 +165,18 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
 
         # Handle ES256 (asymmetric) - fetch public key from JWKS
         if token_alg == "ES256":
-            jwks = _get_jwks_public_key()
-            if not jwks:
-                logger.warning("Could not fetch JWKS - falling back to unverified decode")
-                return _decode_jwt_unverified(token)
+            # _get_jwks_public_key raises HTTPException(401) on failure - no fallback
+            _get_jwks_public_key()
 
-            # Find the matching key by kid
+            # Get signing key from Supabase certs endpoint
             from jwt import PyJWKClient
-            jwks_url = f"{settings.supabase_url}/.well-known/jwks.json"
-            jwks_client = PyJWKClient(jwks_url)
-            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            jwks_url = _get_supabase_certs_url()
+            try:
+                jwks_client = PyJWKClient(jwks_url)
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+            except Exception as e:
+                logger.error(f"Failed to get signing key: {e}")
+                raise HTTPException(status_code=401, detail="Invalid token")
 
             payload = jwt.decode(
                 token,
@@ -190,8 +203,9 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
                 }
             )
         else:
-            logger.warning("No JWT verification method available - falling back to unverified decode")
-            return _decode_jwt_unverified(token)
+            # No verification method available - fail closed
+            logger.error("No JWT verification method configured (no SUPABASE_URL or SUPABASE_JWT_SECRET)")
+            raise HTTPException(status_code=401, detail="Invalid token")
 
         user_id = payload.get("sub")
         if not user_id:
@@ -217,48 +231,6 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
         raise HTTPException(status_code=401, detail="Invalid token format")
     except Exception as e:
         logger.error(f"JWT verification failed (alg: {token_alg}): {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-def _decode_jwt_unverified(token: str) -> dict:
-    """
-    Decode JWT without signature verification.
-    WARNING: Only for development when JWT secret is not configured.
-    """
-    import base64
-    import json
-
-    try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            raise HTTPException(status_code=401, detail="Invalid JWT format")
-
-        # Decode payload (add padding if needed)
-        payload_b64 = parts[1]
-        padding = 4 - len(payload_b64) % 4
-        if padding != 4:
-            payload_b64 += "=" * padding
-
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-
-        # Check expiration
-        exp = payload.get("exp")
-        if exp and datetime.utcnow().timestamp() > exp:
-            raise HTTPException(status_code=401, detail="Token expired")
-
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
-
-        return {
-            "user_id": user_id,
-            "email": payload.get("email"),
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"JWT decode failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
