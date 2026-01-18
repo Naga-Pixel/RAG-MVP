@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import lru_cache
 import secrets
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -381,6 +381,137 @@ def sync_google_drive(request: Request, body: SyncDriveRequest):
         errors=stats.errors,
         duration_seconds=stats.duration_seconds,
         last_sync_at=new_state.get("last_sync_at") if new_state else None,
+    )
+
+
+class UploadSyncResponse(BaseModel):
+    status: str
+    folder_name: str
+    documents_found: int
+    documents_processed: int
+    chunks_created: int
+    errors: list[str]
+    duration_seconds: float | None
+
+
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx"}
+
+
+@app.post("/sync/upload", response_model=UploadSyncResponse)
+@limiter.limit(settings.rate_limit_sync)
+async def sync_upload(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    folder_name: str = "Local folder",
+    user: dict = Depends(verify_supabase_token),
+):
+    """
+    Sync documents from uploaded files.
+    Accepts multipart/form-data with multiple files.
+
+    This endpoint processes files uploaded from the browser's folder picker.
+    No filesystem paths are stored - only the folder name for display.
+    """
+    import hashlib
+    from datetime import datetime
+
+    from connectors.base import Document, SourceType
+    from connectors.state_store import get_state_store
+    from ingest.loaders import load_document_from_bytes
+    from ingest.pipeline import IngestionPipeline
+
+    tenant_id = user["user_id"]
+    started_at = datetime.utcnow()
+    errors = []
+    documents = []
+
+    # Filter to supported files only
+    supported_files = [
+        f for f in files
+        if Path(f.filename).suffix.lower() in SUPPORTED_EXTENSIONS
+    ]
+
+    for upload_file in supported_files:
+        try:
+            # Read file content
+            content_bytes = await upload_file.read()
+            filename = upload_file.filename
+
+            # Generate a stable ID from content hash (for idempotent upserts)
+            content_hash = hashlib.sha256(content_bytes).hexdigest()[:16]
+
+            # Load document content based on file type
+            result = load_document_from_bytes(content_bytes, filename)
+
+            # Handle xlsx which returns tuple
+            if isinstance(result, tuple):
+                text_content, sheet_metadata = result
+                extra_metadata = {"sheets": sheet_metadata}
+            else:
+                text_content = result
+                extra_metadata = {}
+
+            if not text_content.strip():
+                errors.append(f"Empty content: {filename}")
+                continue
+
+            # Create Document object
+            doc = Document(
+                content=text_content,
+                source_type=SourceType.LOCAL_FILE,
+                source_id=filename,
+                title=Path(filename).stem,
+                tenant_id=tenant_id,
+                external_id=content_hash,
+                metadata={
+                    "original_filename": filename,
+                    "folder_name": folder_name,
+                    **extra_metadata,
+                },
+            )
+            documents.append(doc)
+
+        except ValueError as e:
+            errors.append(f"Unsupported file: {filename}")
+        except Exception as e:
+            errors.append(f"Error processing {filename}: {str(e)}")
+
+    # Process through ingestion pipeline
+    chunks_created = 0
+    if documents:
+        pipeline = IngestionPipeline()
+        for doc in documents:
+            try:
+                chunks = pipeline.ingest_document(doc)
+                chunks_created += chunks
+            except Exception as e:
+                errors.append(f"Ingestion error for {doc.title}: {str(e)}")
+
+        # Update state
+        store = get_state_store()
+        completed_at = datetime.utcnow()
+        store.update_state(
+            tenant_id=tenant_id,
+            source="local_upload",
+            patch={
+                "last_sync_at": completed_at.isoformat(),
+                "documents_synced": len(documents),
+                "chunks_created": chunks_created,
+                "folder_name": folder_name,
+            },
+        )
+
+    completed_at = datetime.utcnow()
+    duration = (completed_at - started_at).total_seconds()
+
+    return UploadSyncResponse(
+        status="completed",
+        folder_name=folder_name,
+        documents_found=len(supported_files),
+        documents_processed=len(documents),
+        chunks_created=chunks_created,
+        errors=errors,
+        duration_seconds=duration,
     )
 
 

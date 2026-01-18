@@ -1,7 +1,10 @@
 """
 Document loaders for ingestion pipeline.
 Supports Markdown, Text, PDF, Word (.docx), and Excel (.xlsx) files.
+
+Can load from file paths or from bytes (for uploaded files).
 """
+from io import BytesIO
 from pathlib import Path
 from typing import Iterator
 
@@ -98,18 +101,18 @@ def load_xlsx(path: Path) -> tuple[str, list[dict]]:
 def load_document(path: Path) -> str | tuple[str, list[dict]]:
     """
     Load a document based on its file extension.
-    
+
     Supported formats:
     - .txt, .md: Plain text
     - .pdf: PDF (requires pypdf)
     - .docx: Word (requires python-docx)
     - .xlsx: Excel (requires openpyxl) - returns tuple with sheet metadata
-    
+
     Returns:
         str for most formats, or tuple[str, list[dict]] for xlsx with sheet metadata
     """
     suffix = path.suffix.lower()
-    
+
     if suffix in (".txt", ".md"):
         return load_text(path)
     elif suffix == ".pdf":
@@ -118,6 +121,100 @@ def load_document(path: Path) -> str | tuple[str, list[dict]]:
         return load_docx(path)
     elif suffix == ".xlsx":
         return load_xlsx(path)
+    else:
+        raise ValueError(f"Unsupported file type: {suffix}")
+
+
+# =============================================================================
+# Loaders from bytes (for uploaded files)
+# =============================================================================
+
+def load_text_from_bytes(data: bytes) -> str:
+    """Load plain text or markdown from bytes."""
+    return data.decode("utf-8")
+
+
+def load_pdf_from_bytes(data: bytes) -> str:
+    """Load PDF from bytes and extract text from all pages."""
+    if PdfReader is None:
+        raise ImportError("pypdf is required for PDF loading. Install with: pip install pypdf")
+
+    reader = PdfReader(BytesIO(data))
+    texts = []
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            texts.append(text)
+    return "\n\n".join(texts)
+
+
+def load_docx_from_bytes(data: bytes) -> str:
+    """Load Word document from bytes and extract plain paragraph text."""
+    if DocxDocument is None:
+        raise ImportError("python-docx is required for Word loading. Install with: pip install python-docx")
+
+    doc = DocxDocument(BytesIO(data))
+    texts = []
+    for paragraph in doc.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            texts.append(text)
+    return "\n\n".join(texts)
+
+
+def load_xlsx_from_bytes(data: bytes) -> tuple[str, list[dict]]:
+    """Load Excel workbook from bytes and extract text from all sheets."""
+    if load_workbook is None:
+        raise ImportError("openpyxl is required for Excel loading. Install with: pip install openpyxl")
+
+    wb = load_workbook(BytesIO(data), data_only=True)
+    all_texts = []
+    sheet_metadata = []
+
+    for sheet_name in wb.sheetnames:
+        sheet = wb[sheet_name]
+        sheet_texts = []
+
+        for row in sheet.iter_rows():
+            cell_values = []
+            for cell in row:
+                if cell.value is not None:
+                    cell_values.append(str(cell.value))
+
+            if cell_values:
+                row_text = "\t".join(cell_values)
+                sheet_texts.append(row_text)
+
+        if sheet_texts:
+            sheet_content = f"[Sheet: {sheet_name}]\n" + "\n".join(sheet_texts)
+            all_texts.append(sheet_content)
+            sheet_metadata.append({"sheet_name": sheet_name})
+
+    wb.close()
+    return "\n\n".join(all_texts), sheet_metadata
+
+
+def load_document_from_bytes(data: bytes, filename: str) -> str | tuple[str, list[dict]]:
+    """
+    Load a document from bytes based on the filename extension.
+
+    Args:
+        data: File content as bytes.
+        filename: Original filename (used to determine file type).
+
+    Returns:
+        str for most formats, or tuple[str, list[dict]] for xlsx with sheet metadata.
+    """
+    suffix = Path(filename).suffix.lower()
+
+    if suffix in (".txt", ".md"):
+        return load_text_from_bytes(data)
+    elif suffix == ".pdf":
+        return load_pdf_from_bytes(data)
+    elif suffix == ".docx":
+        return load_docx_from_bytes(data)
+    elif suffix == ".xlsx":
+        return load_xlsx_from_bytes(data)
     else:
         raise ValueError(f"Unsupported file type: {suffix}")
 

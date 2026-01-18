@@ -69,7 +69,7 @@
         }
 
         header { text-align: center; margin-bottom: 3rem; }
-        h1 { font-size: 90px; font-weight: 500; letter-spacing: -0.02em; color: var(--bg-secondary); }
+        h1 { font-size: 90px; font-weight: 600; letter-spacing: -0.02em; color: var(--bg-secondary); }
         .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
         .landing-title {
             font-family: 'Bricolage Grotesque', sans-serif;
@@ -88,7 +88,7 @@
             color: #1f201f;
             padding: 0;
             font-size: 2.25rem;
-            font-weight: 500;
+            font-weight: 600;
             letter-spacing: -0.01em;
         }
 
@@ -501,19 +501,34 @@
 
         <!-- Local Sync Section -->
         <div class="panel">
-            <h2>Local Sync</h2>
-            <div class="panel-row">
-                <div class="input-group">
-                    <label for="folder-input">Directory Path</label>
-                    <input type="text" id="folder-input" placeholder="./data or /path/to/folder">
+            <h2>Local Files</h2>
+            <div id="local-not-selected">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Select a folder from your computer to sync documents.
+                </p>
+                <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+                <button id="btn-select-folder" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;margin-right:4px">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Select local folder
+                </button>
+            </div>
+            <div id="local-selected" class="hidden">
+                <div id="local-folder-info" class="folder-item" style="margin-bottom: 1rem;">
+                    <div>
+                        <span id="local-folder-name" class="folder-path" style="font-weight: 500;"></span>
+                        <span id="local-file-count" style="color: var(--text-muted); margin-left: 0.5rem;"></span>
+                    </div>
+                    <button id="btn-clear-folder" class="btn btn-icon btn-small" title="Clear selection">✕</button>
                 </div>
-                <button id="btn-add-folder" class="btn btn-secondary btn-small">Add Folder</button>
-            </div>
-            <div id="folder-list" class="folder-list">
-                <div class="folder-empty">No folders added yet</div>
-            </div>
-            <div class="panel-row">
-                <button id="btn-sync-local" class="btn btn-small">Sync Local Now</button>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                    Files are processed only when you click sync.
+                </p>
+                <div class="panel-row">
+                    <button id="btn-select-different" class="btn btn-secondary btn-small">Select different folder</button>
+                    <button id="btn-sync-local" class="btn btn-small">Sync</button>
+                </div>
             </div>
             <div id="sync-status" class="output-area hidden"></div>
         </div>
@@ -572,11 +587,6 @@
         }
 
         // =================================================================
-        // localStorage key
-        // =================================================================
-        const STORAGE_KEY = 'rag_local_folders';
-
-        // =================================================================
         // DOM Elements
         // =================================================================
         const authView = document.getElementById('authView');
@@ -590,9 +600,15 @@
         const btnLogout = document.getElementById('btn-logout');
         const btnGoogle = document.getElementById('btn-google');
 
-        const folderInput = document.getElementById('folder-input');
-        const btnAddFolder = document.getElementById('btn-add-folder');
-        const folderListEl = document.getElementById('folder-list');
+        // Local folder picker elements
+        const folderPicker = document.getElementById('folder-picker');
+        const btnSelectFolder = document.getElementById('btn-select-folder');
+        const btnSelectDifferent = document.getElementById('btn-select-different');
+        const btnClearFolder = document.getElementById('btn-clear-folder');
+        const localNotSelected = document.getElementById('local-not-selected');
+        const localSelected = document.getElementById('local-selected');
+        const localFolderName = document.getElementById('local-folder-name');
+        const localFileCount = document.getElementById('local-file-count');
         const btnSyncLocal = document.getElementById('btn-sync-local');
         const syncStatus = document.getElementById('sync-status');
 
@@ -616,7 +632,6 @@
         // =================================================================
         // State
         // =================================================================
-        let folderList = [];
         let driveFolders = [];
         let driveConnectedState = false;
         let publicConfig = null;
@@ -849,62 +864,64 @@
         });
 
         // =================================================================
-        // Folder List (localStorage persistence)
+        // Local Folder Picker
         // =================================================================
-        function loadFolders() {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                folderList = stored ? JSON.parse(stored) : [];
-            } catch {
-                folderList = [];
+        const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx'];
+        let selectedFiles = [];
+        let selectedFolderName = '';
+
+        function updateLocalUI() {
+            if (selectedFiles.length > 0) {
+                localNotSelected.classList.add('hidden');
+                localSelected.classList.remove('hidden');
+                localFolderName.textContent = selectedFolderName;
+                localFileCount.textContent = `(${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''})`;
+            } else {
+                localNotSelected.classList.remove('hidden');
+                localSelected.classList.add('hidden');
             }
         }
 
-        function saveFolders() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(folderList));
+        function clearFolderSelection() {
+            selectedFiles = [];
+            selectedFolderName = '';
+            folderPicker.value = '';
+            updateLocalUI();
+            syncStatus.classList.add('hidden');
         }
 
-        function renderFolders() {
-            if (folderList.length === 0) {
-                folderListEl.innerHTML = '<div class="folder-empty">No folders added yet</div>';
-                return;
-            }
-            folderListEl.innerHTML = folderList.map((f, i) => `
-                <div class="folder-item">
-                    <span class="folder-path">${escapeHtml(f)}</span>
-                    <button class="btn btn-icon btn-small" data-idx="${i}" title="Remove">✕</button>
-                </div>
-            `).join('');
+        // Trigger folder picker
+        btnSelectFolder.addEventListener('click', () => folderPicker.click());
+        btnSelectDifferent.addEventListener('click', () => folderPicker.click());
+        btnClearFolder.addEventListener('click', clearFolderSelection);
 
-            folderListEl.querySelectorAll('button[data-idx]').forEach(btn => {
-                btn.addEventListener('click', e => {
-                    const idx = parseInt(e.target.dataset.idx, 10);
-                    folderList.splice(idx, 1);
-                    saveFolders();
-                    renderFolders();
-                });
+        // Handle folder selection
+        folderPicker.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // Filter to supported file types
+            selectedFiles = files.filter(f => {
+                const ext = '.' + f.name.split('.').pop().toLowerCase();
+                return SUPPORTED_EXTENSIONS.includes(ext);
             });
-        }
 
-        btnAddFolder.addEventListener('click', () => {
-            const val = folderInput.value.trim();
-            if (val && !folderList.includes(val)) {
-                folderList.push(val);
-                saveFolders();
-                renderFolders();
+            // Extract folder name from webkitRelativePath (first part before /)
+            if (files.length > 0 && files[0].webkitRelativePath) {
+                selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+            } else {
+                selectedFolderName = 'Selected folder';
             }
-            folderInput.value = '';
-        });
 
-        folderInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                btnAddFolder.click();
+            updateLocalUI();
+
+            if (selectedFiles.length === 0 && files.length > 0) {
+                showSyncStatus('No supported files found. Supported: PDF, Word, Excel, Text, Markdown.', 'warning');
             }
         });
 
         // =================================================================
-        // Sync (on-demand, sequential)
+        // Local Sync (upload files)
         // =================================================================
         function showSyncStatus(msg, type = '') {
             syncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
@@ -914,44 +931,65 @@
 
         btnSyncLocal.addEventListener('click', async () => {
             if (!(await isLoggedIn())) {
-                showSyncStatus('Not authenticated. Please log in first.', 'error');
+                showSyncStatus('Please log in first.', 'error');
                 return;
             }
-            if (folderList.length === 0) {
-                showSyncStatus('No folders to sync. Add at least one folder.', 'warning');
+            if (selectedFiles.length === 0) {
+                showSyncStatus('No files selected. Select a folder first.', 'warning');
                 return;
             }
 
             btnSyncLocal.disabled = true;
-            const results = [];
-            const total = folderList.length;
+            showSyncStatus(`Uploading ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}...`);
 
-            for (let i = 0; i < total; i++) {
-                const folder = folderList[i];
-                showSyncStatus(`Syncing ${i + 1}/${total}: ${folder}...`);
-                try {
-                    const data = await apiFetch('/sync/local', {
-                        method: 'POST',
-                        body: { directory: folder },
-                    });
-                    results.push({ folder, ok: true, data });
-                } catch (err) {
-                    results.push({ folder, ok: false, err: err.message });
+            try {
+                const token = await getAccessToken();
+                if (!token) {
+                    throw new Error('Not authenticated');
                 }
-            }
 
-            let summary = `Sync completed (${total} folder${total > 1 ? 's' : ''}):\n\n`;
-            let hasErr = false;
-            for (const r of results) {
-                if (r.ok) {
-                    summary += `✓ ${r.folder}\n  ${JSON.stringify(r.data)}\n`;
-                } else {
-                    hasErr = true;
-                    summary += `✗ ${r.folder}\n  Error: ${r.err}\n`;
+                // Build FormData with files
+                const formData = new FormData();
+                for (const file of selectedFiles) {
+                    formData.append('files', file);
                 }
+                formData.append('folder_name', selectedFolderName);
+
+                // Upload files
+                const response = await fetch('/sync/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Upload failed (${response.status})`;
+                    try {
+                        const errData = await response.json();
+                        errorMsg = errData.detail || errData.message || errorMsg;
+                    } catch {}
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json();
+
+                let summary = `Sync completed in ${data.duration_seconds.toFixed(1)}s\n`;
+                summary += `Folder: ${data.folder_name}\n`;
+                summary += `Documents found: ${data.documents_found}\n`;
+                summary += `Documents processed: ${data.documents_processed}\n`;
+                summary += `Chunks created: ${data.chunks_created}`;
+                if (data.errors?.length > 0) {
+                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
+                }
+                showSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
+
+            } catch (err) {
+                showSyncStatus('Sync failed: ' + err.message, 'error');
+            } finally {
+                btnSyncLocal.disabled = false;
             }
-            showSyncStatus(summary, hasErr ? 'warning' : 'success');
-            btnSyncLocal.disabled = false;
         });
 
         // =================================================================
@@ -1331,8 +1369,6 @@
         // =================================================================
         // Initialize
         // =================================================================
-        loadFolders();
-        renderFolders();
         loadPublicConfig();
         initAuth();
 
