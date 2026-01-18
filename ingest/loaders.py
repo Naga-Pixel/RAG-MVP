@@ -1,6 +1,6 @@
 """
 Document loaders for ingestion pipeline.
-Supports Markdown, Text, PDF, Word (.docx), and Excel (.xlsx) files.
+Supports Markdown, Text, PDF, Word (.docx), Excel (.xlsx), and RTF files.
 
 Can load from file paths or from bytes (for uploaded files).
 """
@@ -22,6 +22,11 @@ try:
     from openpyxl import load_workbook
 except ImportError:
     load_workbook = None
+
+try:
+    from striprtf.striprtf import rtf_to_text
+except ImportError:
+    rtf_to_text = None
 
 
 def load_text(path: Path) -> str:
@@ -98,6 +103,29 @@ def load_xlsx(path: Path) -> tuple[str, list[dict]]:
     return "\n\n".join(all_texts), sheet_metadata
 
 
+def load_rtf(path: Path) -> str:
+    """Load RTF file and convert to plain text."""
+    if rtf_to_text is None:
+        raise ImportError("striprtf is required for RTF loading. Install with: pip install striprtf")
+
+    # Read as bytes first, then try different encodings
+    raw_bytes = path.read_bytes()
+
+    # Try common encodings
+    for encoding in ("utf-8", "latin-1", "cp1252"):
+        try:
+            rtf_content = raw_bytes.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        # Fallback to latin-1 which accepts any byte
+        rtf_content = raw_bytes.decode("latin-1")
+
+    text = rtf_to_text(rtf_content)
+    return text.strip()
+
+
 def load_document(path: Path) -> str | tuple[str, list[dict]]:
     """
     Load a document based on its file extension.
@@ -107,6 +135,7 @@ def load_document(path: Path) -> str | tuple[str, list[dict]]:
     - .pdf: PDF (requires pypdf)
     - .docx: Word (requires python-docx)
     - .xlsx: Excel (requires openpyxl) - returns tuple with sheet metadata
+    - .rtf: Rich Text Format (requires striprtf)
 
     Returns:
         str for most formats, or tuple[str, list[dict]] for xlsx with sheet metadata
@@ -121,6 +150,8 @@ def load_document(path: Path) -> str | tuple[str, list[dict]]:
         return load_docx(path)
     elif suffix == ".xlsx":
         return load_xlsx(path)
+    elif suffix == ".rtf":
+        return load_rtf(path)
     else:
         raise ValueError(f"Unsupported file type: {suffix}")
 
@@ -194,6 +225,26 @@ def load_xlsx_from_bytes(data: bytes) -> tuple[str, list[dict]]:
     return "\n\n".join(all_texts), sheet_metadata
 
 
+def load_rtf_from_bytes(data: bytes) -> str:
+    """Load RTF from bytes and convert to plain text."""
+    if rtf_to_text is None:
+        raise ImportError("striprtf is required for RTF loading. Install with: pip install striprtf")
+
+    # Try common encodings
+    for encoding in ("utf-8", "latin-1", "cp1252"):
+        try:
+            rtf_content = data.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        # Fallback to latin-1 which accepts any byte
+        rtf_content = data.decode("latin-1")
+
+    text = rtf_to_text(rtf_content)
+    return text.strip()
+
+
 def load_document_from_bytes(data: bytes, filename: str) -> str | tuple[str, list[dict]]:
     """
     Load a document from bytes based on the filename extension.
@@ -215,13 +266,15 @@ def load_document_from_bytes(data: bytes, filename: str) -> str | tuple[str, lis
         return load_docx_from_bytes(data)
     elif suffix == ".xlsx":
         return load_xlsx_from_bytes(data)
+    elif suffix == ".rtf":
+        return load_rtf_from_bytes(data)
     else:
         raise ValueError(f"Unsupported file type: {suffix}")
 
 
 def iter_documents(
-    directory: Path, 
-    extensions: tuple[str, ...] = (".md", ".txt", ".pdf", ".docx", ".xlsx")
+    directory: Path,
+    extensions: tuple[str, ...] = (".md", ".txt", ".pdf", ".docx", ".xlsx", ".rtf")
 ) -> Iterator[tuple[Path, str | tuple[str, list[dict]]]]:
     """
     Iterate over all documents in a directory.

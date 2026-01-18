@@ -394,7 +394,7 @@ class UploadSyncResponse(BaseModel):
     duration_seconds: float | None
 
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".rtf"}
 
 
 @app.post("/sync/upload", response_model=UploadSyncResponse)
