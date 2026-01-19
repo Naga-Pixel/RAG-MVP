@@ -398,6 +398,47 @@
         footer a:hover { color: var(--accent); }
 
         .hidden { display: none !important; }
+
+        /* Sync Modal Overlay */
+        .sync-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .sync-modal-overlay.visible {
+            display: flex;
+        }
+        .sync-modal-box {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .sync-modal-box h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .sync-modal-box p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1.25rem;
+        }
+        .sync-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -548,6 +589,15 @@
         </footer>
     </div>
 
+    <!-- Sync Modal Overlay -->
+    <div id="syncModal" class="sync-modal-overlay">
+        <div class="sync-modal-box">
+            <h3>Syncing…</h3>
+            <p>Oku is indexing your files. Please wait.</p>
+            <div class="sync-spinner"></div>
+        </div>
+    </div>
+
     <!-- ================================================================
          SINGLE <script type="module"> BLOCK
          ESM import - NO window.supabase, NO unpkg CDN script tag
@@ -635,6 +685,42 @@
         let driveFolders = [];
         let driveConnectedState = false;
         let publicConfig = null;
+        let isSyncing = false;
+
+        // Sync modal element
+        const syncModal = document.getElementById('syncModal');
+
+        // =================================================================
+        // Sync Modal Helpers
+        // =================================================================
+        function setSyncing(syncing) {
+            isSyncing = syncing;
+            if (syncing) {
+                syncModal.classList.add('visible');
+                // Disable Q&A
+                queryInput.disabled = true;
+                submitBtn.disabled = true;
+                // Disable sync/connect buttons
+                btnSyncLocal.disabled = true;
+                btnSyncDrive.disabled = true;
+                btnConnectDrive.disabled = true;
+                btnSelectFolder.disabled = true;
+                btnSelectDifferent.disabled = true;
+                btnAddDriveFolder.disabled = true;
+            } else {
+                syncModal.classList.remove('visible');
+                // Re-enable Q&A
+                queryInput.disabled = false;
+                submitBtn.disabled = false;
+                // Re-enable sync/connect buttons
+                btnSyncLocal.disabled = false;
+                btnSyncDrive.disabled = false;
+                btnConnectDrive.disabled = false;
+                btnSelectFolder.disabled = false;
+                btnSelectDifferent.disabled = false;
+                btnAddDriveFolder.disabled = false;
+            }
+        }
 
         // =================================================================
         // Utilities
@@ -939,7 +1025,7 @@
                 return;
             }
 
-            btnSyncLocal.disabled = true;
+            setSyncing(true);
             showSyncStatus(`Uploading ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}...`);
 
             try {
@@ -988,7 +1074,7 @@
             } catch (err) {
                 showSyncStatus('Sync failed: ' + err.message, 'error');
             } finally {
-                btnSyncLocal.disabled = false;
+                setSyncing(false);
             }
         });
 
@@ -1256,7 +1342,7 @@
                 return;
             }
 
-            btnSyncDrive.disabled = true;
+            setSyncing(true);
             showDriveSyncStatus('Syncing Drive folders...');
 
             try {
@@ -1273,7 +1359,7 @@
             } catch (err) {
                 showDriveSyncStatus('Sync failed: ' + err.message, 'error');
             } finally {
-                btnSyncDrive.disabled = false;
+                setSyncing(false);
             }
         });
 
