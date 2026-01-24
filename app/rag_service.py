@@ -1,6 +1,7 @@
 """
 RAG service for query processing and answer generation.
 """
+import re
 import uuid
 
 from fastapi import HTTPException
@@ -10,11 +11,15 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 from app.config import settings
 from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client
-from app.models import AskResponse, Source
+from app.models import AskResponse, Source, Citation
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
+
+# Regex for extracting citations from answer text
+# Matches: [doc_id], [doc_id:12], [doc_id#12]
+CITATION_PATTERN = re.compile(r"\[(?P<doc>[A-Za-z0-9_\-]+)(?:(?:#|:)(?P<chunk>\d+))?\]")
 
 
 def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None):
@@ -61,6 +66,90 @@ def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None)
     return resp.points
 
 
+def extract_citations(answer: str) -> list[Citation]:
+    """
+    Extract citations from answer text.
+
+    Supported formats:
+    - [doc_id]
+    - [doc_id:12]
+    - [doc_id#12]
+
+    Returns:
+        List of Citation objects with doc_id and optional chunk_id.
+    """
+    citations: list[Citation] = []
+    seen = set()  # Deduplicate
+
+    for match in CITATION_PATTERN.finditer(answer):
+        doc_id = match.group("doc")
+        chunk_str = match.group("chunk")
+        chunk_id = int(chunk_str) if chunk_str else None
+
+        # Create tuple for deduplication
+        citation_key = (doc_id, chunk_id)
+        if citation_key not in seen:
+            seen.add(citation_key)
+            citations.append(Citation(doc_id=doc_id, chunk_id=chunk_id))
+
+    return citations
+
+
+def filter_cited_sources(sources: list[Source], citations: list[Citation]) -> list[Source]:
+    """
+    Filter retrieved sources to only those that were cited in the answer.
+
+    Rules:
+    - If citation is doc-level (chunk_id is None), include all chunks from that doc.
+    - If citation includes chunk_id, include only matching chunk(s).
+    - Preserve original order from sources list.
+    - Deduplicate by (doc_id, chunk_id).
+
+    Args:
+        sources: All retrieved sources
+        citations: Parsed citations from answer text
+
+    Returns:
+        Filtered list of sources that were actually cited.
+    """
+    if not citations:
+        return []
+
+    # Build lookup sets for efficient filtering
+    doc_level_citations = {c.doc_id for c in citations if c.chunk_id is None}
+    chunk_level_citations = {(c.doc_id, c.chunk_id) for c in citations if c.chunk_id is not None}
+
+    cited_sources = []
+    seen = set()  # Deduplicate by (doc_id, chunk_id)
+
+    for source in sources:
+        # Check if this source should be included
+        include = False
+
+        # Doc-level match: citation is [doc_id] without chunk_id
+        if source.doc_id in doc_level_citations:
+            include = True
+
+        # Chunk-level match: citation is [doc_id:chunk_id] or [doc_id#chunk_id]
+        if source.chunk_id is not None:
+            try:
+                chunk_num = int(source.chunk_id)
+                if (source.doc_id, chunk_num) in chunk_level_citations:
+                    include = True
+            except (ValueError, TypeError):
+                # chunk_id is not a valid integer, skip chunk-level matching
+                pass
+
+        # Add if matched and not already seen
+        if include:
+            dedup_key = (source.doc_id, source.chunk_id)
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                cited_sources.append(source)
+
+    return cited_sources
+
+
 def build_context(points):
     """
     Build context string and sources list from Qdrant points.
@@ -79,6 +168,7 @@ def build_context(points):
         text: str = payload.get("text", "")
         doc_id: str = payload.get("doc_id", "unknown")
         title = payload.get("title")
+        chunk_id = str(p.id) if p.id else None
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
@@ -88,6 +178,7 @@ def build_context(points):
                 doc_id=doc_id,
                 title=title,
                 snippet=snippet,
+                chunk_id=chunk_id,
             )
         )
 
@@ -109,6 +200,7 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
         text = chunk.text
         doc_id = chunk.doc_id
         title = chunk.payload.get("title")
+        chunk_id = chunk.point_id
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
@@ -118,6 +210,7 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
                 doc_id=doc_id,
                 title=title,
                 snippet=snippet,
+                chunk_id=chunk_id,
             )
         )
 
@@ -261,4 +354,32 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         ) from e
 
     answer = chat_resp.choices[0].message.content
-    return AskResponse(answer=answer, sources=sources)
+
+    # Extract citations from answer text
+    citations = extract_citations(answer)
+
+    # Filter sources to only those cited
+    sources_cited = filter_cited_sources(sources, citations)
+
+    # Log citation tracking
+    logger.debug(
+        f"[{query_id}] Citation tracking | "
+        f"retrieved={len(sources)} | "
+        f"citations={len(citations)} | "
+        f"cited={len(sources_cited)}"
+    )
+
+    # Warn if citations exist but no sources matched
+    if citations and not sources_cited:
+        logger.warning(
+            f"[{query_id}] Citations found but no matching sources | "
+            f"citations={[f'[{c.doc_id}{":" + str(c.chunk_id) if c.chunk_id else ""}]' for c in citations]}"
+        )
+
+    return AskResponse(
+        answer=answer,
+        sources=sources,  # Unchanged for backwards compatibility
+        citations=citations,
+        sources_cited=sources_cited,
+        sources_retrieved=sources,
+    )
