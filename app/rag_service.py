@@ -371,10 +371,19 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
 
     # Warn if citations exist but no sources matched
     if citations and not sources_cited:
+        citation_labels = []
+        for c in citations:
+            if c.chunk_id:
+                citation_labels.append(f"[{c.doc_id}:{c.chunk_id}]")
+            else:
+                citation_labels.append(f"[{c.doc_id}]")
+
         logger.warning(
-            f"[{query_id}] Citations found but no matching sources | "
-            f"citations={[f'[{c.doc_id}{":" + str(c.chunk_id) if c.chunk_id else ""}]' for c in citations]}"
+            "[%s] Citations found but no matching sources | citations=%s",
+            query_id,
+            citation_labels,
         )
+
 
     return AskResponse(
         answer=answer,
