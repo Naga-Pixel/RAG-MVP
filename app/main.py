@@ -2,6 +2,8 @@ from pathlib import Path
 from datetime import datetime
 from functools import lru_cache
 import secrets
+import time
+import logging
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
@@ -14,11 +16,13 @@ from slowapi.errors import RateLimitExceeded
 
 from app.models import AskRequest, AskResponse
 from app.logging_config import setup_logging, get_logger
+from app.logging_utils import request_id_ctx, new_request_id
 from app.rag_service import answer_question
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
 
 logger = get_logger(__name__)
+
 
 # ============== Rate Limiting ==============
 
@@ -112,6 +116,30 @@ def validate_credentials_path(credentials_path: Path) -> Path:
 
 app = FastAPI(title="b_rag API")
 setup_logging()
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    rid = request.headers.get("X-Request-ID") or new_request_id()
+    token = request_id_ctx.set(rid)
+
+    start = time.time()
+    try:
+        response = await call_next(request)
+        duration_ms = int((time.time() - start) * 1000)
+
+        response.headers["X-Request-ID"] = rid
+
+        logging.getLogger("app.request").info(
+            "%s %s -> %s (%dms)",
+            request.method,
+            request.url.path,
+            getattr(response, "status_code", "?"),
+            duration_ms,
+        )
+        return response
+    finally:
+        request_id_ctx.reset(token)
+
 
 # ============== Middleware ==============
 
