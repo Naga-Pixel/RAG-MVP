@@ -1,0 +1,31 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rag_qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DOC_TYPE_DETECTION_ALLOWED_EMAIL=1andreamattioli1@gmail.com
+      - PGOPTIONS=-c search_path=internal,public
+    depends_on:
+      - qdrant
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./static:/app/static
+      - api_data:/data
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
+
+volumes:
+  qdrant_data:
+  api_data:
