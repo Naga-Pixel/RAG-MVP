@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oku — Document Q&A</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/static/fonts/BricolageGrotesque-VariableFont_opsz,wdth,wght.ttf') format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root {
+            /* Light mode (default for non-Q&A sections) */
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f3f4;
+            --border: #c9c9c9;
+            --border-light: #d0d0d0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #6a6a6a;
+            --accent: #03ff85;
+            --accent-hover: #02cc6a;
+            --accent-glow: rgba(3, 255, 133, 0.15);
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            /* Dark mode vars for Q&A */
+            --qa-bg: #1f201f;
+            --qa-bg-secondary: #282928;
+            --qa-border: #888888;
+            --qa-text: #eeffed;
+            --qa-text-secondary: #b8c9b6;
+            --qa-text-muted: #7a8a78;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 150px 50px 3rem 50px;
+        }
+
+        .auth-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+
+        header { text-align: center; margin-bottom: 3rem; }
+        h1 { font-size: 90px; font-weight: 600; letter-spacing: -0.02em; color: var(--bg-secondary); }
+        .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
+        .landing-title {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            font-size: 80px;
+            line-height: 1;
+            color: var(--text-primary);
+            text-align: center;
+        }
+        .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
+        .auth-container .subtitle { margin-top: 8px; }
+
+        /* Oku branding - logged in state */
+        .brand-box {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            background: transparent;
+            color: #1f201f;
+            padding: 0;
+            font-size: 2.25rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #181918;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--bg-tertiary); border-color: var(--text-primary); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-outline:hover { background: var(--bg-tertiary); }
+        .btn-danger { background: var(--error); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-dark { background: var(--text-primary); color: var(--bg-secondary); }
+        .btn-dark:hover { background: var(--text-secondary); }
+        .btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+        .btn-icon { padding: 0.3rem 0.5rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-icon:hover { background: var(--error); border-color: var(--error); color: white; }
+        /* Panel buttons - dark/transparent for light sections */
+        .panel .btn:not(.btn-secondary):not(.btn-danger) { background: var(--text-primary); color: var(--bg-secondary); }
+        .panel .btn:not(.btn-secondary):not(.btn-danger):hover { background: var(--text-secondary); }
+
+        .btn-google {
+            background: white;
+            color: #333;
+            width: 100%;
+            padding: 0.85rem 1.5rem;
+            font-size: 1rem;
+        }
+        .btn-google:hover { background: #f5f5f5; }
+        .btn-google svg { width: 20px; height: 20px; }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        .divider span { padding: 0 1rem; }
+
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .panel h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .panel-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+        .panel-row:last-child { margin-bottom: 0; }
+
+        .input-group { flex: 1; min-width: 150px; }
+        .input-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .input-group input {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+        }
+        .input-group input:focus { outline: none; border-color: var(--accent); }
+
+        .auth-buttons { display: flex; gap: 0.5rem; }
+        .auth-status { margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary); text-align: center; }
+        .auth-status.success { color: var(--success); }
+        .auth-status.error { color: var(--error); }
+        .auth-status.warning { color: var(--warning); }
+
+        .logged-in-info { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .logged-in-info .user-email { color: var(--success); font-weight: 500; }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .app-header-left { display: flex; align-items: center; gap: 1rem; }
+        .app-header h1 { font-size: 2rem; }
+        .user-info { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .output-area {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .output-area.error-text { color: var(--error); }
+        .output-area.success-text { color: var(--success); }
+        .output-area.warning-text { color: var(--warning); }
+
+        .folder-list { margin: 1rem 0; }
+        .folder-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+        }
+        .folder-item .folder-path { color: var(--text-primary); word-break: break-all; }
+        .folder-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 0.5rem 0; }
+
+        .state-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+        /* Q&A Section - Dark mode styling */
+        .search-box {
+            background: var(--qa-bg);
+            border: none;
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            transition: all 0.15s ease;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .search-box:focus-within {
+            box-shadow: none;
+            transform: none;
+        }
+        .search-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--qa-text);
+            font-size: 1.1rem;
+            font-family: inherit;
+            resize: none;
+            min-height: 1.6em;
+            max-height: 200px;
+        }
+        .search-input::placeholder { color: var(--qa-text-muted); }
+        .search-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--qa-border);
+        }
+        .search-footer .hint { font-size: 0.85rem; color: var(--qa-text-muted); }
+        .search-footer .hint kbd {
+            background: var(--qa-bg-secondary);
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.8em;
+            border: 1px solid var(--qa-border);
+            color: var(--qa-text-secondary);
+        }
+        .search-footer .btn {
+            background: var(--accent);
+            color: #181918;
+        }
+        .search-footer .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        /* General hint styling (for light sections) */
+        .hint { font-size: 0.85rem; color: var(--text-muted); }
+        .hint kbd {
+            background: var(--bg-tertiary);
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.8em;
+            border: 1px solid var(--border);
+        }
+
+        /* Results area - Dark mode */
+        #results {
+            background: var(--qa-bg);
+            border: none;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            min-height: 80px;
+        }
+        #results:empty {
+            display: none;
+        }
+
+        /* Q&A Loading and answer styles - Dark mode */
+        .loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; color: var(--qa-text-secondary); }
+        .spinner { width: 20px; height: 20px; border: 2px solid var(--qa-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .answer-card {
+            background: var(--qa-bg-secondary);
+            border: 1px solid var(--qa-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 0;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .answer-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--qa-text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .answer-header svg { width: 16px; height: 16px; color: var(--success); }
+        .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--qa-text); }
+
+        .sources-section { margin-top: 1.5rem; }
+        .sources-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--qa-border);
+            border-radius: 9999px;
+            padding: 0.4rem 0.75rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--qa-text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .sources-toggle:hover { border-color: var(--qa-text-muted); color: var(--qa-text); }
+        .sources-toggle svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
+        .sources-toggle.expanded svg { transform: rotate(180deg); }
+        .sources-list { display: none; margin-top: 0.75rem; }
+        .sources-list.visible { display: block; }
+        .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--qa-text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .source-item { background: var(--qa-bg); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid var(--qa-border); transition: border-color 0.15s ease; }
+        .source-item:hover { border-color: var(--accent); }
+        .source-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .source-id { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--accent); background: var(--accent-glow); padding: 0.2em 0.5em; border-radius: 4px; }
+        .source-title { font-size: 0.9rem; font-weight: 500; color: var(--qa-text); }
+        .source-snippet { font-size: 0.85rem; color: var(--qa-text-secondary); line-height: 1.5; }
+
+        .error-box {
+            background: rgba(255, 68, 68, 0.15);
+            border: 1px solid rgba(255, 68, 68, 0.4);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            color: #ff6b6b;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .error-box svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+        .empty-state { text-align: center; padding: 2rem 1rem; color: var(--qa-text-muted); }
+        .empty-state p { max-width: 300px; margin: 0 auto; font-size: 0.95rem; }
+
+        footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
+        footer a { color: var(--text-secondary); text-decoration: none; }
+        footer a:hover { color: var(--accent); }
+
+        .hidden { display: none !important; }
+
+        /* Sync Modal Overlay */
+        .sync-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .sync-modal-overlay.visible {
+            display: flex;
+        }
+        .sync-modal-box {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .sync-modal-box h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .sync-modal-box p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1.25rem;
+        }
+        .sync-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth View (shown when logged out) -->
+    <div id="authView" class="auth-container">
+        <header>
+            <h1 class="landing-title">Oku</h1>
+            <p class="subtitle">Ask questions about your indexed documents</p>
+        </header>
+
+        <div class="panel">
+            <button id="btn-google" class="btn btn-google">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+            </button>
+
+            <div class="divider"><span>or</span></div>
+
+            <div class="panel-row">
+                <div class="input-group" style="min-width: 100%;">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" placeholder="you@example.com">
+                </div>
+            </div>
+            <div class="panel-row">
+                <div class="input-group" style="min-width: 100%;">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" placeholder="Enter your password">
+                </div>
+            </div>
+            <div class="panel-row" style="margin-top: 1rem;">
+                <button id="btn-login" class="btn" style="flex: 1;">Log in</button>
+                <button id="btn-signup" class="btn btn-secondary" style="flex: 1;">Sign up</button>
+            </div>
+            <div id="auth-status" class="auth-status"></div>
+        </div>
+    </div>
+
+    <!-- App View (shown when logged in) -->
+    <div id="appView" class="container hidden">
+        <div class="app-header">
+            <div class="app-header-left">
+                <span class="brand-box">Oku</span>
+                <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
+            </div>
+            <button id="btn-logout" class="btn btn-dark btn-small">Log out</button>
+        </div>
+
+        <!-- Q&A Section (moved to top) -->
+        <div class="search-box">
+            <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
+            <div class="search-footer">
+                <span class="hint">Press <kbd>Enter</kbd> to search</span>
+                <button id="submit" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                    Ask
+                </button>
+            </div>
+        </div>
+
+        <div id="results"></div>
+
+        <!-- Google Drive Section -->
+        <div class="panel">
+            <h2>Google Drive</h2>
+            <div id="drive-not-connected">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Connect your Google Drive to sync documents from specific folders.
+                </p>
+                <button id="btn-connect-drive" class="btn">
+                    <svg viewBox="0 0 87.3 78" style="width:18px;height:18px;margin-right:4px">
+                        <path fill="#0066da" d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H1.2c0 1.55.4 3.1 1.2 4.5l4.2 9.35z"/>
+                        <path fill="#00ac47" d="M43.65 25.15L29.9 1.35c-1.35.8-2.5 1.9-3.3 3.3L1.2 52.7c-.8 1.4-1.2 2.95-1.2 4.5h27.4l16.25-32.05z"/>
+                        <path fill="#ea4335" d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.2c.8-1.4 1.2-2.95 1.2-4.5H59.9L73.55 76.8z"/>
+                        <path fill="#00832d" d="M43.65 25.15L57.4 1.35C56.05.55 54.5.15 52.9.15h-18.5c-1.6 0-3.15.45-4.5 1.2l13.75 23.8z"/>
+                        <path fill="#2684fc" d="M59.9 52.7H27.4l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.5c1.6 0 3.15-.45 4.5-1.2L59.9 52.7z"/>
+                        <path fill="#ffba00" d="M73.4 26.5L60.65 3.65c-.8-1.4-1.95-2.5-3.3-3.3L43.6 25.15 59.85 52.7h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z"/>
+                    </svg>
+                    Connect Google Drive
+                </button>
+            </div>
+            <div id="drive-connected" class="hidden">
+                <div id="drive-folder-list" class="folder-list">
+                    <div class="folder-empty">No folders selected yet</div>
+                </div>
+                <div class="panel-row" style="margin-top: 1rem;">
+                    <button id="btn-add-drive-folder" class="btn btn-secondary btn-small">+ Add Folder</button>
+                    <button id="btn-sync-drive" class="btn btn-small">Sync Drive Now</button>
+                </div>
+                <div id="drive-sync-status" class="output-area hidden"></div>
+            </div>
+        </div>
+
+        <!-- Local Sync Section -->
+        <div class="panel">
+            <h2>Local Files</h2>
+            <div id="local-not-selected">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                    Select a folder from your computer to sync documents.
+                </p>
+                <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+                <button id="btn-select-folder" class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;margin-right:4px">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Select local folder
+                </button>
+            </div>
+            <div id="local-selected" class="hidden">
+                <div id="local-folder-info" class="folder-item" style="margin-bottom: 1rem;">
+                    <div>
+                        <span id="local-folder-name" class="folder-path" style="font-weight: 500;"></span>
+                        <span id="local-file-count" style="color: var(--text-muted); margin-left: 0.5rem;"></span>
+                    </div>
+                    <button id="btn-clear-folder" class="btn btn-icon btn-small" title="Clear selection">✕</button>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                    Files are processed only when you click sync.
+                </p>
+                <div class="panel-row">
+                    <button id="btn-select-different" class="btn btn-secondary btn-small">Select different folder</button>
+                    <button id="btn-sync-local" class="btn btn-small">Sync</button>
+                </div>
+            </div>
+            <div id="sync-status" class="output-area hidden"></div>
+        </div>
+
+        <!-- State Section -->
+        <div class="panel">
+            <h2>Connector State</h2>
+            <div class="state-buttons">
+                <button id="btn-state-local" class="btn btn-secondary btn-small">Refresh Local State</button>
+                <button id="btn-state-drive" class="btn btn-secondary btn-small">Refresh Drive State</button>
+            </div>
+            <div id="state-output" class="output-area hidden"></div>
+        </div>
+
+        <footer>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600;">Oku</span> powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
+        </footer>
+    </div>
+
+    <!-- Sync Modal Overlay -->
+    <div id="syncModal" class="sync-modal-overlay">
+        <div class="sync-modal-box">
+            <h3>Syncing…</h3>
+            <p>Oku is indexing your files. Please wait.</p>
+            <div class="sync-spinner"></div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         SINGLE <script type="module"> BLOCK
+         ESM import - NO window.supabase, NO unpkg CDN script tag
+         ================================================================ -->
+    <script type="module">
+        // =================================================================
+        // ESM Import of Supabase - createClient imported directly
+        // =================================================================
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+        // =================================================================
+        // Supabase Configuration - fetched from backend
+        // =================================================================
+        let supabase = null;
+        let supabaseConfigLoaded = false;
+
+        async function loadSupabaseConfig() {
+            try {
+                const response = await fetch('/config/frontend');
+                if (!response.ok) {
+                    throw new Error('Failed to load configuration');
+                }
+                const config = await response.json();
+
+                if (!config.supabase_url || !config.supabase_anon_key) {
+                    console.warn('Supabase not configured. Authentication features disabled.');
+                    return false;
+                }
+
+                supabase = createClient(config.supabase_url, config.supabase_anon_key);
+                supabaseConfigLoaded = true;
+                return true;
+            } catch (err) {
+                console.error('Failed to load Supabase config:', err);
+                return false;
+            }
+        }
+
+        // =================================================================
+        // DOM Elements
+        // =================================================================
+        const authView = document.getElementById('authView');
+        const appView = document.getElementById('appView');
+        const authStatus = document.getElementById('auth-status');
+        const userEmailSpan = document.getElementById('user-email');
+        const emailInput = document.getElementById('auth-email');
+        const passwordInput = document.getElementById('auth-password');
+        const btnSignup = document.getElementById('btn-signup');
+        const btnLogin = document.getElementById('btn-login');
+        const btnLogout = document.getElementById('btn-logout');
+        const btnGoogle = document.getElementById('btn-google');
+
+        // Local folder picker elements
+        const folderPicker = document.getElementById('folder-picker');
+        const btnSelectFolder = document.getElementById('btn-select-folder');
+        const btnSelectDifferent = document.getElementById('btn-select-different');
+        const btnClearFolder = document.getElementById('btn-clear-folder');
+        const localNotSelected = document.getElementById('local-not-selected');
+        const localSelected = document.getElementById('local-selected');
+        const localFolderName = document.getElementById('local-folder-name');
+        const localFileCount = document.getElementById('local-file-count');
+        const btnSyncLocal = document.getElementById('btn-sync-local');
+        const syncStatus = document.getElementById('sync-status');
+
+        const btnStateLocal = document.getElementById('btn-state-local');
+        const btnStateDrive = document.getElementById('btn-state-drive');
+        const stateOutput = document.getElementById('state-output');
+
+        const queryInput = document.getElementById('query');
+        const submitBtn = document.getElementById('submit');
+        const resultsDiv = document.getElementById('results');
+
+        // Google Drive elements
+        const driveNotConnected = document.getElementById('drive-not-connected');
+        const driveConnected = document.getElementById('drive-connected');
+        const btnConnectDrive = document.getElementById('btn-connect-drive');
+        const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+        const btnSyncDrive = document.getElementById('btn-sync-drive');
+        const driveFolderListEl = document.getElementById('drive-folder-list');
+        const driveSyncStatus = document.getElementById('drive-sync-status');
+
+        // =================================================================
+        // State
+        // =================================================================
+        let driveFolders = [];
+        let driveConnectedState = false;
+        let publicConfig = null;
+        let isSyncing = false;
+
+        // Sync modal element
+        const syncModal = document.getElementById('syncModal');
+
+        // =================================================================
+        // Sync Modal Helpers
+        // =================================================================
+        function setSyncing(syncing) {
+            isSyncing = syncing;
+            if (syncing) {
+                syncModal.classList.add('visible');
+                // Disable Q&A
+                queryInput.disabled = true;
+                submitBtn.disabled = true;
+                // Disable sync/connect buttons
+                btnSyncLocal.disabled = true;
+                btnSyncDrive.disabled = true;
+                btnConnectDrive.disabled = true;
+                btnSelectFolder.disabled = true;
+                btnSelectDifferent.disabled = true;
+                btnAddDriveFolder.disabled = true;
+            } else {
+                syncModal.classList.remove('visible');
+                // Re-enable Q&A
+                queryInput.disabled = false;
+                submitBtn.disabled = false;
+                // Re-enable sync/connect buttons
+                btnSyncLocal.disabled = false;
+                btnSyncDrive.disabled = false;
+                btnConnectDrive.disabled = false;
+                btnSelectFolder.disabled = false;
+                btnSelectDifferent.disabled = false;
+                btnAddDriveFolder.disabled = false;
+            }
+        }
+
+        // =================================================================
+        // Utilities
+        // =================================================================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // =================================================================
+        // View Toggle
+        // =================================================================
+        function showAuthView() {
+            authView.classList.remove('hidden');
+            appView.classList.add('hidden');
+        }
+
+        function showAppView() {
+            authView.classList.add('hidden');
+            appView.classList.remove('hidden');
+        }
+
+        // =================================================================
+        // Auth Helpers
+        // =================================================================
+        async function getAccessToken() {
+            if (!supabaseConfigLoaded || !supabase) {
+                return null;
+            }
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                return session?.access_token || null;
+            } catch (err) {
+                console.error('getAccessToken error:', err);
+                return null;
+            }
+        }
+
+        async function isLoggedIn() {
+            if (!supabaseConfigLoaded) {
+                return false;
+            }
+            return !!(await getAccessToken());
+        }
+
+        // =================================================================
+        // apiFetch - Authenticated API calls
+        // =================================================================
+        async function apiFetch(path, options = {}) {
+            const token = await getAccessToken();
+
+            if (!token) {
+                throw new Error('Not authenticated. Please log in first.');
+            }
+
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                ...(options.headers || {}),
+            };
+
+            let body = options.body;
+
+            // JSON-stringify body if it's an object
+            if (body && typeof body === 'object' && !(body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+                body = JSON.stringify(body);
+            }
+
+            const response = await fetch(path, {
+                method: options.method || 'GET',
+                headers,
+                body,
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Request failed (${response.status})`;
+                try {
+                    const errData = await response.json();
+                    errorMsg = errData.detail || errData.message || errorMsg;
+                } catch {}
+                if (response.status === 401) {
+                    errorMsg = 'Session expired or invalid. Please log in again.';
+                }
+                throw new Error(errorMsg);
+            }
+
+            return response.json();
+        }
+
+        // =================================================================
+        // Auth UI
+        // =================================================================
+        function updateAuthUI(session) {
+            if (session?.user) {
+                userEmailSpan.textContent = session.user.email;
+                showAppView();
+                refreshDriveStatus();
+            } else {
+                userEmailSpan.textContent = '';
+                showAuthView();
+            }
+        }
+
+        function showAuthStatus(message, type) {
+            authStatus.textContent = message;
+            authStatus.className = 'auth-status' + (type ? ' ' + type : '');
+        }
+
+        async function initAuth() {
+            // First load Supabase configuration from backend
+            const configLoaded = await loadSupabaseConfig();
+
+            if (!configLoaded) {
+                showAuthStatus('Authentication not configured. Contact admin.', 'warning');
+                showAuthView();
+                return;
+            }
+
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                updateAuthUI(session);
+                supabase.auth.onAuthStateChange((event, session) => {
+                    updateAuthUI(session);
+                });
+            } catch (err) {
+                console.error('initAuth error:', err);
+                showAuthStatus('Auth initialization failed.', 'error');
+                showAuthView();
+            }
+        }
+
+        // Google OAuth handler
+        btnGoogle.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                showAuthStatus('Authentication not configured', 'error');
+                return;
+            }
+            btnGoogle.disabled = true;
+            showAuthStatus('Redirecting to Google...', '');
+            try {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: { redirectTo: 'https://ravelous.cloud' }
+                });
+                if (error) {
+                    showAuthStatus(error.message, 'error');
+                    btnGoogle.disabled = false;
+                }
+            } catch (err) {
+                showAuthStatus('Google sign-in failed: ' + err.message, 'error');
+                btnGoogle.disabled = false;
+            }
+        });
+
+        // Auth button handlers
+        btnSignup.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                showAuthStatus('Authentication not configured', 'error');
+                return;
+            }
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            btnSignup.disabled = true;
+            showAuthStatus('Signing up...', '');
+            try {
+                const { data, error } = await supabase.auth.signUp({ email, password });
+                if (error) {
+                    showAuthStatus(error.message, 'error');
+                } else if (data.user && !data.session) {
+                    showAuthStatus('Check your email to confirm your account', 'success');
+                } else {
+                    showAuthStatus('Signed up successfully!', 'success');
+                }
+            } catch (err) {
+                showAuthStatus('Signup failed: ' + err.message, 'error');
+            } finally {
+                btnSignup.disabled = false;
+            }
+        });
+
+        btnLogin.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                showAuthStatus('Authentication not configured', 'error');
+                return;
+            }
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            btnLogin.disabled = true;
+            showAuthStatus('Logging in...', '');
+            try {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    showAuthStatus(error.message, 'error');
+                } else {
+                    showAuthStatus('Logged in!', 'success');
+                    passwordInput.value = '';
+                }
+            } catch (err) {
+                showAuthStatus('Login failed: ' + err.message, 'error');
+            } finally {
+                btnLogin.disabled = false;
+            }
+        });
+
+        btnLogout.addEventListener('click', async () => {
+            if (!supabaseConfigLoaded || !supabase) {
+                return;
+            }
+            btnLogout.disabled = true;
+            try {
+                await supabase.auth.signOut();
+                showAuthView();
+            } catch (err) {
+                console.error('Logout failed:', err);
+            } finally {
+                btnLogout.disabled = false;
+            }
+        });
+
+        // =================================================================
+        // Local Folder Picker
+        // =================================================================
+        const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.rtf'];
+        let selectedFiles = [];
+        let selectedFolderName = '';
+
+        function updateLocalUI() {
+            if (selectedFiles.length > 0) {
+                localNotSelected.classList.add('hidden');
+                localSelected.classList.remove('hidden');
+                localFolderName.textContent = selectedFolderName;
+                localFileCount.textContent = `(${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''})`;
+            } else {
+                localNotSelected.classList.remove('hidden');
+                localSelected.classList.add('hidden');
+            }
+        }
+
+        function clearFolderSelection() {
+            selectedFiles = [];
+            selectedFolderName = '';
+            folderPicker.value = '';
+            updateLocalUI();
+            syncStatus.classList.add('hidden');
+        }
+
+        // Trigger folder picker
+        btnSelectFolder.addEventListener('click', () => folderPicker.click());
+        btnSelectDifferent.addEventListener('click', () => folderPicker.click());
+        btnClearFolder.addEventListener('click', clearFolderSelection);
+
+        // Handle folder selection
+        folderPicker.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // Filter to supported file types
+            selectedFiles = files.filter(f => {
+                const ext = '.' + f.name.split('.').pop().toLowerCase();
+                return SUPPORTED_EXTENSIONS.includes(ext);
+            });
+
+            // Extract folder name from webkitRelativePath (first part before /)
+            if (files.length > 0 && files[0].webkitRelativePath) {
+                selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+            } else {
+                selectedFolderName = 'Selected folder';
+            }
+
+            updateLocalUI();
+
+            if (selectedFiles.length === 0 && files.length > 0) {
+                showSyncStatus('No supported files found. Supported: PDF, Word, Excel, Text, Markdown.', 'warning');
+            }
+        });
+
+        // =================================================================
+        // Local Sync (upload files)
+        // =================================================================
+        function showSyncStatus(msg, type = '') {
+            syncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
+            if (type) syncStatus.classList.add(type + '-text');
+            syncStatus.textContent = msg;
+        }
+
+        btnSyncLocal.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showSyncStatus('Please log in first.', 'error');
+                return;
+            }
+            if (selectedFiles.length === 0) {
+                showSyncStatus('No files selected. Select a folder first.', 'warning');
+                return;
+            }
+
+            setSyncing(true);
+            showSyncStatus(`Uploading ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}...`);
+
+            try {
+                const token = await getAccessToken();
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+
+                // Build FormData with files
+                const formData = new FormData();
+                for (const file of selectedFiles) {
+                    formData.append('files', file);
+                }
+                formData.append('folder_name', selectedFolderName);
+
+                // Upload files
+                const response = await fetch('/sync/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Upload failed (${response.status})`;
+                    try {
+                        const errData = await response.json();
+                        errorMsg = errData.detail || errData.message || errorMsg;
+                    } catch {}
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json();
+
+                let summary = `Sync completed in ${data.duration_seconds.toFixed(1)}s\n`;
+                summary += `Folder: ${data.folder_name}\n`;
+                summary += `Documents found: ${data.documents_found}\n`;
+                summary += `Documents processed: ${data.documents_processed}\n`;
+                summary += `Chunks created: ${data.chunks_created}`;
+                if (data.errors?.length > 0) {
+                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
+                }
+                showSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
+
+            } catch (err) {
+                showSyncStatus('Sync failed: ' + err.message, 'error');
+            } finally {
+                setSyncing(false);
+            }
+        });
+
+        // =================================================================
+        // State Display
+        // =================================================================
+        function showStateOutput(msg, type = '') {
+            stateOutput.classList.remove('hidden', 'error-text', 'success-text');
+            if (type) stateOutput.classList.add(type + '-text');
+            stateOutput.textContent = msg;
+        }
+
+        btnStateLocal.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showStateOutput('Not authenticated. Please log in first.', 'error');
+                return;
+            }
+            btnStateLocal.disabled = true;
+            showStateOutput('Loading local state...');
+            try {
+                const data = await apiFetch('/state/local');
+                let out = JSON.stringify(data, null, 2);
+                if (data.last_sync_at) {
+                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
+                }
+                showStateOutput(out);
+            } catch (err) {
+                showStateOutput(err.message, 'error');
+            } finally {
+                btnStateLocal.disabled = false;
+            }
+        });
+
+        btnStateDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showStateOutput('Not authenticated. Please log in first.', 'error');
+                return;
+            }
+            btnStateDrive.disabled = true;
+            showStateOutput('Loading Google Drive state...');
+            try {
+                const data = await apiFetch('/state/google-drive');
+                let out = JSON.stringify(data, null, 2);
+                if (data.last_sync_at) {
+                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
+                }
+                showStateOutput(out);
+            } catch (err) {
+                showStateOutput(err.message, 'error');
+            } finally {
+                btnStateDrive.disabled = false;
+            }
+        });
+
+        // =================================================================
+        // Google Drive Integration
+        // =================================================================
+        let pickerApiLoaded = false;
+
+        async function loadPublicConfig() {
+            try {
+                const response = await fetch('/config/public');
+                if (response.ok) {
+                    publicConfig = await response.json();
+                }
+            } catch (err) {
+                console.error('Failed to load public config:', err);
+            }
+        }
+
+        async function loadPickerApi() {
+            if (pickerApiLoaded) return true;
+            return new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = 'https://apis.google.com/js/api.js';
+                script.onload = () => {
+                    gapi.load('picker', () => {
+                        pickerApiLoaded = true;
+                        resolve(true);
+                    });
+                };
+                script.onerror = () => resolve(false);
+                document.head.appendChild(script);
+            });
+        }
+
+        function showDriveSyncStatus(msg, type = '') {
+            driveSyncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
+            if (type) driveSyncStatus.classList.add(type + '-text');
+            driveSyncStatus.textContent = msg;
+        }
+
+        function renderDriveFolders() {
+            if (driveFolders.length === 0) {
+                driveFolderListEl.innerHTML = '<div class="folder-empty">No folders selected yet</div>';
+                return;
+            }
+            driveFolderListEl.innerHTML = driveFolders.map((f) => `
+                <div class="folder-item">
+                    <span class="folder-path">${escapeHtml(f.folder_name || f.folder_id)}</span>
+                    <button class="btn btn-icon btn-small" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">✕</button>
+                </div>
+            `).join('');
+
+            driveFolderListEl.querySelectorAll('button[data-folder-id]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const folderId = e.target.dataset.folderId;
+                    btn.disabled = true;
+                    try {
+                        const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, {
+                            method: 'DELETE',
+                        });
+                        driveFolders = data.folders || [];
+                        renderDriveFolders();
+                    } catch (err) {
+                        showDriveSyncStatus('Failed to remove folder: ' + err.message, 'error');
+                        btn.disabled = false;
+                    }
+                });
+            });
+        }
+
+        function updateDriveUI() {
+            if (driveConnectedState) {
+                driveNotConnected.classList.add('hidden');
+                driveConnected.classList.remove('hidden');
+                renderDriveFolders();
+            } else {
+                driveNotConnected.classList.remove('hidden');
+                driveConnected.classList.add('hidden');
+            }
+        }
+
+        async function refreshDriveStatus() {
+            try {
+                const data = await apiFetch('/sources/drive/status');
+                driveConnectedState = data.connected;
+                driveFolders = data.folders || [];
+                updateDriveUI();
+            } catch (err) {
+                console.error('Failed to refresh Drive status:', err);
+            }
+        }
+
+        // Connect Drive button
+        btnConnectDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+            btnConnectDrive.disabled = true;
+            try {
+                const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
+                const authUrl = data.auth_url;
+
+                // Open popup
+                const width = 600;
+                const height = 700;
+                const left = window.screenX + (window.outerWidth - width) / 2;
+                const top = window.screenY + (window.outerHeight - height) / 2;
+                const popup = window.open(
+                    authUrl,
+                    'drive_oauth',
+                    `width=${width},height=${height},left=${left},top=${top}`
+                );
+
+                // Listen for postMessage from popup
+                const messageHandler = async (event) => {
+                    if (event.data?.type === 'drive_oauth_success') {
+                        window.removeEventListener('message', messageHandler);
+                        await refreshDriveStatus();
+                        showDriveSyncStatus('Google Drive connected successfully!', 'success');
+                    } else if (event.data?.type === 'drive_oauth_error') {
+                        window.removeEventListener('message', messageHandler);
+                        showDriveSyncStatus('Connection failed: ' + (event.data.error || 'Unknown error'), 'error');
+                    }
+                };
+                window.addEventListener('message', messageHandler);
+
+            } catch (err) {
+                showDriveSyncStatus('Failed to start connection: ' + err.message, 'error');
+            } finally {
+                btnConnectDrive.disabled = false;
+            }
+        });
+
+        // Add Drive folder button
+        btnAddDriveFolder.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+
+            // Load Picker API if not loaded
+            if (!pickerApiLoaded) {
+                showDriveSyncStatus('Loading Google Picker...', '');
+                const loaded = await loadPickerApi();
+                if (!loaded) {
+                    showDriveSyncStatus('Failed to load Google Picker', 'error');
+                    return;
+                }
+            }
+
+            // Get access token for Picker
+            btnAddDriveFolder.disabled = true;
+            try {
+                const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+                const accessToken = tokenData.access_token;
+
+                if (!publicConfig?.google_picker_api_key) {
+                    showDriveSyncStatus('Google Picker API key not configured', 'error');
+                    btnAddDriveFolder.disabled = false;
+                    return;
+                }
+
+                // Create and show Picker for folder selection
+                const view = new google.picker.DocsView()
+                    .setIncludeFolders(true)
+                    .setSelectFolderEnabled(true)
+                    .setMimeTypes('application/vnd.google-apps.folder');
+
+                const picker = new google.picker.PickerBuilder()
+                    .addView(view)
+                    .setOAuthToken(accessToken)
+                    .setDeveloperKey(publicConfig.google_picker_api_key)
+                    .setCallback(async (data) => {
+                        if (data.action === google.picker.Action.PICKED) {
+                            const folder = data.docs[0];
+                            try {
+                                const result = await apiFetch('/sources/drive/folders', {
+                                    method: 'POST',
+                                    body: {
+                                        folder_id: folder.id,
+                                        folder_name: folder.name,
+                                    },
+                                });
+                                driveFolders = result.folders || [];
+                                renderDriveFolders();
+                                showDriveSyncStatus(`Added folder: ${folder.name}`, 'success');
+                            } catch (err) {
+                                showDriveSyncStatus('Failed to add folder: ' + err.message, 'error');
+                            }
+                        }
+                        btnAddDriveFolder.disabled = false;
+                    })
+                    .setTitle('Select a folder to sync')
+                    .build();
+
+                picker.setVisible(true);
+
+            } catch (err) {
+                showDriveSyncStatus('Failed to open folder picker: ' + err.message, 'error');
+                btnAddDriveFolder.disabled = false;
+            }
+        });
+
+        // Sync Drive button
+        btnSyncDrive.addEventListener('click', async () => {
+            if (!(await isLoggedIn())) {
+                showDriveSyncStatus('Please log in first.', 'error');
+                return;
+            }
+            if (driveFolders.length === 0) {
+                showDriveSyncStatus('No folders to sync. Add at least one folder first.', 'warning');
+                return;
+            }
+
+            setSyncing(true);
+            showDriveSyncStatus('Syncing Drive folders...');
+
+            try {
+                const data = await apiFetch('/sync/drive', { method: 'POST' });
+                let summary = `Sync completed in ${data.duration_seconds}s\n`;
+                summary += `Folders: ${data.folders_synced}\n`;
+                summary += `Documents found: ${data.documents_found}\n`;
+                summary += `Documents processed: ${data.documents_processed}\n`;
+                summary += `Chunks created: ${data.chunks_created}`;
+                if (data.errors?.length > 0) {
+                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
+                }
+                showDriveSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
+            } catch (err) {
+                showDriveSyncStatus('Sync failed: ' + err.message, 'error');
+            } finally {
+                setSyncing(false);
+            }
+        });
+
+        // =================================================================
+        // Q&A
+        // =================================================================
+        queryInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        queryInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitQuery();
+            }
+        });
+
+        submitBtn.addEventListener('click', submitQuery);
+
+        async function submitQuery() {
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            submitBtn.disabled = true;
+            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>Searching documents...</span></div>`;
+
+            try {
+                const data = await apiFetch('/ask', {
+                    method: 'POST',
+                    body: { query },
+                });
+                displayResults(data);
+            } catch (err) {
+                resultsDiv.innerHTML = `
+                    <div class="error-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" x2="12" y1="8" y2="12"></line>
+                            <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                        </svg>
+                        <span>${escapeHtml(err.message)}</span>
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            // Use sources_cited if available, otherwise fall back to sources (backward compatibility)
+            const sourcesToShow = data.sources_cited?.length ? data.sources_cited : data.sources;
+
+            let sourcesHtml = '';
+            if (sourcesToShow?.length) {
+                const sourceItems = sourcesToShow.map(s => `
+                    <div class="source-item">
+                        <div class="source-meta">
+                            <span class="source-id">${escapeHtml(s.doc_id)}</span>
+                            ${s.title ? `<span class="source-title">${escapeHtml(s.title)}</span>` : ''}
+                        </div>
+                        <div class="source-snippet">${escapeHtml(s.snippet)}</div>
+                    </div>
+                `).join('');
+
+                sourcesHtml = `
+                    <div class="sources-section">
+                        <button class="sources-toggle" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('visible');">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                            ${sourcesToShow.length} source${sourcesToShow.length > 1 ? 's' : ''}
+                        </button>
+                        <div class="sources-list">
+                            ${sourceItems}
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = `
+                <div class="answer-card">
+                    <div class="answer-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        Answer
+                    </div>
+                    <div class="answer-text">${escapeHtml(data.answer)}</div>
+                    ${sourcesHtml}
+                </div>
+            `;
+        }
+
+        // =================================================================
+        // Initialize
+        // =================================================================
+        loadPublicConfig();
+        initAuth();
+
+    </script>
+</body>
+</html>
