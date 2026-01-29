@@ -4,6 +4,9 @@ from functools import lru_cache
 import secrets
 import time
 import logging
+import os
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
@@ -116,6 +119,30 @@ def validate_credentials_path(credentials_path: Path) -> Path:
 
 app = FastAPI(title="b_rag API")
 setup_logging()
+
+
+def _sentry_before_send(event, hint):
+    req = event.get("request") or {}
+    # Remove request body & cookies
+    req.pop("data", None)
+    req.pop("cookies", None)
+    headers = req.get("headers") or {}
+    headers.pop("authorization", None)
+    req["headers"] = headers
+    event["request"] = req
+    return event
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[FastApiIntegration()],
+        environment=os.getenv("SENTRY_ENVIRONMENT", "dev"),
+        send_default_pii=False,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0") or "0"),
+        before_send=_sentry_before_send,
+    )
+
 
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
