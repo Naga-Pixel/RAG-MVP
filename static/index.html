@@ -606,7 +606,7 @@
         // =================================================================
         // ESM Import of Supabase - createClient imported directly
         // =================================================================
-        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
         // =================================================================
         // Supabase Configuration - fetched from backend
@@ -1410,12 +1410,9 @@
         }
 
         function displayResults(data) {
-            // Use sources_cited if available, otherwise fall back to sources (backward compatibility)
-            const sourcesToShow = data.sources_cited?.length ? data.sources_cited : data.sources;
-
             let sourcesHtml = '';
-            if (sourcesToShow?.length) {
-                const sourceItems = sourcesToShow.map(s => `
+            if (data.sources?.length) {
+                const sourceItems = data.sources.map(s => `
                     <div class="source-item">
                         <div class="source-meta">
                             <span class="source-id">${escapeHtml(s.doc_id)}</span>
@@ -1431,7 +1428,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
-                            ${sourcesToShow.length} source${sourcesToShow.length > 1 ? 's' : ''}
+                            ${data.sources.length} source${data.sources.length > 1 ? 's' : ''}
                         </button>
                         <div class="sources-list">
                             ${sourceItems}
