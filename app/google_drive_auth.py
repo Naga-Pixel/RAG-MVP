@@ -964,7 +964,9 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                             from ingest.chunking import chunk_text
                             from ingest.embedder import get_embeddings
                             from app.qdrant_client import get_qdrant_client
+                            from app.qdrant_client import upsert_points
                             import uuid
+                            from uuid import uuid4
 
                             # Chunk the document
                             chunks = chunk_text(
@@ -1009,12 +1011,9 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                                     payload=payload,
                                 ))
 
-                            # Upsert to Qdrant
-                            client = get_qdrant_client()
-                            client.upsert(
-                                collection_name=settings.qdrant_collection,
-                                points=points,
-                            )
+                            # Upsert via canonical function (handles Qdrant + FTS shadow)
+                            ingest_id = uuid4().hex[:12]
+                            upsert_points(points, tenant_id, doc_id_fallback=doc.doc_id, ingest_id=ingest_id)
 
                             total_processed += 1
                             total_chunks += len(chunks)

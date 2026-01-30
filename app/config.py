@@ -69,6 +69,16 @@ class Settings(BaseSettings):
         description="Maximum chunks from same document in final results (diversity)",
     )
 
+    # FTS shadow index settings
+    # NOTE: This flag affects WRITES ONLY (ingestion).
+    # It does NOT affect retrieval, /ask, or any read path.
+    # When enabled, chunk text is shadow-written to Postgres for future hybrid search.
+    fts_shadow_enabled: bool = Field(
+        default=False,
+        alias="FTS_SHADOW_ENABLED",
+        description="Enable shadow Postgres FTS index during ingestion (Phase A, writes only)",
+    )
+
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 

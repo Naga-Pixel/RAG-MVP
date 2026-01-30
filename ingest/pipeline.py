@@ -259,13 +259,12 @@ class IngestionPipeline:
         if not recreate:
             self._cleanup_old_versions(tenant_id, source, external_id, updated_at)
         
-        # Upsert to Qdrant (idempotent - same ID overwrites)
+        # Upsert via canonical function (handles Qdrant + FTS shadow)
         logger.info(f"  Upserting {len(points)} points...")
-        qdrant_client.upsert(
-            collection_name=settings.qdrant_collection,
-            points=points,
-        )
-        logger.debug(f"  Done!")
+        from app.qdrant_client import upsert_points
+        ingest_id = uuid.uuid4().hex[:12]
+        upsert_points(points, tenant_id, doc_id_fallback=doc.doc_id, ingest_id=ingest_id)
+        logger.debug("  Done!")
         
         return len(points)
     
