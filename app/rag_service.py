@@ -13,7 +13,7 @@ from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client
 from app.models import AskResponse, Source, Citation
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
-from app.fts_shadow import keyword_retrieve
+from app.keyword_retrieval import keyword_retrieve
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
@@ -71,18 +71,18 @@ def _log_keyword_comparison(
         query_log = query[:80] + "..." if len(query) > 80 else query
         query_log = query_log.replace("\n", " ").replace("|", "/")
 
-        # Single structured log line
+        # Single structured log line (rid already in log format prefix)
         logger.info(
-            f"kw_compare | rid={query_id} | query=\"{query_log}\" | "
+            f"kw_compare | query=\"{query_log}\" | "
             f"vec_count={len(vector_points)} | vec_top=[{', '.join(vec_top)}] | "
             f"kw_count={len(kw_results)} | kw_top=[{', '.join(kw_top)}] | "
             f"overlap={overlap_count}"
         )
 
     except Exception as e:
-        # Fail-open: log warning, do not affect main flow
+        # Fail-open: log warning, do not affect main flow (rid in log format prefix)
         logger.warning(
-            f"kw_compare failed | rid={query_id} | err={type(e).__name__}: {e}"
+            f"kw_compare failed | err={type(e).__name__}: {e}"
         )
 
 
