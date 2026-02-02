@@ -20,7 +20,7 @@ from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client
 from connectors.base import BaseConnector, Document, SourceType
 from connectors.state_store import get_state_store
-from ingest.chunking import chunk_text
+from ingest.chunking import chunk_text, Chunk, generate_chunk_id
 from ingest.embedder import get_embeddings
 
 logger = get_logger(__name__)
@@ -216,13 +216,58 @@ class IngestionPipeline:
             metadata=metadata,
         )
         logger.info(f"  Created {len(chunks)} chunks")
-        
+
         if not chunks:
             return 0
+
+        # Phase D.1: Generate document-level derived summaries (fail-open)
+        summary_chunks = []
+        if settings.document_summary_enabled:
+            try:
+                from app.doc_summary import generate_document_summaries
+
+                summary_items = generate_document_summaries(
+                    content=doc.content,
+                    doc_id=doc.doc_id,
+                    doc_title=doc.title,
+                )
+
+                # Convert summary items to chunks with proper metadata
+                base_chunk_index = len(chunks)
+                for i, item in enumerate(summary_items):
+                    summary_text = item.text
+                    chunk_index = base_chunk_index + i
+
+                    summary_chunk = Chunk(
+                        chunk_id=generate_chunk_id(doc.doc_id, chunk_index, summary_text),
+                        text=summary_text,
+                        metadata={
+                            **metadata,
+                            "doc_id": doc.doc_id,
+                            "chunk_index": chunk_index,
+                            "chunk_type": "derived",
+                            "summary_scope": item.scope,
+                            "document_type": item.document_type,
+                            "summary_category": item.category,
+                        },
+                    )
+                    summary_chunks.append(summary_chunk)
+
+                if summary_chunks:
+                    logger.info(f"  Generated {len(summary_chunks)} summary chunks")
+
+            except Exception as e:
+                # Fail-open: log warning, continue without summaries
+                logger.warning(
+                    f"  Summary generation failed (continuing): {type(e).__name__}: {e}"
+                )
+
+        # Combine regular chunks and summary chunks
+        all_chunks = chunks + summary_chunks
         
         # Generate embeddings
-        texts = [c["text"] for c in chunks]
-        logger.info(f"  Generating embeddings...")
+        texts = [c["text"] for c in all_chunks]
+        logger.info(f"  Generating embeddings for {len(texts)} chunks...")
         embeddings, dimension = get_embeddings(texts)
         logger.debug(f"  Got {len(embeddings)} embeddings (dimension: {dimension})")
         
@@ -232,7 +277,7 @@ class IngestionPipeline:
         
         # Create points with deterministic IDs
         points = []
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, embedding) in enumerate(zip(all_chunks, embeddings)):
             point_id = generate_point_id(
                 tenant_id=tenant_id,
                 source=source,

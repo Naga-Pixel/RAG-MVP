@@ -133,6 +133,25 @@ class Settings(BaseSettings):
         description="Max keyword-only chunks to fetch from Qdrant for recall rescue",
     )
 
+    # Phase D.1: Document-level derived summaries
+    # NOTE: This is an ingest-time only feature. Does NOT change retrieval or answer logic.
+    # Generates explicit factual statements from implicit document content (meetings, narratives).
+    document_summary_enabled: bool = Field(
+        default=False,
+        alias="DOCUMENT_SUMMARY_ENABLED",
+        description="Enable document-level derived summary generation at ingest time",
+    )
+    document_summary_model: str | None = Field(
+        default=None,
+        alias="DOCUMENT_SUMMARY_MODEL",
+        description="Model for summary generation (defaults to OPENAI_CHAT_MODEL)",
+    )
+    document_summary_max_tokens: int = Field(
+        default=1500,
+        alias="DOCUMENT_SUMMARY_MAX_TOKENS",
+        description="Max tokens for summary generation response",
+    )
+
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 
