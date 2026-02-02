@@ -27,6 +27,11 @@ logger = get_logger(__name__)
 _PG_BATCH_SIZE = 250
 
 
+def _get_fts_table_fqtn() -> str:
+    """Return fully-qualified table name for FTS shadow writes."""
+    return f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+
+
 def _get_fts_connection():
     """
     Get a Postgres connection for FTS shadow writes.
@@ -74,12 +79,13 @@ def upsert_chunks_to_fts(
     chunk_count = len(chunks)
     start_ms = time.perf_counter()
     conn = None
+    fqtn = _get_fts_table_fqtn()
 
     try:
         conn = _get_fts_connection()
         if conn is None:
             logger.warning(
-                f"fts_shadow_upsert failed | tenant={tenant_id} | doc_id={doc_id} | "
+                f"fts_shadow_upsert failed | table={fqtn} | tenant={tenant_id} | doc_id={doc_id} | "
                 f"chunks={chunk_count} | err=DATABASE_URL not configured | ingest_id={ingest_id}"
             )
             return False
@@ -97,28 +103,26 @@ def upsert_chunks_to_fts(
                 str(chunk.get("text", "")),
             ))
 
+        # Build upsert SQL with fully-qualified table name
+        upsert_sql = f"""
+            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text)
+            VALUES %s
+            ON CONFLICT (tenant_id, chunk_id) DO UPDATE SET
+                doc_id = EXCLUDED.doc_id,
+                title = EXCLUDED.title,
+                text = EXCLUDED.text
+        """
+
         # Upsert in internal batches (no per-batch logging)
         for i in range(0, len(values), _PG_BATCH_SIZE):
             batch = values[i:i + _PG_BATCH_SIZE]
-            execute_values(
-                cursor,
-                """
-                INSERT INTO chunks (tenant_id, chunk_id, doc_id, title, text)
-                VALUES %s
-                ON CONFLICT (tenant_id, chunk_id) DO UPDATE SET
-                    doc_id = EXCLUDED.doc_id,
-                    title = EXCLUDED.title,
-                    text = EXCLUDED.text
-                """,
-                batch,
-                page_size=_PG_BATCH_SIZE,
-            )
+            execute_values(cursor, upsert_sql, batch, page_size=_PG_BATCH_SIZE)
 
         conn.commit()
         elapsed_ms = int((time.perf_counter() - start_ms) * 1000)
 
         logger.info(
-            f"fts_shadow_upsert ok | tenant={tenant_id} | doc_id={doc_id} | "
+            f"fts_shadow_upsert ok | table={fqtn} | tenant={tenant_id} | doc_id={doc_id} | "
             f"chunks={chunk_count} | ms={elapsed_ms} | ingest_id={ingest_id}"
         )
         return True
@@ -129,7 +133,7 @@ def upsert_chunks_to_fts(
         err_msg = str(e).replace("\n", " ")[:200]
 
         logger.warning(
-            f"fts_shadow_upsert failed | tenant={tenant_id} | doc_id={doc_id} | "
+            f"fts_shadow_upsert failed | table={fqtn} | tenant={tenant_id} | doc_id={doc_id} | "
             f"chunks={chunk_count} | err={err_name}: {err_msg} | ingest_id={ingest_id}"
         )
         sentry_sdk.capture_exception(e)

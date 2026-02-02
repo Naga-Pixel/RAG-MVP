@@ -78,6 +78,16 @@ class Settings(BaseSettings):
         alias="FTS_SHADOW_ENABLED",
         description="Enable shadow Postgres FTS index during ingestion (Phase A, writes only)",
     )
+    fts_shadow_schema: str = Field(
+        default="internal",
+        alias="FTS_SHADOW_SCHEMA",
+        description="Postgres schema for FTS shadow table",
+    )
+    fts_shadow_table: str = Field(
+        default="chunks",
+        alias="FTS_SHADOW_TABLE",
+        description="Postgres table name for FTS shadow chunks",
+    )
 
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
