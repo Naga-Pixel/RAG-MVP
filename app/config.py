@@ -89,6 +89,15 @@ class Settings(BaseSettings):
         description="Postgres table name for FTS shadow chunks",
     )
 
+    # Phase B: Keyword retrieval logging (comparison only, no behavior change)
+    # NOTE: This flag enables LOGGING ONLY. It does NOT affect /ask responses.
+    # When enabled, keyword search runs in parallel with vector search for comparison logging.
+    keyword_retrieval_logging_enabled: bool = Field(
+        default=False,
+        alias="KEYWORD_RETRIEVAL_LOGGING_ENABLED",
+        description="Enable keyword retrieval logging for vector/keyword comparison (Phase B, logging only)",
+    )
+
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 

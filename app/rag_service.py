@@ -13,6 +13,7 @@ from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client
 from app.models import AskResponse, Source, Citation
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
+from app.fts_shadow import keyword_retrieve
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
@@ -20,6 +21,69 @@ client = OpenAI(api_key=settings.openai_api_key)
 # Regex for extracting citations from answer text
 # Matches: [doc_id], [doc_id:12], [doc_id#12]
 CITATION_PATTERN = re.compile(r"\[(?P<doc>[A-Za-z0-9_\-]+)(?:(?:#|:)(?P<chunk>\d+))?\]")
+
+
+def _log_keyword_comparison(
+    query_id: str,
+    query: str,
+    tenant_id: str,
+    vector_points: list,
+) -> None:
+    """
+    Phase B: Log comparison between vector and keyword retrieval results.
+
+    This function is for LOGGING ONLY:
+    - Does NOT affect /ask responses
+    - Does NOT merge results
+    - Fail-open: errors are logged, execution continues
+
+    Args:
+        query_id: Request identifier for correlation
+        query: User query string
+        tenant_id: Tenant identifier
+        vector_points: Points returned by vector retrieval
+    """
+    try:
+        # Extract vector result summary (top 5)
+        vec_top = []
+        for p in vector_points[:5]:
+            payload = p.payload or {}
+            doc_id = payload.get("doc_id", "?")
+            chunk_id = str(p.id)[:8] if p.id else "?"
+            vec_top.append(f"{doc_id}:{chunk_id}")
+
+        # Run keyword retrieval
+        kw_results = keyword_retrieve(query=query, tenant_id=tenant_id, limit=10)
+
+        # Extract keyword result summary (top 5)
+        kw_top = []
+        for r in kw_results[:5]:
+            doc_id = r.get("doc_id", "?")
+            chunk_id = str(r.get("chunk_id", "?"))[:8]
+            kw_top.append(f"{doc_id}:{chunk_id}")
+
+        # Calculate overlap (chunk_ids present in both)
+        vec_chunk_ids = {str(p.id) for p in vector_points if p.id}
+        kw_chunk_ids = {r.get("chunk_id") for r in kw_results if r.get("chunk_id")}
+        overlap_count = len(vec_chunk_ids & kw_chunk_ids)
+
+        # Truncate query for logging (max 80 chars)
+        query_log = query[:80] + "..." if len(query) > 80 else query
+        query_log = query_log.replace("\n", " ").replace("|", "/")
+
+        # Single structured log line
+        logger.info(
+            f"kw_compare | rid={query_id} | query=\"{query_log}\" | "
+            f"vec_count={len(vector_points)} | vec_top=[{', '.join(vec_top)}] | "
+            f"kw_count={len(kw_results)} | kw_top=[{', '.join(kw_top)}] | "
+            f"overlap={overlap_count}"
+        )
+
+    except Exception as e:
+        # Fail-open: log warning, do not affect main flow
+        logger.warning(
+            f"kw_compare failed | rid={query_id} | err={type(e).__name__}: {e}"
+        )
 
 
 def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None):
@@ -237,6 +301,15 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         retrieve_count = settings.retrieval_limit
 
     points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id)
+
+    # Phase B: Keyword retrieval comparison logging (does NOT affect responses)
+    if settings.keyword_retrieval_logging_enabled:
+        _log_keyword_comparison(
+            query_id=query_id,
+            query=query,
+            tenant_id=tenant_id or settings.default_tenant_id,
+            vector_points=points,
+        )
 
     if not points:
         logger.debug(

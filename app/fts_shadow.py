@@ -1,16 +1,17 @@
 """
 FTS Shadow Index module.
 
-Provides shadow Postgres Full-Text Search indexing of chunks
-during ingestion, behind a feature flag.
+Provides shadow Postgres Full-Text Search indexing and retrieval.
 
-IMPORTANT: This module affects WRITES ONLY.
-- It does NOT affect retrieval or /ask endpoints.
-- It does NOT change any read path behavior.
-- FTS_SHADOW_ENABLED=false means zero Postgres interaction here.
+Phase A (FTS_SHADOW_ENABLED):
+- Shadow writes during ingestion
+- Fail-open, no retrieval behavior change
 
-Phase A: Shadow insert only (fail-open, log on error).
-Failure never interrupts Qdrant ingestion.
+Phase B (KEYWORD_RETRIEVAL_LOGGING_ENABLED):
+- Keyword retrieval for comparison logging only
+- Does NOT affect /ask responses
+- Does NOT change user-visible behavior
+- Fail-open: Postgres errors are logged, vector-only continues
 """
 import time
 
@@ -138,6 +139,102 @@ def upsert_chunks_to_fts(
         )
         sentry_sdk.capture_exception(e)
         return False
+
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+# =============================================================================
+# Phase B: Keyword Retrieval (Logging Only)
+# =============================================================================
+
+def keyword_retrieve(
+    query: str,
+    tenant_id: str,
+    limit: int = 10,
+) -> list[dict]:
+    """
+    Retrieve chunks from Postgres FTS for comparison logging.
+
+    Phase B: This function is for LOGGING ONLY.
+    - Results are NOT used in /ask responses
+    - Results are NOT merged with vector results
+    - Failure returns empty list (fail-open)
+
+    Args:
+        query: User query string
+        tenant_id: Tenant identifier for filtering
+        limit: Maximum number of results (default 10)
+
+    Returns:
+        List of dicts with keys: chunk_id, doc_id, rank
+        Empty list on error (fail-open).
+    """
+    if not settings.keyword_retrieval_logging_enabled:
+        return []
+
+    if not query or not query.strip():
+        return []
+
+    fqtn = _get_fts_table_fqtn()
+    conn = None
+
+    try:
+        conn = _get_fts_connection()
+        if conn is None:
+            logger.warning(
+                f"keyword_retrieve failed | table={fqtn} | tenant={tenant_id} | "
+                f"err=DATABASE_URL not configured"
+            )
+            return []
+
+        cursor = conn.cursor()
+
+        # FTS query using websearch_to_tsquery for natural language parsing
+        # Rank using ts_rank_cd (cover density ranking)
+        # Match against combined title + text tsvector
+        retrieve_sql = f"""
+            SELECT
+                chunk_id,
+                doc_id,
+                ts_rank_cd(
+                    to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, '')),
+                    websearch_to_tsquery('english', %s)
+                ) AS rank
+            FROM {fqtn}
+            WHERE tenant_id = %s
+              AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, ''))
+                  @@ websearch_to_tsquery('english', %s)
+            ORDER BY rank DESC
+            LIMIT %s
+        """
+
+        cursor.execute(retrieve_sql, (query, tenant_id, query, limit))
+        rows = cursor.fetchall()
+
+        results = []
+        for row in rows:
+            results.append({
+                "chunk_id": row[0],
+                "doc_id": row[1],
+                "rank": float(row[2]) if row[2] is not None else 0.0,
+            })
+
+        return results
+
+    except Exception as e:
+        err_name = type(e).__name__
+        err_msg = str(e).replace("\n", " ")[:200]
+        logger.warning(
+            f"keyword_retrieve failed | table={fqtn} | tenant={tenant_id} | "
+            f"err={err_name}: {err_msg}"
+        )
+        # Fail-open: return empty, do not raise
+        return []
 
     finally:
         if conn is not None:
