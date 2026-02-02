@@ -10,7 +10,7 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from app.config import settings
 from app.logging_config import get_logger
-from app.qdrant_client import client as qdrant_client
+from app.qdrant_client import client as qdrant_client, retrieve_points_by_ids
 from app.models import AskResponse, Source, Citation
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 from app.keyword_retrieval import keyword_retrieve
@@ -330,30 +330,66 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
             else:
                 # Convert Qdrant points to chunk dicts for fusion
                 vec_chunks = []
+                vec_ids = set()
                 for p in points:
                     payload = p.payload or {}
+                    point_id = str(p.id)
+                    vec_ids.add(point_id)
                     vec_chunks.append({
-                        "point_id": str(p.id),
+                        "point_id": point_id,
                         "text": payload.get("text", ""),
                         "doc_id": payload.get("doc_id", "unknown"),
                         "payload": payload,
                     })
 
-                # Fuse with RRF
+                # Phase C.1: Fetch keyword-only chunks for recall rescue
+                kw_ids = {r.get("chunk_id") for r in kw_results if r.get("chunk_id")}
+                kw_only_ids = list(kw_ids - vec_ids)
+                kw_only_chunks = []
+
+                if kw_only_ids:
+                    # Cap to HYBRID_KW_ONLY_FETCH_K to bound latency
+                    fetch_ids = kw_only_ids[:settings.hybrid_kw_only_fetch_k]
+                    try:
+                        fetched_points = retrieve_points_by_ids(fetch_ids)
+                        for p in fetched_points:
+                            payload = p.payload or {}
+                            # Only include if payload has text
+                            if payload.get("text"):
+                                kw_only_chunks.append({
+                                    "point_id": str(p.id),
+                                    "text": payload.get("text", ""),
+                                    "doc_id": payload.get("doc_id", "unknown"),
+                                    "payload": payload,
+                                })
+                    except Exception as e:
+                        # Fail-open: log warning, continue without keyword-only chunks
+                        logger.warning(
+                            f"[{query_id}] hybrid kw_only fetch failed | "
+                            f"tenant_id={effective_tenant_id} | "
+                            f"requested={len(fetch_ids)} | err={type(e).__name__}: {e}"
+                        )
+                        # kw_only_chunks remains empty
+
+                # Fuse with RRF (including keyword-only chunks if fetched)
                 fused_chunks, fusion_stats = rrf_fuse(
                     vec_chunks=vec_chunks,
                     kw_results=kw_results,
                     rrf_k=settings.hybrid_rrf_k,
                     fused_k=settings.hybrid_fused_k,
+                    kw_only_chunks=kw_only_chunks if kw_only_chunks else None,
                 )
 
-                if not fused_chunks or fusion_stats.overlap == 0:
-                    # No overlap: log and continue with vector-only
+                if not fused_chunks:
+                    # No fused chunks: log and continue with vector-only
                     logger.info(
                         f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
-                        f"applied=false | reason=no_overlap | "
+                        f"applied=false | reason=no_fused | "
                         f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
-                        f"overlap=0"
+                        f"overlap={fusion_stats.overlap} | "
+                        f"kw_only_requested={fusion_stats.kw_only_requested} | "
+                        f"kw_only_fetched={fusion_stats.kw_only_fetched} | "
+                        f"kw_only_missing={fusion_stats.kw_only_missing}"
                     )
                 else:
                     # Fusion applied successfully
@@ -370,6 +406,9 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                         f"applied=true | "
                         f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
                         f"overlap={fusion_stats.overlap} | fused_count={fusion_stats.fused_count} | "
+                        f"kw_only_requested={fusion_stats.kw_only_requested} | "
+                        f"kw_only_fetched={fusion_stats.kw_only_fetched} | "
+                        f"kw_only_missing={fusion_stats.kw_only_missing} | "
                         f"fused_top=[{', '.join(fused_top)}]"
                     )
 

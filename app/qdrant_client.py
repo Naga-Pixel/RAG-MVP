@@ -149,6 +149,31 @@ def upsert_points(
             sentry_sdk.capture_exception(e)
 
 
+def retrieve_points_by_ids(point_ids: list[str]) -> list:
+    """
+    Retrieve points from Qdrant by their IDs.
+
+    Used by hybrid fusion to fetch keyword-only chunks that weren't
+    in the vector search results.
+
+    Args:
+        point_ids: List of point UUIDs to retrieve.
+
+    Returns:
+        List of Qdrant Record objects with id, payload, and vector.
+        Points not found are silently omitted from results.
+    """
+    if not point_ids:
+        return []
+
+    return client.retrieve(
+        collection_name=settings.qdrant_collection,
+        ids=point_ids,
+        with_payload=True,
+        with_vectors=False,  # We only need payload for context
+    )
+
+
 def upsert_chunks(chunks: list[dict], vectors: list[list[float]]) -> None:
     """
     Upsert chunks with their embeddings into Qdrant.

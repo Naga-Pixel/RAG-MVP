@@ -39,6 +39,10 @@ class FusionStats:
     vec_only: int   # Chunks appearing only in vector results
     kw_only: int    # Chunks appearing only in keyword results
     overlap: int    # Chunks appearing in both
+    # Phase C.1: Recall rescue stats
+    kw_only_requested: int = 0   # Keyword-only IDs requested from Qdrant
+    kw_only_fetched: int = 0     # Successfully fetched with valid payload
+    kw_only_missing: int = 0     # Not found or missing payload
 
 
 def rrf_fuse(
@@ -46,6 +50,7 @@ def rrf_fuse(
     kw_results: list[dict],
     rrf_k: int = 60,
     fused_k: int = 20,
+    kw_only_chunks: list[dict] | None = None,
 ) -> tuple[list[FusedChunk], FusionStats]:
     """
     Fuse vector and keyword results using Reciprocal Rank Fusion.
@@ -65,6 +70,9 @@ def rrf_fuse(
             - rank (float): FTS rank score (not used in RRF, position matters)
         rrf_k: RRF constant k (default 60)
         fused_k: Number of top fused results to return
+        kw_only_chunks: Optional keyword-only chunks fetched from Qdrant (Phase C.1).
+            Same format as vec_chunks. These are chunks that appeared in keyword
+            results but not in vector results, fetched separately for recall rescue.
 
     Returns:
         Tuple of (fused_chunks, stats):
@@ -77,6 +85,14 @@ def rrf_fuse(
         point_id = chunk.get("point_id", "")
         if point_id:
             vec_lookup[point_id] = chunk
+
+    # Build lookup for keyword-only chunks (Phase C.1 recall rescue)
+    kw_only_lookup: dict[str, dict] = {}
+    if kw_only_chunks:
+        for chunk in kw_only_chunks:
+            point_id = chunk.get("point_id", "")
+            if point_id:
+                kw_only_lookup[point_id] = chunk
 
     # Build lookup for keyword results by chunk_id
     kw_lookup: dict[str, dict] = {}
@@ -109,7 +125,7 @@ def rrf_fuse(
     fused_chunks: list[FusedChunk] = []
 
     for point_id, score in rrf_scores.items():
-        # Get chunk data from vector results (preferred) or construct minimal from keyword
+        # Get chunk data from vector results (preferred), keyword-only fetched, or skip
         if point_id in vec_lookup:
             chunk = vec_lookup[point_id]
             fused_chunks.append(FusedChunk(
@@ -121,12 +137,19 @@ def rrf_fuse(
                 vec_rank=vec_ranks.get(point_id),
                 kw_rank=kw_ranks.get(point_id),
             ))
-        elif point_id in kw_lookup:
-            # Keyword-only result: we don't have full text, skip it
-            # This is intentional: we need the full chunk text for context
-            # Keyword-only hits would need a separate fetch from Qdrant
-            # For Phase C, we only boost chunks that appear in vector results
-            continue
+        elif point_id in kw_only_lookup:
+            # Phase C.1: Use fetched keyword-only chunk
+            chunk = kw_only_lookup[point_id]
+            fused_chunks.append(FusedChunk(
+                point_id=point_id,
+                text=chunk.get("text", ""),
+                doc_id=chunk.get("doc_id", "unknown"),
+                payload=chunk.get("payload", {}),
+                rrf_score=score,
+                vec_rank=None,  # Not in vector results
+                kw_rank=kw_ranks.get(point_id),
+            ))
+        # else: keyword-only without fetched payload, skip
 
     # Sort by RRF score descending
     fused_chunks.sort(key=lambda c: c.rrf_score, reverse=True)
@@ -137,15 +160,26 @@ def rrf_fuse(
     # Calculate stats
     vec_ids = set(vec_lookup.keys())
     kw_ids = set(kw_lookup.keys())
+    kw_only_ids = kw_ids - vec_ids
     overlap = len(vec_ids & kw_ids)
+
+    # Phase C.1: Calculate recall rescue stats
+    kw_only_requested = len(kw_only_chunks) if kw_only_chunks else 0
+    kw_only_fetched = len(kw_only_lookup)
+    # Missing = IDs we wanted but didn't get (requested but not in lookup)
+    # This happens if Qdrant didn't find them or payload was missing
+    kw_only_missing = kw_only_requested - kw_only_fetched if kw_only_requested > 0 else 0
 
     stats = FusionStats(
         vec_count=len(vec_chunks),
         kw_count=len(kw_results),
         fused_count=len(fused_chunks),
         vec_only=len(vec_ids - kw_ids),
-        kw_only=len(kw_ids - vec_ids),
+        kw_only=len(kw_only_ids),
         overlap=overlap,
+        kw_only_requested=kw_only_requested,
+        kw_only_fetched=kw_only_fetched,
+        kw_only_missing=kw_only_missing,
     )
 
     return fused_chunks, stats

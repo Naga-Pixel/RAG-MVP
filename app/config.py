@@ -127,6 +127,11 @@ class Settings(BaseSettings):
         alias="HYBRID_FUSED_K",
         description="Number of fused candidates to pass to reranker/final selection",
     )
+    hybrid_kw_only_fetch_k: int = Field(
+        default=10,
+        alias="HYBRID_KW_ONLY_FETCH_K",
+        description="Max keyword-only chunks to fetch from Qdrant for recall rescue",
+    )
 
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
