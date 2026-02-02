@@ -308,6 +308,8 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
 
     # Phase C: Hybrid fusion with RRF (when enabled)
     hybrid_applied = False
+    vec_count = len(points) if points else 0
+
     if settings.hybrid_enabled and points:
         try:
             # Get keyword results
@@ -317,7 +319,15 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                 limit=settings.hybrid_kw_k,
             )
 
-            if kw_results:
+            kw_count = len(kw_results)
+
+            if not kw_results:
+                # Keyword empty: log and continue with vector-only
+                logger.info(
+                    f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                    f"applied=false | reason=kw_empty | vec_count={vec_count} | kw_count=0"
+                )
+            else:
                 # Convert Qdrant points to chunk dicts for fusion
                 vec_chunks = []
                 for p in points:
@@ -337,18 +347,33 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                     fused_k=settings.hybrid_fused_k,
                 )
 
-                # Log hybrid fusion stats
-                logger.debug(
-                    f"[{query_id}] hybrid_fuse | "
-                    f"vec={fusion_stats.vec_count} | kw={fusion_stats.kw_count} | "
-                    f"overlap={fusion_stats.overlap} | fused={fusion_stats.fused_count}"
-                )
-
-                # Convert fused chunks back to point-like objects for downstream processing
-                # Create minimal point-like objects that work with existing code
-                if fused_chunks:
+                if not fused_chunks or fusion_stats.overlap == 0:
+                    # No overlap: log and continue with vector-only
+                    logger.info(
+                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                        f"applied=false | reason=no_overlap | "
+                        f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
+                        f"overlap=0"
+                    )
+                else:
+                    # Fusion applied successfully
                     hybrid_applied = True
 
+                    # Build fused_top for logging (top 5: doc_id:chunk_id)
+                    fused_top = [
+                        f"{fc.doc_id}:{fc.point_id[:8]}"
+                        for fc in fused_chunks[:5]
+                    ]
+
+                    logger.info(
+                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                        f"applied=true | "
+                        f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
+                        f"overlap={fusion_stats.overlap} | fused_count={fusion_stats.fused_count} | "
+                        f"fused_top=[{', '.join(fused_top)}]"
+                    )
+
+                    # Convert fused chunks back to point-like objects for downstream processing
                     # Create a simple class to mimic Qdrant points
                     class HybridPoint:
                         def __init__(self, fused: FusedChunk):
@@ -361,15 +386,16 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                     points = [HybridPoint(fc) for fc in fused_chunks]
 
         except Exception as e:
-            # Fail-open: log warning, continue with vector-only
-            logger.warning(
-                f"[{query_id}] hybrid_fuse failed | err={type(e).__name__}: {e}"
+            # Fail-open: log and continue with vector-only
+            logger.info(
+                f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                f"applied=false | reason=error | err={type(e).__name__}: {e} | fallback=vector"
             )
             # points remains unchanged (vector-only fallback)
 
     # Phase B: Keyword retrieval comparison logging (does NOT affect responses)
-    # Skip if hybrid already ran keyword retrieval
-    if settings.keyword_retrieval_logging_enabled and not hybrid_applied:
+    # Skip entirely when hybrid is enabled (hybrid logs replace kw_compare)
+    if settings.keyword_retrieval_logging_enabled and not settings.hybrid_enabled:
         _log_keyword_comparison(
             query_id=query_id,
             query=query,
