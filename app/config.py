@@ -98,6 +98,36 @@ class Settings(BaseSettings):
         description="Enable keyword retrieval logging for vector/keyword comparison (Phase B, logging only)",
     )
 
+    # Phase C: Hybrid retrieval with RRF fusion
+    # NOTE: When enabled, fuses vector and keyword results using Reciprocal Rank Fusion.
+    # Fail-open: keyword errors fall back to vector-only.
+    # Preserves existing reranker and citation behavior.
+    hybrid_enabled: bool = Field(
+        default=False,
+        alias="HYBRID_ENABLED",
+        description="Enable hybrid retrieval with RRF fusion (Phase C)",
+    )
+    hybrid_rrf_k: int = Field(
+        default=60,
+        alias="HYBRID_RRF_K",
+        description="RRF constant k (score = 1/(k + rank))",
+    )
+    hybrid_vec_k: int = Field(
+        default=12,
+        alias="HYBRID_VEC_K",
+        description="Number of vector candidates for hybrid fusion",
+    )
+    hybrid_kw_k: int = Field(
+        default=10,
+        alias="HYBRID_KW_K",
+        description="Number of keyword candidates for hybrid fusion",
+    )
+    hybrid_fused_k: int = Field(
+        default=20,
+        alias="HYBRID_FUSED_K",
+        description="Number of fused candidates to pass to reranker/final selection",
+    )
+
     # Multi-tenancy
     default_tenant_id: str = Field(default="default", alias="DEFAULT_TENANT_ID")
 

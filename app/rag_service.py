@@ -14,6 +14,7 @@ from app.qdrant_client import client as qdrant_client
 from app.models import AskResponse, Source, Citation
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 from app.keyword_retrieval import keyword_retrieve
+from app.hybrid import rrf_fuse, FusedChunk
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
@@ -292,9 +293,12 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
     """
     # Generate query ID for logging
     query_id = str(uuid.uuid4())[:8]
+    effective_tenant_id = tenant_id or settings.default_tenant_id
 
-    # Determine retrieval count based on rerank settings
-    if settings.rerank_enabled:
+    # Determine retrieval count based on hybrid/rerank settings
+    if settings.hybrid_enabled:
+        retrieve_count = settings.hybrid_vec_k
+    elif settings.rerank_enabled:
         retrieve_count = settings.retrieve_k
     else:
         # When rerank disabled, use retrieval_limit for backwards compatibility
@@ -302,19 +306,81 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
 
     points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id)
 
+    # Phase C: Hybrid fusion with RRF (when enabled)
+    hybrid_applied = False
+    if settings.hybrid_enabled and points:
+        try:
+            # Get keyword results
+            kw_results = keyword_retrieve(
+                query=query,
+                tenant_id=effective_tenant_id,
+                limit=settings.hybrid_kw_k,
+            )
+
+            if kw_results:
+                # Convert Qdrant points to chunk dicts for fusion
+                vec_chunks = []
+                for p in points:
+                    payload = p.payload or {}
+                    vec_chunks.append({
+                        "point_id": str(p.id),
+                        "text": payload.get("text", ""),
+                        "doc_id": payload.get("doc_id", "unknown"),
+                        "payload": payload,
+                    })
+
+                # Fuse with RRF
+                fused_chunks, fusion_stats = rrf_fuse(
+                    vec_chunks=vec_chunks,
+                    kw_results=kw_results,
+                    rrf_k=settings.hybrid_rrf_k,
+                    fused_k=settings.hybrid_fused_k,
+                )
+
+                # Log hybrid fusion stats
+                logger.debug(
+                    f"[{query_id}] hybrid_fuse | "
+                    f"vec={fusion_stats.vec_count} | kw={fusion_stats.kw_count} | "
+                    f"overlap={fusion_stats.overlap} | fused={fusion_stats.fused_count}"
+                )
+
+                # Convert fused chunks back to point-like objects for downstream processing
+                # Create minimal point-like objects that work with existing code
+                if fused_chunks:
+                    hybrid_applied = True
+
+                    # Create a simple class to mimic Qdrant points
+                    class HybridPoint:
+                        def __init__(self, fused: FusedChunk):
+                            self.id = fused.point_id
+                            self.payload = fused.payload
+                            self.payload["text"] = fused.text
+                            self.payload["doc_id"] = fused.doc_id
+                            self.score = fused.rrf_score
+
+                    points = [HybridPoint(fc) for fc in fused_chunks]
+
+        except Exception as e:
+            # Fail-open: log warning, continue with vector-only
+            logger.warning(
+                f"[{query_id}] hybrid_fuse failed | err={type(e).__name__}: {e}"
+            )
+            # points remains unchanged (vector-only fallback)
+
     # Phase B: Keyword retrieval comparison logging (does NOT affect responses)
-    if settings.keyword_retrieval_logging_enabled:
+    # Skip if hybrid already ran keyword retrieval
+    if settings.keyword_retrieval_logging_enabled and not hybrid_applied:
         _log_keyword_comparison(
             query_id=query_id,
             query=query,
-            tenant_id=tenant_id or settings.default_tenant_id,
+            tenant_id=effective_tenant_id,
             vector_points=points,
         )
 
     if not points:
         logger.debug(
             f"[{query_id}] RAG retrieval | "
-            f"rerank_enabled={settings.rerank_enabled} | "
+            f"hybrid={hybrid_applied} | rerank_enabled={settings.rerank_enabled} | "
             f"retrieved=0 | final=0 | selected=[]"
         )
         return AskResponse(
@@ -351,7 +417,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         # ONE structured debug log per request
         logger.debug(
             f"[{query_id}] RAG retrieval | "
-            f"rerank_enabled=True | "
+            f"hybrid={hybrid_applied} | rerank_enabled=True | "
             f"retrieved={stats.input_count} | "
             f"after_dedup={stats.after_dedup} | "
             f"after_diversity={stats.after_diversity} | "
@@ -372,7 +438,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         # ONE structured debug log per request
         logger.debug(
             f"[{query_id}] RAG retrieval | "
-            f"rerank_enabled=False | "
+            f"hybrid={hybrid_applied} | rerank_enabled=False | "
             f"retrieved={len(points)} | "
             f"final={len(chosen)} | "
             f"selected={selected}"
