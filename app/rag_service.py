@@ -11,7 +11,7 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
 from app.config import settings
 from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client, retrieve_points_by_ids
-from app.models import AskResponse, Source, Citation, ScopeMetadata
+from app.models import AskResponse, Source, Citation, ScopeMetadata, SearchSuggestions
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 from app.keyword_retrieval import keyword_retrieve
 from app.hybrid import rrf_fuse, FusedChunk
@@ -393,6 +393,83 @@ def filter_cited_sources(sources: list[Source], citations: list[Citation]) -> li
                 cited_sources.append(source)
 
     return cited_sources
+
+
+def extract_topics_from_sources(sources: list[Source], max_topics: int = 5) -> list[str]:
+    """
+    Extract key topics/themes from retrieved source snippets.
+
+    Uses simple keyword extraction based on capitalized phrases and
+    frequent meaningful terms. No LLM call needed.
+
+    Args:
+        sources: List of Source objects with snippets
+        max_topics: Maximum number of topics to return
+
+    Returns:
+        List of topic strings extracted from the content
+    """
+    if not sources:
+        return []
+
+    # Combine all snippets
+    all_text = " ".join(s.snippet or "" for s in sources)
+
+    # Extract capitalized phrases (likely proper nouns, concepts)
+    # Match 1-3 word capitalized phrases
+    cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b'
+    capitalized = re.findall(cap_pattern, all_text)
+
+    # Count occurrences and filter common words
+    stopwords = {
+        'The', 'This', 'That', 'These', 'Those', 'There', 'Here',
+        'What', 'When', 'Where', 'Which', 'Who', 'How', 'Why',
+        'And', 'But', 'Or', 'So', 'If', 'Then', 'Because',
+        'About', 'After', 'Before', 'During', 'From', 'Into',
+        'Through', 'With', 'Without', 'Between', 'Among',
+        'Also', 'Just', 'Only', 'Even', 'Still', 'Already',
+        'However', 'Therefore', 'Moreover', 'Furthermore',
+        'According', 'Based', 'Given', 'Using', 'Including',
+    }
+
+    topic_counts = {}
+    for term in capitalized:
+        if term not in stopwords and len(term) > 2:
+            topic_counts[term] = topic_counts.get(term, 0) + 1
+
+    # Sort by frequency and take top N
+    sorted_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)
+    topics = [t[0] for t in sorted_topics[:max_topics]]
+
+    return topics
+
+
+def is_not_found_response(answer: str) -> bool:
+    """
+    Check if the answer indicates nothing was found.
+
+    Args:
+        answer: The LLM's answer text
+
+    Returns:
+        True if the answer indicates no information was found
+    """
+    not_found_patterns = [
+        r"not found in the documents",
+        r"not found in the transcripts",
+        r"couldn't find.*in the (documents|transcripts)",
+        r"could not find.*in the (documents|transcripts)",
+        r"no (relevant )?information (was )?found",
+        r"unable to find",
+        r"don't have (any )?(information|data) (about|on|regarding)",
+    ]
+
+    answer_lower = answer.lower()
+    for pattern in not_found_patterns:
+        if re.search(pattern, answer_lower):
+            return True
+
+    return False
 
 
 def build_context(points):
@@ -859,6 +936,36 @@ def answer_question(
             reason=scope_reason,
         )
 
+    # Build suggestions if answer indicates "not found"
+    suggestions = None
+    if is_not_found_response(answer):
+        # Extract topics from retrieved context
+        topics = extract_topics_from_sources(sources)
+
+        # Get unique document titles
+        doc_titles = list(set(s.title for s in sources if s.title))[:5]
+
+        # Check if scope was applied
+        has_scope = bool(folder_id or doc_ids)
+        scope_hint = None
+        if has_scope:
+            if folder_id:
+                scope_hint = "Try searching across all folders"
+            elif doc_ids:
+                scope_hint = "Try searching across all documents"
+
+        suggestions = SearchSuggestions(
+            topics=topics,
+            doc_titles=doc_titles,
+            has_scope=has_scope,
+            scope_hint=scope_hint,
+        )
+
+        logger.debug(
+            f"[{query_id}] Not found - suggestions | topics={topics[:3]} | "
+            f"doc_titles={doc_titles[:2]} | has_scope={has_scope}"
+        )
+
     return AskResponse(
         answer=answer,
         sources=sources,  # Unchanged for backwards compatibility
@@ -866,4 +973,5 @@ def answer_question(
         sources_cited=sources_cited,
         sources_retrieved=sources,
         scope=scope_metadata,
+        suggestions=suggestions,
     )

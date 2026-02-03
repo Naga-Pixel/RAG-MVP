@@ -38,6 +38,14 @@ class ScopeMetadata(BaseModel):
     reason: str = ""
 
 
+class SearchSuggestions(BaseModel):
+    """Suggestions to help users refine their search when no answer is found."""
+    topics: list[str] = Field(default_factory=list)  # Key topics from retrieved chunks
+    doc_titles: list[str] = Field(default_factory=list)  # Titles of documents that were searched
+    has_scope: bool = False  # Whether a scope filter was applied
+    scope_hint: str | None = None  # Hint like "Try searching all documents"
+
+
 class AskResponse(BaseModel):
     answer: str
     sources: list[Source]  # Retrieved sources (unchanged for backwards compatibility)
@@ -45,4 +53,5 @@ class AskResponse(BaseModel):
     sources_cited: list[Source] = Field(default_factory=list)  # Subset of sources that were actually cited
     sources_retrieved: list[Source] = Field(default_factory=list)  # All retrieved sources
     scope: ScopeMetadata | None = None  # Scope metadata for transparency
+    suggestions: SearchSuggestions | None = None  # Suggestions when answer not found
 

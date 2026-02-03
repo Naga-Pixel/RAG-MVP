@@ -592,6 +592,71 @@
             display: none;
         }
 
+        /* Search suggestions box */
+        .suggestions-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--qa-bg);
+            border: 1px dashed var(--qa-border);
+            border-radius: 10px;
+        }
+        .suggestions-header {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--qa-text-muted);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .suggestions-hint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--accent-glow);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .suggestions-hint:hover {
+            background: rgba(3, 255, 133, 0.25);
+        }
+        .suggestions-hint svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+        .suggestions-topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .suggestion-topic {
+            background: var(--qa-bg-secondary);
+            border: 1px solid var(--qa-border);
+            border-radius: 9999px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8rem;
+            color: var(--qa-text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .suggestion-topic:hover {
+            border-color: var(--accent);
+            color: var(--qa-text);
+        }
+        .suggestions-docs {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--qa-text-muted);
+        }
+        .suggestions-docs span {
+            color: var(--qa-text-secondary);
+        }
+
         footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
         footer a { color: var(--text-secondary); text-decoration: none; }
         footer a:hover { color: var(--accent); }
@@ -1939,6 +2004,57 @@
                 `;
             }
 
+            // Build suggestions HTML if available
+            let suggestionsHtml = '';
+            if (data.suggestions) {
+                const { topics, doc_titles, has_scope, scope_hint } = data.suggestions;
+
+                let suggestionsContent = '';
+
+                // Scope hint (clickable to clear scope)
+                if (scope_hint) {
+                    suggestionsContent += `
+                        <div class="suggestions-hint" onclick="document.getElementById('doc-clear-btn').click();">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 6 6 18"></path>
+                                <path d="m6 6 12 12"></path>
+                            </svg>
+                            ${escapeHtml(scope_hint)}
+                        </div>
+                    `;
+                }
+
+                // Topic suggestions (clickable to search)
+                if (topics && topics.length > 0) {
+                    const topicChips = topics.map(t => `
+                        <span class="suggestion-topic" onclick="document.getElementById('query').value = '${escapeHtml(t)}'; document.getElementById('query').focus();">
+                            ${escapeHtml(t)}
+                        </span>
+                    `).join('');
+                    suggestionsContent += `
+                        <div class="suggestions-topics">${topicChips}</div>
+                    `;
+                }
+
+                // Document titles that were searched
+                if (doc_titles && doc_titles.length > 0) {
+                    suggestionsContent += `
+                        <div class="suggestions-docs">
+                            Documents searched: <span>${doc_titles.map(t => escapeHtml(t)).join(', ')}</span>
+                        </div>
+                    `;
+                }
+
+                if (suggestionsContent) {
+                    suggestionsHtml = `
+                        <div class="suggestions-box">
+                            <div class="suggestions-header">Try instead</div>
+                            ${suggestionsContent}
+                        </div>
+                    `;
+                }
+            }
+
             const messageHtml = `
                 <div class="chat-message assistant">
                     <div class="answer-card">
@@ -1950,6 +2066,7 @@
                             Oku
                         </div>
                         <div class="answer-text">${escapeHtml(data.answer)}</div>
+                        ${suggestionsHtml}
                         ${sourcesHtml}
                     </div>
                 </div>
