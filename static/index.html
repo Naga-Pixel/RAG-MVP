@@ -335,6 +335,30 @@
             background: var(--qa-bg-secondary);
             color: var(--qa-text);
         }
+        .doc-clear-btn {
+            background: transparent;
+            border: 1px solid var(--qa-border);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            color: var(--qa-text-muted);
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .doc-clear-btn:hover {
+            border-color: var(--qa-text-secondary);
+            color: var(--qa-text);
+        }
+        .doc-clear-btn.hidden {
+            display: none;
+        }
+        .active-doc-indicator {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-left: 0.25rem;
+        }
 
         /* General hint styling (for light sections) */
         .hint { font-size: 0.85rem; color: var(--text-muted); }
@@ -538,6 +562,7 @@
                 <select id="doc-selector" class="doc-selector">
                     <option value="">All documents</option>
                 </select>
+                <button id="doc-clear-btn" class="doc-clear-btn hidden" title="Clear active document">Clear</button>
             </div>
             <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
             <div class="search-footer">
@@ -715,6 +740,10 @@
         const submitBtn = document.getElementById('submit');
         const resultsDiv = document.getElementById('results');
         const docSelector = document.getElementById('doc-selector');
+        const docClearBtn = document.getElementById('doc-clear-btn');
+
+        // LocalStorage key for active document persistence
+        const ACTIVE_DOC_KEY = 'oku_active_doc_id';
 
         // Google Drive elements
         const driveNotConnected = document.getElementById('drive-not-connected');
@@ -875,6 +904,49 @@
         // =================================================================
         // Document Selector (for scoped queries)
         // =================================================================
+
+        // Update Clear button visibility based on selection
+        function updateDocClearButton() {
+            if (docSelector.value) {
+                docClearBtn.classList.remove('hidden');
+            } else {
+                docClearBtn.classList.add('hidden');
+            }
+        }
+
+        // Save active document to localStorage
+        function saveActiveDoc(docId) {
+            if (docId) {
+                localStorage.setItem(ACTIVE_DOC_KEY, docId);
+            } else {
+                localStorage.removeItem(ACTIVE_DOC_KEY);
+            }
+            updateDocClearButton();
+        }
+
+        // Restore active document from localStorage
+        function restoreActiveDoc() {
+            const savedDocId = localStorage.getItem(ACTIVE_DOC_KEY);
+            if (savedDocId) {
+                // Check if the saved doc exists in the dropdown
+                const optionExists = Array.from(docSelector.options).some(opt => opt.value === savedDocId);
+                if (optionExists) {
+                    docSelector.value = savedDocId;
+                } else {
+                    // Saved doc no longer exists, clear it
+                    localStorage.removeItem(ACTIVE_DOC_KEY);
+                }
+            }
+            updateDocClearButton();
+        }
+
+        // Clear active document
+        function clearActiveDoc() {
+            docSelector.value = '';
+            localStorage.removeItem(ACTIVE_DOC_KEY);
+            updateDocClearButton();
+        }
+
         async function loadDocuments() {
             try {
                 const docs = await apiFetch('/documents');
@@ -892,11 +964,25 @@
                     }
                     docSelector.appendChild(option);
                 }
+
+                // Restore active document from localStorage after populating dropdown
+                restoreActiveDoc();
             } catch (err) {
                 // Fail-open: if document list fails, user can still query all docs
                 console.warn('Failed to load document list:', err);
+                // Still try to restore (won't find match, but that's OK)
+                updateDocClearButton();
             }
         }
+
+        // Event listeners for document selector
+        docSelector.addEventListener('change', () => {
+            saveActiveDoc(docSelector.value);
+        });
+
+        docClearBtn.addEventListener('click', () => {
+            clearActiveDoc();
+        });
 
         function showAuthStatus(message, type) {
             authStatus.textContent = message;
