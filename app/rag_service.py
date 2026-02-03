@@ -510,14 +510,18 @@ def answer_question(
         # Try to resolve scope from query text
         resolved = resolve_scope_from_query(query, effective_tenant_id)
 
-        if resolved.confidence >= 0.8:
-            # High confidence: auto-apply scope
+        if resolved.confidence >= 0.65:
+            # High enough confidence: auto-apply scope
             folder_id = resolved.folder_id
             resolved_folder_name = resolved.folder_name
             doc_ids = resolved.doc_ids
             scope_source = "auto"
             scope_confidence = resolved.confidence
             scope_reason = resolved.reason
+            logger.info(
+                f"[{query_id}] scope_auto_applied | confidence={resolved.confidence:.2f} | "
+                f"reason={resolved.reason} | folder={resolved.folder_id} | docs={resolved.doc_ids}"
+            )
         elif resolved.confidence > 0:
             # Low confidence: log suggestion but don't apply
             scope_reason = f"suggestion:{resolved.reason}"

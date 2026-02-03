@@ -35,19 +35,24 @@ class ResolvedScope:
 
 
 # Patterns to detect scope phrases in queries
+# Order matters - more specific patterns first
 SCOPE_PATTERNS = [
     # Folder patterns
     (r"in (?:the )?folder ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "folder"),
     (r"within (?:the )?folder ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "folder"),
     (r"from (?:the )?folder ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "folder"),
     (r"in (?:the )?['\"]?([^'\"]+?)['\"]? folder(?:\s|,|\.|$)", "folder"),
-    # Document patterns
-    (r"in (?:the )?document ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
-    (r"use only ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
+    # Document patterns - transcript/contract suffix (greedy capture)
+    (r"(?:look |search )?in (?:the )?['\"]?(.+?)['\"]? transcript", "document"),
+    (r"(?:look |search )?in (?:the )?['\"]?(.+?)['\"]? contract", "document"),
+    (r"(?:look |search )?in (?:the )?['\"]?(.+?)['\"]? document", "document"),
+    # Document patterns - prefix forms
+    (r"(?:look |search )?in (?:the )?document ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
+    (r"(?:look |search )?in (?:the )?transcript ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
+    (r"use (?:only )?['\"]?(.+?)['\"]?(?:\s+transcript|\s+document)?(?:\s|,|\.|$)", "document"),
     (r"from (?:the )?document ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
     (r"within (?:the )?document ['\"]?([^'\"]+?)['\"]?(?:\s|,|\.|$)", "document"),
-    (r"in ['\"]?([^'\"]+?)['\"]? transcript(?:\s|,|\.|$)", "document"),
-    (r"in ['\"]?([^'\"]+?)['\"]? contract(?:\s|,|\.|$)", "document"),
+    (r"only (?:in |from )?(?:the )?['\"]?(.+?)['\"]?(?:\s+transcript|\s+document)", "document"),
 ]
 
 
@@ -65,9 +70,12 @@ def _extract_scope_phrase(query: str) -> tuple[str | None, str]:
         match = re.search(pattern, query_lower, re.IGNORECASE)
         if match:
             extracted = match.group(1).strip()
-            # Clean up common suffixes
+            # Clean up common suffixes and prefixes
             extracted = re.sub(r'\s+(folder|document|transcript|contract)$', '', extracted, flags=re.IGNORECASE)
+            extracted = re.sub(r'^(the|a)\s+', '', extracted, flags=re.IGNORECASE)
+            extracted = extracted.strip()
             if extracted and len(extracted) >= 2:
+                logger.debug(f"scope_extract | pattern={pattern[:30]}... | extracted={extracted}")
                 return extracted, scope_type
 
     return None, "none"
@@ -86,21 +94,33 @@ def _fuzzy_match_score(needle: str, haystack: str) -> float:
     if needle_lower == haystack_lower:
         return 1.0
 
-    # Contains match
+    # Contains match (needle in haystack)
     if needle_lower in haystack_lower:
-        return 0.8 + (len(needle_lower) / len(haystack_lower)) * 0.15
+        return 0.85 + (len(needle_lower) / len(haystack_lower)) * 0.1
 
+    # Contains match (haystack in needle)
     if haystack_lower in needle_lower:
-        return 0.7 + (len(haystack_lower) / len(needle_lower)) * 0.15
+        return 0.75 + (len(haystack_lower) / len(needle_lower)) * 0.1
 
-    # Word overlap
+    # Word overlap - more generous scoring
     needle_words = set(needle_lower.split())
     haystack_words = set(haystack_lower.split())
+
+    # Remove common stopwords for better matching
+    stopwords = {'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for'}
+    needle_words = needle_words - stopwords
+    haystack_words = haystack_words - stopwords
+
     if needle_words and haystack_words:
         overlap = len(needle_words & haystack_words)
-        total = len(needle_words | haystack_words)
-        if overlap > 0:
-            return 0.5 + (overlap / total) * 0.3
+        # Score based on how much of the needle is covered
+        needle_coverage = overlap / len(needle_words) if needle_words else 0
+        if overlap >= 2:
+            # Multiple word overlap is strong signal
+            return 0.7 + needle_coverage * 0.25
+        elif overlap == 1 and len(needle_words) <= 2:
+            # Single word overlap OK for short queries
+            return 0.65 + needle_coverage * 0.15
 
     return 0.0
 
