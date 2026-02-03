@@ -23,6 +23,154 @@ client = OpenAI(api_key=settings.openai_api_key)
 # Matches: [doc_id], [doc_id:12], [doc_id#12]
 CITATION_PATTERN = re.compile(r"\[(?P<doc>[A-Za-z0-9_\-]+)(?:(?:#|:)(?P<chunk>\d+))?\]")
 
+# =============================================================================
+# Answer Mode Gating (Contract vs Transcript)
+# =============================================================================
+
+# Patterns to detect contract-like documents
+CONTRACT_PATTERNS = [
+    r"\b(agreement|contract|terms|conditions|whereas|hereby)\b",
+    r"\b(shall|must|obligat|warrant|indemnif|liabil)\b",
+    r"\b(party|parties|signator|witness|notary)\b",
+    r"\b(effective date|termination|breach|remedy)\b",
+    r"\b(governing law|jurisdiction|arbitration)\b",
+    r"\bsection\s+\d+(\.\d+)*\b",
+]
+
+# Patterns to detect transcript-like documents
+TRANSCRIPT_PATTERNS = [
+    r"^\s*[A-Z][a-z]+\s*:\s+",  # Speaker: dialogue pattern
+    r"\[(speaker|host|guest|\d{1,2}:\d{2})\]",
+    r"\b(interview|transcript|conversation|podcast|episode)\b",
+    r"\b(said|asked|replied|responded|mentioned)\b.*:",
+    r"^\s*Q:\s+|^\s*A:\s+",  # Q&A format
+]
+
+
+def _detect_doc_type(text: str, title: str | None = None) -> str:
+    """
+    Detect document type from content and title.
+
+    Returns:
+        "contract", "transcript", or "unknown"
+    """
+    sample = (text[:3000] + " " + (title or "")).lower()
+
+    contract_score = sum(
+        1 for pattern in CONTRACT_PATTERNS
+        if re.search(pattern, sample, re.IGNORECASE | re.MULTILINE)
+    )
+
+    transcript_score = sum(
+        1 for pattern in TRANSCRIPT_PATTERNS
+        if re.search(pattern, sample, re.IGNORECASE | re.MULTILINE)
+    )
+
+    # Require at least 2 matches for confidence
+    if contract_score >= 2 and contract_score > transcript_score:
+        return "contract"
+    elif transcript_score >= 2 and transcript_score > contract_score:
+        return "transcript"
+
+    return "unknown"
+
+
+def _determine_answer_mode(sources: list, doc_ids_scope: list[str] | None = None) -> tuple[str, str]:
+    """
+    Determine answer mode based on document types in retrieved sources.
+
+    Rules:
+    - Contract Mode if ANY retrieved doc is contract-like
+    - Transcript Mode only if ALL retrieved docs are transcript-like
+      OR user explicitly scoped to transcript doc_ids
+    - Default to Contract Mode if mixed/unknown
+
+    Args:
+        sources: List of Source objects with doc_id, title, snippet
+        doc_ids_scope: Optional user-specified doc_ids for scoped queries
+
+    Returns:
+        Tuple of (answer_mode, mode_reason)
+    """
+    if not sources:
+        return "contract", "no_sources"
+
+    # Detect types for each unique doc
+    doc_types = {}
+    for s in sources:
+        if s.doc_id not in doc_types:
+            # Use snippet as sample text (full text not available here)
+            doc_types[s.doc_id] = _detect_doc_type(s.snippet or "", s.title)
+
+    type_counts = {"contract": 0, "transcript": 0, "unknown": 0}
+    for doc_type in doc_types.values():
+        type_counts[doc_type] += 1
+
+    # Rule 1: If ANY contract-like doc, use Contract Mode
+    if type_counts["contract"] > 0:
+        return "contract", f"contract_detected({type_counts['contract']})"
+
+    # Rule 2: If ALL are transcript-like, use Transcript Mode
+    if type_counts["transcript"] > 0 and type_counts["unknown"] == 0:
+        return "transcript", f"all_transcript({type_counts['transcript']})"
+
+    # Rule 3: If user explicitly scoped and majority are transcripts
+    if doc_ids_scope and type_counts["transcript"] > type_counts["unknown"]:
+        return "transcript", f"scoped_transcript({type_counts['transcript']})"
+
+    # Default: Contract Mode (safe default)
+    return "contract", f"default_safe(unknown={type_counts['unknown']})"
+
+
+# System prompts for each answer mode
+CONTRACT_MODE_PROMPT = (
+    "You are a retrieval-augmented assistant with STRICT grounding requirements.\n\n"
+    "You MUST follow these rules exactly:\n\n"
+    "1. Use ONLY the provided document context to answer the user's question.\n"
+    "   Do NOT use general knowledge, assumptions, or prior training.\n\n"
+    "2. Every factual claim in your answer MUST be directly supported by at least one\n"
+    "   source from the provided context.\n\n"
+    "3. Cite sources at the end of each factual sentence using the exact source\n"
+    "   identifier as provided in the context (do not invent identifiers).\n\n"
+    "4. If the answer is NOT explicitly found in the provided documents, respond with\n"
+    "   exactly:\n"
+    '   "Not found in the documents."\n\n'
+    "5. Do NOT infer, extrapolate, guess, or fill in missing details.\n"
+    "   If something is implied but not stated, treat it as NOT found.\n\n"
+    "6. If the question is ambiguous or underspecified, ask a clarifying question\n"
+    "   instead of answering.\n\n"
+    "7. Do NOT hallucinate information. If you cannot support a claim with a source,\n"
+    "   you must not include it.\n\n"
+    "Notes:\n"
+    "- Only factual claims require citations.\n"
+    '- Clarifying questions and the response "Not found in the documents." do NOT\n'
+    "  require citations.\n"
+    "- Keep answers concise and focused on the user's question."
+)
+
+TRANSCRIPT_MODE_PROMPT = (
+    "You are a retrieval-augmented assistant analyzing transcript/conversation content.\n\n"
+    "You may synthesize information across multiple chunks, but MUST remain grounded.\n\n"
+    "Rules:\n\n"
+    "1. Use ONLY the provided document context. Do NOT use external knowledge.\n\n"
+    "2. You MAY synthesize and connect information across chunks to form a coherent answer.\n\n"
+    "3. Cite sources using the exact identifiers provided in the context.\n"
+    "   For direct quotes or explicit statements, cite the specific source.\n\n"
+    "4. For INFERRED or synthesized conclusions:\n"
+    "   - Use hedging language: 'suggests', 'appears to', 'seems to indicate'\n"
+    "   - When possible, support inferences with evidence from 2+ chunks\n"
+    "   - If only one chunk supports an inference, mark it as tentative\n\n"
+    "5. Attribute statements to speakers when speaker information is available.\n"
+    "   Example: 'According to [Speaker], ...' or '[Speaker] mentioned that...'\n\n"
+    "6. If information is NOT found in the transcripts, respond with:\n"
+    '   "Not found in the transcripts."\n\n'
+    "7. Do NOT hallucinate or invent information not grounded in the context.\n\n"
+    "Notes:\n"
+    "- Synthesis across chunks is allowed for transcripts.\n"
+    "- Always distinguish between explicit statements and inferences.\n"
+    "- Keep answers focused on the user's question."
+)
+
 
 def _log_keyword_comparison(
     query_id: str,
@@ -547,33 +695,22 @@ def answer_question(
 
         context, sources = build_context(points)
 
+    # Determine answer mode based on document types
+    answer_mode, mode_reason = _determine_answer_mode(sources, doc_ids)
+
+    # Log answer mode selection
+    logger.info(
+        f"[{query_id}] answer_mode | mode={answer_mode} | reason={mode_reason} | "
+        f"sources={len(sources)}{scope_log}"
+    )
+
+    # Select system prompt based on answer mode
+    system_prompt = CONTRACT_MODE_PROMPT if answer_mode == "contract" else TRANSCRIPT_MODE_PROMPT
+
     messages = [
         {
             "role": "system",
-            "content": (
-                "You are a retrieval-augmented assistant with strict grounding requirements.\n\n"
-                "You MUST follow these rules exactly:\n\n"
-                "1. Use ONLY the provided document context to answer the user's question.\n"
-                "   Do NOT use general knowledge, assumptions, or prior training.\n\n"
-                "2. Every factual claim in your answer MUST be directly supported by at least one\n"
-                "   source from the provided context.\n\n"
-                "3. Cite sources at the end of each factual sentence using the exact source\n"
-                "   identifier as provided in the context (do not invent identifiers).\n\n"
-                "4. If the answer is NOT explicitly found in the provided documents, respond with\n"
-                "   exactly:\n"
-                '   "Not found in the documents."\n\n'
-                "5. Do NOT infer, extrapolate, guess, or fill in missing details.\n"
-                "   If something is implied but not stated, treat it as NOT found.\n\n"
-                "6. If the question is ambiguous or underspecified, ask a clarifying question\n"
-                "   instead of answering.\n\n"
-                "7. Do NOT hallucinate information. If you cannot support a claim with a source,\n"
-                "   you must not include it.\n\n"
-                "Notes:\n"
-                "- Only factual claims require citations.\n"
-                '- Clarifying questions and the response "Not found in the documents." do NOT\n'
-                "  require citations.\n"
-                "- Keep answers concise and focused on the user's question."
-            ),
+            "content": system_prompt,
         },
         {
             "role": "user",
