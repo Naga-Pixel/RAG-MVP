@@ -142,14 +142,15 @@ CONTRACT_MODE_PROMPT = (
     "   instead of answering.\n\n"
     "7. Do NOT hallucinate information. If you cannot support a claim with a source,\n"
     "   you must not include it.\n\n"
-    "8. Do NOT perform calculations, arithmetic, or mathematical operations.\n"
-    "   If the user asks you to calculate, compute, add, subtract, multiply, divide,\n"
-    "   find percentages, averages, totals, or any derived numerical values:\n"
-    '   - Respond with: "I cannot perform calculations. I can only retrieve and cite\n'
-    '     information that is explicitly stated in the documents."\n'
-    "   - You MAY surface relevant numbers or data points found in the documents,\n"
-    "     but you MUST NOT perform any operations on them.\n"
-    "   - Suggest the user use a calculator or spreadsheet for numerical analysis.\n\n"
+    "8. Do NOT perform calculations, counting, or any numerical derivation.\n"
+    "   If the user asks you to count, tally, sum, calculate, compute, add, subtract,\n"
+    "   multiply, divide, find percentages, averages, totals, or derive any number\n"
+    "   that is not explicitly stated in the documents:\n"
+    '   - Respond with: "I cannot count or calculate. I can only retrieve numbers\n'
+    '     that are explicitly stated in the documents."\n'
+    "   - You MAY cite numbers that appear verbatim in the documents.\n"
+    "   - You MUST NOT count rows, items, occurrences, or mentions.\n"
+    "   - Suggest the user use a spreadsheet for counting or calculations.\n\n"
     "Notes:\n"
     "- Only factual claims require citations.\n"
     '- Clarifying questions and the response "Not found in the documents." do NOT\n'
@@ -174,14 +175,15 @@ TRANSCRIPT_MODE_PROMPT = (
     "6. If information is NOT found in the transcripts, respond with:\n"
     '   "Not found in the transcripts."\n\n'
     "7. Do NOT hallucinate or invent information not grounded in the context.\n\n"
-    "8. Do NOT perform calculations, arithmetic, or mathematical operations.\n"
-    "   If the user asks you to calculate, compute, add, subtract, multiply, divide,\n"
-    "   find percentages, averages, totals, or any derived numerical values:\n"
-    '   - Respond with: "I cannot perform calculations. I can only retrieve and cite\n'
-    '     information that is explicitly stated in the transcripts."\n'
-    "   - You MAY surface relevant numbers or data points found in the transcripts,\n"
-    "     but you MUST NOT perform any operations on them.\n"
-    "   - Suggest the user use a calculator or spreadsheet for numerical analysis.\n\n"
+    "8. Do NOT perform calculations, counting, or any numerical derivation.\n"
+    "   If the user asks you to count, tally, sum, calculate, compute, add, subtract,\n"
+    "   multiply, divide, find percentages, averages, totals, or derive any number\n"
+    "   that is not explicitly stated in the transcripts:\n"
+    '   - Respond with: "I cannot count or calculate. I can only retrieve numbers\n'
+    '     that are explicitly stated in the transcripts."\n'
+    "   - You MAY cite numbers that appear verbatim in the transcripts.\n"
+    "   - You MUST NOT count rows, items, occurrences, or mentions.\n"
+    "   - Suggest the user use a spreadsheet for counting or calculations.\n\n"
     "Notes:\n"
     "- Synthesis across chunks is allowed for transcripts.\n"
     "- Always distinguish between explicit statements and inferences.\n"
