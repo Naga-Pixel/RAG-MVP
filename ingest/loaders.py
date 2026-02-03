@@ -68,37 +68,58 @@ def load_docx(path: Path) -> str:
 def load_xlsx(path: Path) -> tuple[str, list[dict]]:
     """
     Load Excel workbook and extract text from all sheets.
-    
+
     Returns:
         Tuple of (full text content, list of sheet metadata dicts)
         Each sheet's content is prefixed with the sheet name.
+
+    Note: Uses explicit cell iteration to capture pivot table display areas,
+    which may not be included by default iter_rows().
     """
     if load_workbook is None:
         raise ImportError("openpyxl is required for Excel loading. Install with: pip install openpyxl")
-    
-    wb = load_workbook(path, data_only=True)  # data_only=True to get computed values, not formulas
+
+    # Load with data_only=True to get computed/cached values instead of formulas
+    wb = load_workbook(path, data_only=True)
     all_texts = []
     sheet_metadata = []
-    
+
     for sheet_name in wb.sheetnames:
         sheet = wb[sheet_name]
         sheet_texts = []
-        
-        for row in sheet.iter_rows():
+
+        # Get explicit bounds - max_row/max_column include pivot table areas
+        max_row = sheet.max_row or 0
+        max_col = sheet.max_column or 0
+
+        if max_row == 0 or max_col == 0:
+            # Empty sheet, skip
+            continue
+
+        # Iterate with explicit bounds to ensure we capture all cells
+        # including pivot table display areas
+        for row in sheet.iter_rows(min_row=1, max_row=max_row,
+                                   min_col=1, max_col=max_col):
             cell_values = []
             for cell in row:
                 if cell.value is not None:
                     cell_values.append(str(cell.value))
-            
+
             if cell_values:  # Skip empty rows
                 row_text = "\t".join(cell_values)
                 sheet_texts.append(row_text)
-        
+
+        # Check if sheet has pivot tables and note it in metadata
+        has_pivot = len(getattr(sheet, '_pivots', [])) > 0
+
         if sheet_texts:
             sheet_content = f"[Sheet: {sheet_name}]\n" + "\n".join(sheet_texts)
             all_texts.append(sheet_content)
-            sheet_metadata.append({"sheet_name": sheet_name})
-    
+            sheet_metadata.append({
+                "sheet_name": sheet_name,
+                "has_pivot_table": has_pivot,
+            })
+
     wb.close()
     return "\n\n".join(all_texts), sheet_metadata
 
@@ -194,7 +215,10 @@ def load_docx_from_bytes(data: bytes) -> str:
 
 
 def load_xlsx_from_bytes(data: bytes) -> tuple[str, list[dict]]:
-    """Load Excel workbook from bytes and extract text from all sheets."""
+    """Load Excel workbook from bytes and extract text from all sheets.
+
+    Note: Uses explicit cell iteration to capture pivot table display areas.
+    """
     if load_workbook is None:
         raise ImportError("openpyxl is required for Excel loading. Install with: pip install openpyxl")
 
@@ -206,7 +230,16 @@ def load_xlsx_from_bytes(data: bytes) -> tuple[str, list[dict]]:
         sheet = wb[sheet_name]
         sheet_texts = []
 
-        for row in sheet.iter_rows():
+        # Get explicit bounds - max_row/max_column include pivot table areas
+        max_row = sheet.max_row or 0
+        max_col = sheet.max_column or 0
+
+        if max_row == 0 or max_col == 0:
+            continue
+
+        # Iterate with explicit bounds to capture pivot table display areas
+        for row in sheet.iter_rows(min_row=1, max_row=max_row,
+                                   min_col=1, max_col=max_col):
             cell_values = []
             for cell in row:
                 if cell.value is not None:
@@ -216,10 +249,15 @@ def load_xlsx_from_bytes(data: bytes) -> tuple[str, list[dict]]:
                 row_text = "\t".join(cell_values)
                 sheet_texts.append(row_text)
 
+        has_pivot = len(getattr(sheet, '_pivots', [])) > 0
+
         if sheet_texts:
             sheet_content = f"[Sheet: {sheet_name}]\n" + "\n".join(sheet_texts)
             all_texts.append(sheet_content)
-            sheet_metadata.append({"sheet_name": sheet_name})
+            sheet_metadata.append({
+                "sheet_name": sheet_name,
+                "has_pivot_table": has_pivot,
+            })
 
     wb.close()
     return "\n\n".join(all_texts), sheet_metadata
