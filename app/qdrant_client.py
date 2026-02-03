@@ -125,8 +125,11 @@ def upsert_points(
                 # doc_id remains as fallback
             # else: no doc_id in payloads, doc_id remains as fallback
 
-            # Extract title from first point (all chunks share same doc title)
-            title = (points[0].payload or {}).get("title") if points else None
+            # Extract title and folder info from first point (all chunks share same doc metadata)
+            first_payload = (points[0].payload or {}) if points else {}
+            title = first_payload.get("title")
+            folder_id = first_payload.get("folder_id")
+            folder_name = first_payload.get("folder_name")
 
             fts_chunks = []
             for pt in points:
@@ -138,7 +141,14 @@ def upsert_points(
                 })
 
             # Single FTS write per document (all chunks in one call)
-            upsert_chunks_to_fts(fts_chunks, tenant_id, doc_id, ingest_id)
+            upsert_chunks_to_fts(
+                fts_chunks,
+                tenant_id,
+                doc_id,
+                ingest_id,
+                folder_id=folder_id,
+                folder_name=folder_name,
+            )
 
         except Exception as e:
             # Fail-open: log, capture to Sentry, continue (never raise)

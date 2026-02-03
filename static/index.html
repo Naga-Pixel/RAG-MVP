@@ -359,6 +359,33 @@
             color: var(--accent);
             margin-left: 0.25rem;
         }
+        .scope-indicator {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+        .scope-indicator.visible {
+            display: flex;
+        }
+        .scope-indicator svg {
+            width: 14px;
+            height: 14px;
+        }
+        .scope-indicator .scope-text {
+            flex: 1;
+        }
+        .scope-indicator .scope-auto {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-left: 0.25rem;
+        }
 
         /* General hint styling (for light sections) */
         .hint { font-size: 0.85rem; color: var(--text-muted); }
@@ -559,10 +586,19 @@
         <div class="search-box">
             <div class="doc-selector-row">
                 <span class="doc-selector-label">Search in:</span>
+                <select id="folder-selector" class="doc-selector" style="max-width: 180px;">
+                    <option value="">All folders</option>
+                </select>
                 <select id="doc-selector" class="doc-selector">
                     <option value="">All documents</option>
                 </select>
-                <button id="doc-clear-btn" class="doc-clear-btn hidden" title="Clear active document">Clear</button>
+                <button id="doc-clear-btn" class="doc-clear-btn hidden" title="Clear scope">Clear</button>
+            </div>
+            <div id="scope-indicator" class="scope-indicator">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="scope-text" id="scope-text">Scoped to: </span>
             </div>
             <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
             <div class="search-footer">
@@ -739,11 +775,18 @@
         const queryInput = document.getElementById('query');
         const submitBtn = document.getElementById('submit');
         const resultsDiv = document.getElementById('results');
+        const folderSelector = document.getElementById('folder-selector');
         const docSelector = document.getElementById('doc-selector');
         const docClearBtn = document.getElementById('doc-clear-btn');
+        const scopeIndicator = document.getElementById('scope-indicator');
+        const scopeText = document.getElementById('scope-text');
 
-        // LocalStorage key for active document persistence
+        // LocalStorage keys for active scope persistence
+        const ACTIVE_FOLDER_KEY = 'oku_active_folder_id';
         const ACTIVE_DOC_KEY = 'oku_active_doc_id';
+
+        // Cache for all documents (used when filtering by folder)
+        let allDocuments = [];
 
         // Google Drive elements
         const driveNotConnected = document.getElementById('drive-not-connected');
@@ -894,6 +937,7 @@
                 userEmailSpan.textContent = session.user.email;
                 showAppView();
                 refreshDriveStatus();
+                loadFolders();    // Load folder list for scoped queries
                 loadDocuments();  // Load document list for scoped queries
             } else {
                 userEmailSpan.textContent = '';
@@ -902,16 +946,48 @@
         }
 
         // =================================================================
-        // Document Selector (for scoped queries)
+        // Folder & Document Selector (for scoped queries)
         // =================================================================
 
-        // Update Clear button visibility based on selection
-        function updateDocClearButton() {
-            if (docSelector.value) {
+        // Update Clear button and scope indicator visibility
+        function updateScopeUI() {
+            const hasFolder = folderSelector.value !== '';
+            const hasDoc = docSelector.value !== '';
+
+            // Show clear button if any scope is set
+            if (hasFolder || hasDoc) {
                 docClearBtn.classList.remove('hidden');
             } else {
                 docClearBtn.classList.add('hidden');
             }
+
+            // Update scope indicator
+            if (hasFolder || hasDoc) {
+                scopeIndicator.classList.add('visible');
+                let text = 'Scoped to: ';
+                if (hasFolder) {
+                    const folderOption = folderSelector.options[folderSelector.selectedIndex];
+                    text += folderOption.textContent.split(' (')[0];
+                }
+                if (hasDoc) {
+                    if (hasFolder) text += ' → ';
+                    const docOption = docSelector.options[docSelector.selectedIndex];
+                    text += docOption.textContent.split(' (')[0];
+                }
+                scopeText.textContent = text;
+            } else {
+                scopeIndicator.classList.remove('visible');
+            }
+        }
+
+        // Save active folder to localStorage
+        function saveActiveFolder(folderId) {
+            if (folderId) {
+                localStorage.setItem(ACTIVE_FOLDER_KEY, folderId);
+            } else {
+                localStorage.removeItem(ACTIVE_FOLDER_KEY);
+            }
+            updateScopeUI();
         }
 
         // Save active document to localStorage
@@ -921,67 +997,127 @@
             } else {
                 localStorage.removeItem(ACTIVE_DOC_KEY);
             }
-            updateDocClearButton();
+            updateScopeUI();
+        }
+
+        // Restore active folder from localStorage
+        function restoreActiveFolder() {
+            const savedFolderId = localStorage.getItem(ACTIVE_FOLDER_KEY);
+            if (savedFolderId) {
+                const optionExists = Array.from(folderSelector.options).some(opt => opt.value === savedFolderId);
+                if (optionExists) {
+                    folderSelector.value = savedFolderId;
+                    // Filter documents by this folder
+                    filterDocumentsByFolder(savedFolderId);
+                } else {
+                    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+                }
+            }
         }
 
         // Restore active document from localStorage
         function restoreActiveDoc() {
             const savedDocId = localStorage.getItem(ACTIVE_DOC_KEY);
             if (savedDocId) {
-                // Check if the saved doc exists in the dropdown
                 const optionExists = Array.from(docSelector.options).some(opt => opt.value === savedDocId);
                 if (optionExists) {
                     docSelector.value = savedDocId;
                 } else {
-                    // Saved doc no longer exists, clear it
                     localStorage.removeItem(ACTIVE_DOC_KEY);
                 }
             }
-            updateDocClearButton();
+            updateScopeUI();
         }
 
-        // Clear active document
-        function clearActiveDoc() {
+        // Clear all scope
+        function clearScope() {
+            folderSelector.value = '';
+            docSelector.value = '';
+            localStorage.removeItem(ACTIVE_FOLDER_KEY);
+            localStorage.removeItem(ACTIVE_DOC_KEY);
+            // Restore full document list
+            populateDocumentSelector(allDocuments);
+            updateScopeUI();
+        }
+
+        // Filter documents by folder
+        function filterDocumentsByFolder(folderId) {
+            if (!folderId) {
+                populateDocumentSelector(allDocuments);
+            } else {
+                const filtered = allDocuments.filter(doc => doc.folder_id === folderId);
+                populateDocumentSelector(filtered);
+            }
+            // Clear doc selection when folder changes
             docSelector.value = '';
             localStorage.removeItem(ACTIVE_DOC_KEY);
-            updateDocClearButton();
         }
 
-        async function loadDocuments() {
-            try {
-                const docs = await apiFetch('/documents');
-
-                // Clear existing options except "All documents"
-                docSelector.innerHTML = '<option value="">All documents</option>';
-
-                // Add document options
-                for (const doc of docs) {
-                    const option = document.createElement('option');
-                    option.value = doc.doc_id;
-                    option.textContent = doc.title || doc.doc_id;
-                    if (doc.chunk_count) {
-                        option.textContent += ` (${doc.chunk_count} chunks)`;
-                    }
-                    docSelector.appendChild(option);
+        // Populate document selector with given docs
+        function populateDocumentSelector(docs) {
+            docSelector.innerHTML = '<option value="">All documents</option>';
+            for (const doc of docs) {
+                const option = document.createElement('option');
+                option.value = doc.doc_id;
+                option.textContent = doc.title || doc.doc_id;
+                if (doc.chunk_count) {
+                    option.textContent += ` (${doc.chunk_count} chunks)`;
                 }
-
-                // Restore active document from localStorage after populating dropdown
-                restoreActiveDoc();
-            } catch (err) {
-                // Fail-open: if document list fails, user can still query all docs
-                console.warn('Failed to load document list:', err);
-                // Still try to restore (won't find match, but that's OK)
-                updateDocClearButton();
+                docSelector.appendChild(option);
             }
         }
 
-        // Event listeners for document selector
+        // Load folders
+        async function loadFolders() {
+            try {
+                const folders = await apiFetch('/folders');
+
+                folderSelector.innerHTML = '<option value="">All folders</option>';
+
+                for (const folder of folders) {
+                    const option = document.createElement('option');
+                    option.value = folder.folder_id;
+                    option.textContent = folder.folder_name || folder.folder_id;
+                    if (folder.doc_count) {
+                        option.textContent += ` (${folder.doc_count} docs)`;
+                    }
+                    folderSelector.appendChild(option);
+                }
+            } catch (err) {
+                console.warn('Failed to load folder list:', err);
+            }
+        }
+
+        // Load documents
+        async function loadDocuments() {
+            try {
+                const docs = await apiFetch('/documents');
+                allDocuments = docs;
+
+                populateDocumentSelector(docs);
+
+                // Restore active folder first (will filter docs)
+                restoreActiveFolder();
+                // Then restore active doc
+                restoreActiveDoc();
+            } catch (err) {
+                console.warn('Failed to load document list:', err);
+                updateScopeUI();
+            }
+        }
+
+        // Event listeners for folder/document selectors
+        folderSelector.addEventListener('change', () => {
+            saveActiveFolder(folderSelector.value);
+            filterDocumentsByFolder(folderSelector.value);
+        });
+
         docSelector.addEventListener('change', () => {
             saveActiveDoc(docSelector.value);
         });
 
         docClearBtn.addEventListener('click', () => {
-            clearActiveDoc();
+            clearScope();
         });
 
         function showAuthStatus(message, type) {
@@ -1545,17 +1681,33 @@
 
             submitBtn.disabled = true;
 
-            // Build request body with optional doc_ids for scoped queries
+            // Build request body with optional folder_id and doc_ids for scoped queries
+            const selectedFolderId = folderSelector.value;
             const selectedDocId = docSelector.value;
             const requestBody = { query };
+            if (selectedFolderId) {
+                requestBody.folder_id = selectedFolderId;
+            }
             if (selectedDocId) {
                 requestBody.doc_ids = [selectedDocId];
             }
 
-            const scopeText = selectedDocId
-                ? `Searching in "${docSelector.options[docSelector.selectedIndex].text.split(' (')[0]}"...`
-                : 'Searching all documents...';
-            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>${escapeHtml(scopeText)}</span></div>`;
+            // Build loading message
+            let loadingText = 'Searching';
+            if (selectedFolderId || selectedDocId) {
+                loadingText += ' in ';
+                if (selectedFolderId) {
+                    loadingText += `"${folderSelector.options[folderSelector.selectedIndex].text.split(' (')[0]}"`;
+                }
+                if (selectedDocId) {
+                    if (selectedFolderId) loadingText += ' → ';
+                    loadingText += `"${docSelector.options[docSelector.selectedIndex].text.split(' (')[0]}"`;
+                }
+            } else {
+                loadingText += ' all documents';
+            }
+            loadingText += '...';
+            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>${escapeHtml(loadingText)}</span></div>`;
 
             try {
                 const data = await apiFetch('/ask', {

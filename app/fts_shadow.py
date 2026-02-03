@@ -49,6 +49,8 @@ def upsert_chunks_to_fts(
     tenant_id: str,
     doc_id: str,
     ingest_id: str,
+    folder_id: str | None = None,
+    folder_name: str | None = None,
 ) -> bool:
     """
     Upsert chunks to Postgres FTS shadow table (doc-scoped).
@@ -63,6 +65,8 @@ def upsert_chunks_to_fts(
         tenant_id: Tenant identifier
         doc_id: Document identifier (all chunks share this)
         ingest_id: Unique identifier for this ingest operation
+        folder_id: Optional folder identifier
+        folder_name: Optional folder name
 
     Returns:
         True if successful, False on failure.
@@ -94,7 +98,7 @@ def upsert_chunks_to_fts(
 
         cursor = conn.cursor()
 
-        # Prepare all values: (tenant_id, chunk_id, doc_id, title, text)
+        # Prepare all values: (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name)
         values = []
         for chunk in chunks:
             values.append((
@@ -103,16 +107,21 @@ def upsert_chunks_to_fts(
                 doc_id,
                 chunk.get("title"),
                 str(chunk.get("text", "")),
+                folder_id,
+                folder_name,
             ))
 
         # Build upsert SQL with fully-qualified table name
+        # Note: folder_id and folder_name columns must exist in the table
         upsert_sql = f"""
-            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text)
+            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name)
             VALUES %s
             ON CONFLICT (tenant_id, chunk_id) DO UPDATE SET
                 doc_id = EXCLUDED.doc_id,
                 title = EXCLUDED.title,
-                text = EXCLUDED.text
+                text = EXCLUDED.text,
+                folder_id = EXCLUDED.folder_id,
+                folder_name = EXCLUDED.folder_name
         """
 
         # Upsert in internal batches (no per-batch logging)
@@ -125,7 +134,7 @@ def upsert_chunks_to_fts(
 
         logger.info(
             f"fts_shadow_upsert ok | table={fqtn} | tenant={tenant_id} | doc_id={doc_id} | "
-            f"chunks={chunk_count} | ms={elapsed_ms} | ingest_id={ingest_id}"
+            f"folder={folder_id} | chunks={chunk_count} | ms={elapsed_ms} | ingest_id={ingest_id}"
         )
         return True
 

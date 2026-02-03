@@ -38,6 +38,7 @@ def keyword_retrieve(
     query: str,
     tenant_id: str,
     limit: int = 10,
+    folder_id: str | None = None,
     doc_ids: list[str] | None = None,
 ) -> list[dict]:
     """
@@ -50,10 +51,11 @@ def keyword_retrieve(
         query: User query string
         tenant_id: Tenant identifier for filtering
         limit: Maximum number of results (default 10)
+        folder_id: Optional folder_id to restrict search to (hard scoping)
         doc_ids: Optional list of doc_ids to restrict search to (hard scoping)
 
     Returns:
-        List of dicts with keys: chunk_id, doc_id, rank
+        List of dicts with keys: chunk_id, doc_id, rank, folder_id
         Empty list on error (fail-open).
     """
     # Allow keyword retrieval when hybrid is enabled OR logging is enabled
@@ -77,13 +79,16 @@ def keyword_retrieve(
 
         cursor = conn.cursor()
 
-        # Build SQL with optional doc_ids filter
+        # Build SQL with optional folder_id and doc_ids filters
         params = [query, tenant_id, query]
 
-        doc_filter_sql = ""
+        scope_filter_sql = ""
+        if folder_id:
+            scope_filter_sql += " AND folder_id = %s"
+            params.append(folder_id)
         if doc_ids:
             # Use ANY() for efficient array matching
-            doc_filter_sql = " AND doc_id = ANY(%s)"
+            scope_filter_sql += " AND doc_id = ANY(%s)"
             params.append(doc_ids)
 
         params.append(limit)
@@ -98,12 +103,13 @@ def keyword_retrieve(
                 ts_rank_cd(
                     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, '')),
                     websearch_to_tsquery('english', %s)
-                ) AS rank
+                ) AS rank,
+                folder_id
             FROM {fqtn}
             WHERE tenant_id = %s
               AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, ''))
                   @@ websearch_to_tsquery('english', %s)
-              {doc_filter_sql}
+              {scope_filter_sql}
             ORDER BY rank DESC
             LIMIT %s
         """
@@ -117,6 +123,7 @@ def keyword_retrieve(
                 "chunk_id": row[0],
                 "doc_id": row[1],
                 "rank": float(row[2]) if row[2] is not None else 0.0,
+                "folder_id": row[3],
             })
 
         return results

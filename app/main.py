@@ -264,19 +264,57 @@ def get_frontend_config():
 @limiter.limit(settings.rate_limit_ask)
 async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG. Rate limited to prevent API abuse."""
-    return answer_question(body.query, tenant_id=user["user_id"], doc_ids=body.doc_ids)
+    return answer_question(
+        body.query,
+        tenant_id=user["user_id"],
+        folder_id=body.folder_id,
+        doc_ids=body.doc_ids,
+    )
+
+
+class FolderInfo(BaseModel):
+    folder_id: str
+    folder_name: str | None = None
+    doc_count: int = 0
 
 
 class DocumentInfo(BaseModel):
     doc_id: str
     title: str | None = None
     chunk_count: int = 0
+    folder_id: str | None = None
+    folder_name: str | None = None
+
+
+@app.get("/folders", response_model=list[FolderInfo])
+async def list_folders(user: dict = Depends(verify_supabase_token)):
+    """
+    List available folders for the authenticated user (tenant).
+    Used by UI to populate folder selector for scoped queries.
+    """
+    from app.scope_resolver import get_folders
+
+    tenant_id = user["user_id"]
+    folders = get_folders(tenant_id)
+
+    return [
+        FolderInfo(
+            folder_id=f["folder_id"],
+            folder_name=f["folder_name"],
+            doc_count=f["doc_count"],
+        )
+        for f in folders
+    ]
 
 
 @app.get("/documents", response_model=list[DocumentInfo])
-async def list_documents(user: dict = Depends(verify_supabase_token)):
+async def list_documents(
+    folder_id: str | None = None,
+    user: dict = Depends(verify_supabase_token),
+):
     """
     List available documents for the authenticated user (tenant).
+    Optionally filter by folder_id.
     Used by UI to populate document selector for scoped queries.
     """
     import psycopg2
@@ -290,19 +328,37 @@ async def list_documents(user: dict = Depends(verify_supabase_token)):
             cursor = conn.cursor()
 
             fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-            cursor.execute(f"""
-                SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count
-                FROM {fqtn}
-                WHERE tenant_id = %s
-                GROUP BY doc_id
-                ORDER BY MAX(title) NULLS LAST, doc_id
-            """, (tenant_id,))
+
+            if folder_id:
+                cursor.execute(f"""
+                    SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
+                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name
+                    FROM {fqtn}
+                    WHERE tenant_id = %s AND folder_id = %s
+                    GROUP BY doc_id
+                    ORDER BY MAX(title) NULLS LAST, doc_id
+                """, (tenant_id, folder_id))
+            else:
+                cursor.execute(f"""
+                    SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
+                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name
+                    FROM {fqtn}
+                    WHERE tenant_id = %s
+                    GROUP BY doc_id
+                    ORDER BY MAX(title) NULLS LAST, doc_id
+                """, (tenant_id,))
 
             rows = cursor.fetchall()
             conn.close()
 
             return [
-                DocumentInfo(doc_id=row[0], title=row[1], chunk_count=row[2])
+                DocumentInfo(
+                    doc_id=row[0],
+                    title=row[1],
+                    chunk_count=row[2],
+                    folder_id=row[3],
+                    folder_name=row[4],
+                )
                 for row in rows
             ]
         except Exception as e:
@@ -313,20 +369,23 @@ async def list_documents(user: dict = Depends(verify_supabase_token)):
     try:
         from qdrant_client.models import Filter, FieldCondition, MatchValue
 
+        # Build filter conditions
+        must_conditions = [FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+        if folder_id:
+            must_conditions.append(FieldCondition(key="folder_id", match=MatchValue(value=folder_id)))
+
         # Scroll through all points for tenant to get unique doc_ids
         # This is less efficient but works as fallback
-        doc_map = {}  # doc_id -> {title, count}
+        doc_map = {}  # doc_id -> {title, count, folder_id, folder_name}
 
         offset = None
         while True:
             result = qdrant_client.scroll(
                 collection_name=settings.qdrant_collection,
-                scroll_filter=Filter(
-                    must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
-                ),
+                scroll_filter=Filter(must=must_conditions),
                 limit=100,
                 offset=offset,
-                with_payload=["doc_id", "title"],
+                with_payload=["doc_id", "title", "folder_id", "folder_name"],
                 with_vectors=False,
             )
 
@@ -338,16 +397,24 @@ async def list_documents(user: dict = Depends(verify_supabase_token)):
                 payload = p.payload or {}
                 doc_id = payload.get("doc_id", "unknown")
                 title = payload.get("title")
+                f_id = payload.get("folder_id")
+                f_name = payload.get("folder_name")
 
                 if doc_id not in doc_map:
-                    doc_map[doc_id] = {"title": title, "count": 0}
+                    doc_map[doc_id] = {"title": title, "count": 0, "folder_id": f_id, "folder_name": f_name}
                 doc_map[doc_id]["count"] += 1
 
             if offset is None:
                 break
 
         return [
-            DocumentInfo(doc_id=doc_id, title=info["title"], chunk_count=info["count"])
+            DocumentInfo(
+                doc_id=doc_id,
+                title=info["title"],
+                chunk_count=info["count"],
+                folder_id=info["folder_id"],
+                folder_name=info["folder_name"],
+            )
             for doc_id, info in sorted(doc_map.items(), key=lambda x: (x[1]["title"] or "", x[0]))
         ]
 
@@ -570,6 +637,9 @@ async def sync_upload(
     errors = []
     documents = []
 
+    # Generate a stable folder_id from tenant + folder_name
+    folder_id = hashlib.sha256(f"{tenant_id}:{folder_name}".encode()).hexdigest()[:16]
+
     # Filter to supported files only
     supported_files = [
         f for f in files
@@ -600,7 +670,7 @@ async def sync_upload(
                 errors.append(f"Empty content: {filename}")
                 continue
 
-            # Create Document object
+            # Create Document object with folder metadata
             doc = Document(
                 content=text_content,
                 source_type=SourceType.LOCAL_FILE,
@@ -610,6 +680,7 @@ async def sync_upload(
                 external_id=content_hash,
                 metadata={
                     "original_filename": filename,
+                    "folder_id": folder_id,
                     "folder_name": folder_name,
                     **extra_metadata,
                 },

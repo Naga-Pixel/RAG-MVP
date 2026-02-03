@@ -11,10 +11,11 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
 from app.config import settings
 from app.logging_config import get_logger
 from app.qdrant_client import client as qdrant_client, retrieve_points_by_ids
-from app.models import AskResponse, Source, Citation
+from app.models import AskResponse, Source, Citation, ScopeMetadata
 from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 from app.keyword_retrieval import keyword_retrieve
 from app.hybrid import rrf_fuse, FusedChunk
+from app.scope_resolver import resolve_scope_from_query, ResolvedScope
 
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
@@ -239,6 +240,7 @@ def retrieve(
     query: str,
     top_k: int | None = None,
     tenant_id: str | None = None,
+    folder_id: str | None = None,
     doc_ids: list[str] | None = None,
 ):
     """
@@ -249,6 +251,7 @@ def retrieve(
         query: User query string.
         top_k: Max results to return.
         tenant_id: Tenant filter (required).
+        folder_id: Optional folder_id to restrict search to.
         doc_ids: Optional list of doc_ids to restrict search to.
     """
     if top_k is None:
@@ -276,6 +279,15 @@ def retrieve(
             match=MatchValue(value=tenant_id),
         )
     ]
+
+    # Add folder_id filter if specified (hard folder scoping)
+    if folder_id:
+        must_conditions.append(
+            FieldCondition(
+                key="folder_id",
+                match=MatchValue(value=folder_id),
+            )
+        )
 
     # Add doc_ids filter if specified (hard document scoping)
     if doc_ids:
@@ -402,6 +414,8 @@ def build_context(points):
         doc_id: str = payload.get("doc_id", "unknown")
         title = payload.get("title")
         chunk_id = str(p.id) if p.id else None
+        folder_id = payload.get("folder_id")
+        folder_name = payload.get("folder_name")
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
@@ -412,6 +426,8 @@ def build_context(points):
                 title=title,
                 snippet=snippet,
                 chunk_id=chunk_id,
+                folder_id=folder_id,
+                folder_name=folder_name,
             )
         )
 
@@ -434,6 +450,8 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
         doc_id = chunk.doc_id
         title = chunk.payload.get("title")
         chunk_id = chunk.point_id
+        folder_id = chunk.payload.get("folder_id")
+        folder_name = chunk.payload.get("folder_name")
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
@@ -444,6 +462,8 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
                 title=title,
                 snippet=snippet,
                 chunk_id=chunk_id,
+                folder_id=folder_id,
+                folder_name=folder_name,
             )
         )
 
@@ -454,29 +474,75 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
 def answer_question(
     query: str,
     tenant_id: str | None = None,
+    folder_id: str | None = None,
     doc_ids: list[str] | None = None,
 ) -> AskResponse:
     """
     Full RAG pipeline:
-      1. Retrieve top chunks from Qdrant
-      2. Optionally rerank, deduplicate, and apply diversity
-      3. Build context
-      4. Ask OpenAI to answer using ONLY that context
+      1. Resolve scope (from UI or auto-detect from query)
+      2. Retrieve top chunks from Qdrant
+      3. Optionally rerank, deduplicate, and apply diversity
+      4. Build context
+      5. Ask OpenAI to answer using ONLY that context
 
     Args:
         query: User question.
         tenant_id: Tenant filter.
+        folder_id: Optional folder_id to restrict search to (hard scoping).
         doc_ids: Optional list of doc_ids to restrict search to (hard scoping).
     """
     # Generate query ID for logging
     query_id = str(uuid.uuid4())[:8]
     effective_tenant_id = tenant_id or settings.default_tenant_id
 
-    # Log scope if specified
+    # Initialize scope metadata
+    scope_source = "none"
+    scope_confidence = 0.0
+    scope_reason = ""
+    resolved_folder_name = None
+
+    # If UI provided scope, use it directly
+    if folder_id or doc_ids:
+        scope_source = "ui"
+        scope_confidence = 1.0
+        scope_reason = "ui_explicit"
+    else:
+        # Try to resolve scope from query text
+        resolved = resolve_scope_from_query(query, effective_tenant_id)
+
+        if resolved.confidence >= 0.8:
+            # High confidence: auto-apply scope
+            folder_id = resolved.folder_id
+            resolved_folder_name = resolved.folder_name
+            doc_ids = resolved.doc_ids
+            scope_source = "auto"
+            scope_confidence = resolved.confidence
+            scope_reason = resolved.reason
+        elif resolved.confidence > 0:
+            # Low confidence: log suggestion but don't apply
+            scope_reason = f"suggestion:{resolved.reason}"
+            scope_confidence = resolved.confidence
+            logger.info(
+                f"[{query_id}] scope_suggestion | confidence={resolved.confidence:.2f} | "
+                f"reason={resolved.reason} | folder={resolved.folder_id} | docs={resolved.doc_ids}"
+            )
+
+    # Build scope log string
     scope_log = ""
+    if folder_id:
+        scope_log += f" | scope_folder={folder_id}"
     if doc_ids:
-        scope_log = f" | scope_doc_ids={len(doc_ids)}"
-        logger.debug(f"[{query_id}] Scoped query | doc_ids={doc_ids[:5]}{'...' if len(doc_ids) > 5 else ''}")
+        scope_log += f" | scope_doc_ids={len(doc_ids)}"
+    if scope_source != "none":
+        scope_log += f" | scope_source={scope_source} | scope_confidence={scope_confidence:.2f}"
+        if scope_reason:
+            scope_log += f" | scope_reason={scope_reason}"
+
+    if folder_id or doc_ids:
+        logger.debug(
+            f"[{query_id}] Scoped query | folder_id={folder_id} | "
+            f"doc_ids={doc_ids[:5] if doc_ids else None}{'...' if doc_ids and len(doc_ids) > 5 else ''}"
+        )
 
     # Determine retrieval count based on hybrid/rerank settings
     if settings.hybrid_enabled:
@@ -487,7 +553,7 @@ def answer_question(
         # When rerank disabled, use retrieval_limit for backwards compatibility
         retrieve_count = settings.retrieval_limit
 
-    points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id, doc_ids=doc_ids)
+    points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id, folder_id=folder_id, doc_ids=doc_ids)
 
     # Phase C: Hybrid fusion with RRF (when enabled)
     hybrid_applied = False
@@ -495,11 +561,12 @@ def answer_question(
 
     if settings.hybrid_enabled and points:
         try:
-            # Get keyword results (with doc_ids scope if specified)
+            # Get keyword results (with folder/doc scope if specified)
             kw_results = keyword_retrieve(
                 query=query,
                 tenant_id=effective_tenant_id,
                 limit=settings.hybrid_kw_k,
+                folder_id=folder_id,
                 doc_ids=doc_ids,
             )
 
@@ -762,10 +829,23 @@ def answer_question(
         )
 
 
+    # Build scope metadata for response
+    scope_metadata = None
+    if scope_source != "none":
+        scope_metadata = ScopeMetadata(
+            folder_id=folder_id,
+            folder_name=resolved_folder_name,
+            doc_ids=doc_ids,
+            source=scope_source,
+            confidence=scope_confidence,
+            reason=scope_reason,
+        )
+
     return AskResponse(
         answer=answer,
         sources=sources,  # Unchanged for backwards compatibility
         citations=citations,
         sources_cited=sources_cited,
         sources_retrieved=sources,
+        scope=scope_metadata,
     )
