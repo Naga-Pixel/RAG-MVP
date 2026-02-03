@@ -23,6 +23,7 @@ from app.logging_utils import request_id_ctx, new_request_id
 from app.rag_service import answer_question
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
+from app.qdrant_client import client as qdrant_client
 
 logger = get_logger(__name__)
 
@@ -264,6 +265,95 @@ def get_frontend_config():
 async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG. Rate limited to prevent API abuse."""
     return answer_question(body.query, tenant_id=user["user_id"], doc_ids=body.doc_ids)
+
+
+class DocumentInfo(BaseModel):
+    doc_id: str
+    title: str | None = None
+    chunk_count: int = 0
+
+
+@app.get("/documents", response_model=list[DocumentInfo])
+async def list_documents(user: dict = Depends(verify_supabase_token)):
+    """
+    List available documents for the authenticated user (tenant).
+    Used by UI to populate document selector for scoped queries.
+    """
+    import psycopg2
+
+    tenant_id = user["user_id"]
+
+    # Try Postgres FTS table first (faster for distinct queries)
+    if settings.database_url:
+        try:
+            conn = psycopg2.connect(settings.database_url)
+            cursor = conn.cursor()
+
+            fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+            cursor.execute(f"""
+                SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count
+                FROM {fqtn}
+                WHERE tenant_id = %s
+                GROUP BY doc_id
+                ORDER BY MAX(title) NULLS LAST, doc_id
+            """, (tenant_id,))
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            return [
+                DocumentInfo(doc_id=row[0], title=row[1], chunk_count=row[2])
+                for row in rows
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to list documents from Postgres: {e}")
+            # Fall through to Qdrant
+
+    # Fallback: Query Qdrant (slower but works without Postgres)
+    try:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        # Scroll through all points for tenant to get unique doc_ids
+        # This is less efficient but works as fallback
+        doc_map = {}  # doc_id -> {title, count}
+
+        offset = None
+        while True:
+            result = qdrant_client.scroll(
+                collection_name=settings.qdrant_collection,
+                scroll_filter=Filter(
+                    must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+                ),
+                limit=100,
+                offset=offset,
+                with_payload=["doc_id", "title"],
+                with_vectors=False,
+            )
+
+            points, offset = result
+            if not points:
+                break
+
+            for p in points:
+                payload = p.payload or {}
+                doc_id = payload.get("doc_id", "unknown")
+                title = payload.get("title")
+
+                if doc_id not in doc_map:
+                    doc_map[doc_id] = {"title": title, "count": 0}
+                doc_map[doc_id]["count"] += 1
+
+            if offset is None:
+                break
+
+        return [
+            DocumentInfo(doc_id=doc_id, title=info["title"], chunk_count=info["count"])
+            for doc_id, info in sorted(doc_map.items(), key=lambda x: (x[1]["title"] or "", x[0]))
+        ]
+
+    except Exception as e:
+        logger.warning(f"Failed to list documents from Qdrant: {e}")
+        return []
 
 
 @app.get("/sources", response_model=list[SourceInfo])

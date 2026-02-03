@@ -297,6 +297,45 @@
             background: var(--accent-hover);
         }
 
+        /* Document selector dropdown */
+        .doc-selector-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--qa-border);
+        }
+        .doc-selector-label {
+            font-size: 0.85rem;
+            color: var(--qa-text-muted);
+            white-space: nowrap;
+        }
+        .doc-selector {
+            flex: 1;
+            background: var(--qa-bg-secondary);
+            border: 1px solid var(--qa-border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            color: var(--qa-text);
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8a78' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2rem;
+        }
+        .doc-selector:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .doc-selector option {
+            background: var(--qa-bg-secondary);
+            color: var(--qa-text);
+        }
+
         /* General hint styling (for light sections) */
         .hint { font-size: 0.85rem; color: var(--text-muted); }
         .hint kbd {
@@ -494,6 +533,12 @@
 
         <!-- Q&A Section (moved to top) -->
         <div class="search-box">
+            <div class="doc-selector-row">
+                <span class="doc-selector-label">Search in:</span>
+                <select id="doc-selector" class="doc-selector">
+                    <option value="">All documents</option>
+                </select>
+            </div>
             <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
             <div class="search-footer">
                 <span class="hint">Press <kbd>Enter</kbd> to search</span>
@@ -669,6 +714,7 @@
         const queryInput = document.getElementById('query');
         const submitBtn = document.getElementById('submit');
         const resultsDiv = document.getElementById('results');
+        const docSelector = document.getElementById('doc-selector');
 
         // Google Drive elements
         const driveNotConnected = document.getElementById('drive-not-connected');
@@ -819,9 +865,36 @@
                 userEmailSpan.textContent = session.user.email;
                 showAppView();
                 refreshDriveStatus();
+                loadDocuments();  // Load document list for scoped queries
             } else {
                 userEmailSpan.textContent = '';
                 showAuthView();
+            }
+        }
+
+        // =================================================================
+        // Document Selector (for scoped queries)
+        // =================================================================
+        async function loadDocuments() {
+            try {
+                const docs = await apiFetch('/documents');
+
+                // Clear existing options except "All documents"
+                docSelector.innerHTML = '<option value="">All documents</option>';
+
+                // Add document options
+                for (const doc of docs) {
+                    const option = document.createElement('option');
+                    option.value = doc.doc_id;
+                    option.textContent = doc.title || doc.doc_id;
+                    if (doc.chunk_count) {
+                        option.textContent += ` (${doc.chunk_count} chunks)`;
+                    }
+                    docSelector.appendChild(option);
+                }
+            } catch (err) {
+                // Fail-open: if document list fails, user can still query all docs
+                console.warn('Failed to load document list:', err);
             }
         }
 
@@ -1385,12 +1458,23 @@
             if (!query) return;
 
             submitBtn.disabled = true;
-            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>Searching documents...</span></div>`;
+
+            // Build request body with optional doc_ids for scoped queries
+            const selectedDocId = docSelector.value;
+            const requestBody = { query };
+            if (selectedDocId) {
+                requestBody.doc_ids = [selectedDocId];
+            }
+
+            const scopeText = selectedDocId
+                ? `Searching in "${docSelector.options[docSelector.selectedIndex].text.split(' (')[0]}"...`
+                : 'Searching all documents...';
+            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>${escapeHtml(scopeText)}</span></div>`;
 
             try {
                 const data = await apiFetch('/ask', {
                     method: 'POST',
-                    body: { query },
+                    body: requestBody,
                 });
                 displayResults(data);
             } catch (err) {
