@@ -1848,8 +1848,6 @@
         let audioChunks = [];
         let isRecording = false;
         let recordingStartTime = null;
-        let holdTimeout = null;
-        let isHoldMode = false;
 
         // Check if browser supports audio recording
         const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -1996,90 +1994,36 @@
             }
         }
 
-        // PTT button event handlers
-        // Support both hold-to-record (mousedown/mouseup) and click-to-toggle
+        // PTT button event handlers - hold to record, release to stop
 
         pttBtn.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return; // Only left click
             e.preventDefault();
-
-            if (isRecording) {
-                // Already recording via toggle, stop it
-                stopRecording();
-                isHoldMode = false;
-                return;
-            }
-
-            // Start hold timer - if held for 200ms, enter hold mode
-            isHoldMode = false;
-            holdTimeout = setTimeout(() => {
-                isHoldMode = true;
-                startRecording();
-            }, 200);
+            startRecording();
         });
 
         pttBtn.addEventListener('mouseup', (e) => {
             if (e.button !== 0) return;
             e.preventDefault();
-
-            if (holdTimeout) {
-                clearTimeout(holdTimeout);
-                holdTimeout = null;
-            }
-
-            if (isHoldMode && isRecording) {
-                // Was holding, stop recording
-                stopRecording();
-                isHoldMode = false;
-            } else if (!isHoldMode && !isRecording) {
-                // Quick click, toggle recording on
-                startRecording();
-            }
+            stopRecording();
         });
 
         pttBtn.addEventListener('mouseleave', () => {
-            // If mouse leaves while holding, stop recording
-            if (holdTimeout) {
-                clearTimeout(holdTimeout);
-                holdTimeout = null;
-            }
-            if (isHoldMode && isRecording) {
+            // Stop if mouse leaves while recording
+            if (isRecording) {
                 stopRecording();
-                isHoldMode = false;
             }
         });
 
         // Touch support for mobile
         pttBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-
-            if (isRecording) {
-                stopRecording();
-                isHoldMode = false;
-                return;
-            }
-
-            isHoldMode = false;
-            holdTimeout = setTimeout(() => {
-                isHoldMode = true;
-                startRecording();
-            }, 200);
+            startRecording();
         });
 
         pttBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
-
-            if (holdTimeout) {
-                clearTimeout(holdTimeout);
-                holdTimeout = null;
-            }
-
-            if (isHoldMode && isRecording) {
-                stopRecording();
-                isHoldMode = false;
-            } else if (!isHoldMode && !isRecording) {
-                startRecording();
-            }
+            stopRecording();
         });
 
         // Keyboard shortcut: hold Space to record (when not typing in input)
