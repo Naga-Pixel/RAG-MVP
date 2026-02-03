@@ -1,10 +1,17 @@
 from pydantic import BaseModel, Field
 
 
+class ConversationTurn(BaseModel):
+    """A single turn in the conversation history."""
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class AskRequest(BaseModel):
     query: str
     folder_id: str | None = None  # Optional: restrict search to specific folder
     doc_ids: list[str] | None = None  # Optional: restrict search to specific document(s)
+    conversation_history: list[ConversationTurn] = Field(default_factory=list)  # Previous Q&A turns
 
 
 class Source(BaseModel):

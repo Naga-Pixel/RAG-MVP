@@ -476,6 +476,7 @@ def answer_question(
     tenant_id: str | None = None,
     folder_id: str | None = None,
     doc_ids: list[str] | None = None,
+    conversation_history: list[dict] | None = None,
 ) -> AskResponse:
     """
     Full RAG pipeline:
@@ -490,6 +491,8 @@ def answer_question(
         tenant_id: Tenant filter.
         folder_id: Optional folder_id to restrict search to (hard scoping).
         doc_ids: Optional list of doc_ids to restrict search to (hard scoping).
+        conversation_history: Optional list of previous conversation turns
+            (each with 'role' and 'content' keys).
     """
     # Generate query ID for logging
     query_id = str(uuid.uuid4())[:8]
@@ -778,16 +781,27 @@ def answer_question(
     # Select system prompt based on answer mode
     system_prompt = CONTRACT_MODE_PROMPT if answer_mode == "contract" else TRANSCRIPT_MODE_PROMPT
 
+    # Build messages array with conversation history
     messages = [
         {
             "role": "system",
             "content": system_prompt,
         },
-        {
-            "role": "user",
-            "content": f"Context:\n{context}\n\nQuestion: {query}",
-        },
     ]
+
+    # Add conversation history if provided (previous Q&A turns)
+    if conversation_history:
+        for turn in conversation_history:
+            messages.append({
+                "role": turn.get("role", "user"),
+                "content": turn.get("content", ""),
+            })
+
+    # Add current user question with context
+    messages.append({
+        "role": "user",
+        "content": f"Context:\n{context}\n\nQuestion: {query}",
+    })
 
     try:
         chat_resp = client.chat.completions.create(

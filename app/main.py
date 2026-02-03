@@ -264,11 +264,17 @@ def get_frontend_config():
 @limiter.limit(settings.rate_limit_ask)
 async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG. Rate limited to prevent API abuse."""
+    # Convert conversation history to list of dicts
+    history = None
+    if body.conversation_history:
+        history = [{"role": turn.role, "content": turn.content} for turn in body.conversation_history]
+
     return answer_question(
         body.query,
         tenant_id=user["user_id"],
         folder_id=body.folder_id,
         doc_ids=body.doc_ids,
+        conversation_history=history,
     )
 
 

@@ -539,6 +539,59 @@
         .empty-state { text-align: center; padding: 2rem 1rem; color: var(--qa-text-muted); }
         .empty-state p { max-width: 300px; margin: 0 auto; font-size: 0.95rem; }
 
+        /* Chat-style conversation */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .chat-message {
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+        .chat-message.user {
+            align-self: flex-end;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 16px 16px 4px 16px;
+            padding: 0.75rem 1rem;
+            color: var(--qa-text);
+        }
+        .chat-message.assistant {
+            align-self: flex-start;
+            width: 100%;
+            max-width: 100%;
+        }
+        .chat-message .user-label {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+        .chat-message .user-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .new-conversation-btn {
+            background: transparent;
+            border: 1px solid var(--qa-border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            color: var(--qa-text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 1rem;
+        }
+        .new-conversation-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .new-conversation-btn.hidden {
+            display: none;
+        }
+
         footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
         footer a { color: var(--text-secondary); text-decoration: none; }
         footer a:hover { color: var(--accent); }
@@ -678,6 +731,7 @@
             </div>
         </div>
 
+        <button id="new-conversation-btn" class="new-conversation-btn hidden">+ New conversation</button>
         <div id="results"></div>
 
         <!-- Google Drive Section -->
@@ -847,6 +901,7 @@
         const scopeText = document.getElementById('scope-text');
         const pttBtn = document.getElementById('ptt-btn');
         const pttHint = document.getElementById('ptt-hint');
+        const newConversationBtn = document.getElementById('new-conversation-btn');
 
         // LocalStorage keys for active scope persistence
         const ACTIVE_FOLDER_KEY = 'oku_active_folder_id';
@@ -854,6 +909,9 @@
 
         // Cache for all documents (used when filtering by folder)
         let allDocuments = [];
+
+        // Conversation history for follow-up questions
+        let conversationHistory = [];
 
         // Google Drive elements
         const driveNotConnected = document.getElementById('drive-not-connected');
@@ -1726,7 +1784,7 @@
         });
 
         // =================================================================
-        // Q&A
+        // Q&A with Conversation History
         // =================================================================
         queryInput.addEventListener('input', function() {
             this.style.height = 'auto';
@@ -1742,6 +1800,14 @@
 
         submitBtn.addEventListener('click', submitQuery);
 
+        // New conversation button handler
+        newConversationBtn.addEventListener('click', () => {
+            conversationHistory = [];
+            resultsDiv.innerHTML = '';
+            newConversationBtn.classList.add('hidden');
+            queryInput.focus();
+        });
+
         async function submitQuery() {
             const query = queryInput.value.trim();
             if (!query) return;
@@ -1751,7 +1817,13 @@
             // Build request body with optional folder_id and doc_ids for scoped queries
             const selectedFolderId = folderSelector.value;
             const selectedDocId = docSelector.value;
-            const requestBody = { query };
+            const requestBody = {
+                query,
+                conversation_history: conversationHistory.map(turn => ({
+                    role: turn.role,
+                    content: turn.content,
+                })),
+            };
             if (selectedFolderId) {
                 requestBody.folder_id = selectedFolderId;
             }
@@ -1759,46 +1831,87 @@
                 requestBody.doc_ids = [selectedDocId];
             }
 
-            // Build loading message
-            let loadingText = 'Searching';
-            if (selectedFolderId || selectedDocId) {
-                loadingText += ' in ';
-                if (selectedFolderId) {
-                    loadingText += `"${folderSelector.options[folderSelector.selectedIndex].text.split(' (')[0]}"`;
-                }
-                if (selectedDocId) {
-                    if (selectedFolderId) loadingText += ' → ';
-                    loadingText += `"${docSelector.options[docSelector.selectedIndex].text.split(' (')[0]}"`;
-                }
-            } else {
-                loadingText += ' all documents';
-            }
-            loadingText += '...';
-            resultsDiv.innerHTML = `<div class="loading"><div class="spinner"></div><span>${escapeHtml(loadingText)}</span></div>`;
+            // Add user message to UI immediately
+            addUserMessageToUI(query);
+            queryInput.value = '';
+            queryInput.style.height = 'auto';
+
+            // Show loading indicator
+            const loadingId = addLoadingToUI();
 
             try {
                 const data = await apiFetch('/ask', {
                     method: 'POST',
                     body: requestBody,
                 });
-                displayResults(data);
+
+                // Remove loading indicator
+                removeLoadingFromUI(loadingId);
+
+                // Add to conversation history
+                conversationHistory.push({ role: 'user', content: query });
+                conversationHistory.push({ role: 'assistant', content: data.answer });
+
+                // Display assistant response
+                addAssistantMessageToUI(data);
+
+                // Show new conversation button
+                newConversationBtn.classList.remove('hidden');
+
             } catch (err) {
-                resultsDiv.innerHTML = `
-                    <div class="error-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" x2="12" y1="8" y2="12"></line>
-                            <line x1="12" x2="12.01" y1="16" y2="16"></line>
-                        </svg>
-                        <span>${escapeHtml(err.message)}</span>
-                    </div>
-                `;
+                removeLoadingFromUI(loadingId);
+                addErrorToUI(err.message);
             } finally {
                 submitBtn.disabled = false;
             }
         }
 
-        function displayResults(data) {
+        function addUserMessageToUI(query) {
+            // Ensure chat container exists
+            let chatContainer = resultsDiv.querySelector('.chat-container');
+            if (!chatContainer) {
+                resultsDiv.innerHTML = '<div class="chat-container"></div>';
+                chatContainer = resultsDiv.querySelector('.chat-container');
+            }
+
+            const messageHtml = `
+                <div class="chat-message user">
+                    <div class="user-label">You</div>
+                    <div class="user-text">${escapeHtml(query)}</div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', messageHtml);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function addLoadingToUI() {
+            const chatContainer = resultsDiv.querySelector('.chat-container');
+            if (!chatContainer) return null;
+
+            const loadingId = 'loading-' + Date.now();
+            const loadingHtml = `
+                <div id="${loadingId}" class="chat-message assistant">
+                    <div class="loading" style="justify-content: flex-start; padding: 1rem 0;">
+                        <div class="spinner"></div>
+                        <span>Thinking...</span>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            return loadingId;
+        }
+
+        function removeLoadingFromUI(loadingId) {
+            if (!loadingId) return;
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+        }
+
+        function addAssistantMessageToUI(data) {
+            const chatContainer = resultsDiv.querySelector('.chat-container');
+            if (!chatContainer) return;
+
             let sourcesHtml = '';
             if (data.sources?.length) {
                 const sourceItems = data.sources.map(s => `
@@ -1826,19 +1939,43 @@
                 `;
             }
 
-            resultsDiv.innerHTML = `
-                <div class="answer-card">
-                    <div class="answer-header">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                        </svg>
-                        Answer
+            const messageHtml = `
+                <div class="chat-message assistant">
+                    <div class="answer-card">
+                        <div class="answer-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Oku
+                        </div>
+                        <div class="answer-text">${escapeHtml(data.answer)}</div>
+                        ${sourcesHtml}
                     </div>
-                    <div class="answer-text">${escapeHtml(data.answer)}</div>
-                    ${sourcesHtml}
                 </div>
             `;
+            chatContainer.insertAdjacentHTML('beforeend', messageHtml);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function addErrorToUI(message) {
+            const chatContainer = resultsDiv.querySelector('.chat-container');
+            if (!chatContainer) return;
+
+            const errorHtml = `
+                <div class="chat-message assistant">
+                    <div class="error-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" x2="12" y1="8" y2="12"></line>
+                            <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                        </svg>
+                        <span>${escapeHtml(message)}</span>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', errorHtml);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
         }
 
         // =================================================================
