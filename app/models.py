@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 
 class AskRequest(BaseModel):
     query: str
+    doc_ids: list[str] | None = None  # Optional: restrict search to specific document(s)
 
 class Source(BaseModel):
     doc_id: str

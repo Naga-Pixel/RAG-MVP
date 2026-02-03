@@ -263,7 +263,7 @@ def get_frontend_config():
 @limiter.limit(settings.rate_limit_ask)
 async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG. Rate limited to prevent API abuse."""
-    return answer_question(body.query, tenant_id=user["user_id"])
+    return answer_question(body.query, tenant_id=user["user_id"], doc_ids=body.doc_ids)
 
 
 @app.get("/sources", response_model=list[SourceInfo])

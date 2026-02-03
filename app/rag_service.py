@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import HTTPException
 from openai import OpenAI, RateLimitError
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
 
 from app.config import settings
 from app.logging_config import get_logger
@@ -87,10 +87,21 @@ def _log_keyword_comparison(
         )
 
 
-def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None):
+def retrieve(
+    query: str,
+    top_k: int | None = None,
+    tenant_id: str | None = None,
+    doc_ids: list[str] | None = None,
+):
     """
     Embed the query and retrieve top_k most similar chunks from Qdrant.
     Uses query_points (current qdrant-client API).
+
+    Args:
+        query: User query string.
+        top_k: Max results to return.
+        tenant_id: Tenant filter (required).
+        doc_ids: Optional list of doc_ids to restrict search to.
     """
     if top_k is None:
         top_k = settings.retrieval_limit
@@ -110,15 +121,24 @@ def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None)
 
     embedding = emb_resp.data[0].embedding
 
-    # Use proper Qdrant filter models for query_points
-    query_filter = Filter(
-        must=[
+    # Build filter conditions
+    must_conditions = [
+        FieldCondition(
+            key="tenant_id",
+            match=MatchValue(value=tenant_id),
+        )
+    ]
+
+    # Add doc_ids filter if specified (hard document scoping)
+    if doc_ids:
+        must_conditions.append(
             FieldCondition(
-                key="tenant_id",
-                match=MatchValue(value=tenant_id),
+                key="doc_id",
+                match=MatchAny(any=doc_ids),
             )
-        ]
-    )
+        )
+
+    query_filter = Filter(must=must_conditions)
 
     # query_points is the current recommended search API
     resp = qdrant_client.query_points(
@@ -127,7 +147,7 @@ def retrieve(query: str, top_k: int | None = None, tenant_id: str | None = None)
         limit=top_k,
         query_filter=query_filter,
     )
-    
+
     return resp.points
 
 
@@ -283,17 +303,32 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
     return context, sources
 
 
-def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
+def answer_question(
+    query: str,
+    tenant_id: str | None = None,
+    doc_ids: list[str] | None = None,
+) -> AskResponse:
     """
     Full RAG pipeline:
       1. Retrieve top chunks from Qdrant
       2. Optionally rerank, deduplicate, and apply diversity
       3. Build context
       4. Ask OpenAI to answer using ONLY that context
+
+    Args:
+        query: User question.
+        tenant_id: Tenant filter.
+        doc_ids: Optional list of doc_ids to restrict search to (hard scoping).
     """
     # Generate query ID for logging
     query_id = str(uuid.uuid4())[:8]
     effective_tenant_id = tenant_id or settings.default_tenant_id
+
+    # Log scope if specified
+    scope_log = ""
+    if doc_ids:
+        scope_log = f" | scope_doc_ids={len(doc_ids)}"
+        logger.debug(f"[{query_id}] Scoped query | doc_ids={doc_ids[:5]}{'...' if len(doc_ids) > 5 else ''}")
 
     # Determine retrieval count based on hybrid/rerank settings
     if settings.hybrid_enabled:
@@ -304,7 +339,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         # When rerank disabled, use retrieval_limit for backwards compatibility
         retrieve_count = settings.retrieval_limit
 
-    points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id)
+    points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id, doc_ids=doc_ids)
 
     # Phase C: Hybrid fusion with RRF (when enabled)
     hybrid_applied = False
@@ -312,11 +347,12 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
 
     if settings.hybrid_enabled and points:
         try:
-            # Get keyword results
+            # Get keyword results (with doc_ids scope if specified)
             kw_results = keyword_retrieve(
                 query=query,
                 tenant_id=effective_tenant_id,
                 limit=settings.hybrid_kw_k,
+                doc_ids=doc_ids,
             )
 
             kw_count = len(kw_results)
@@ -324,7 +360,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
             if not kw_results:
                 # Keyword empty: log and continue with vector-only
                 logger.info(
-                    f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                    f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id}{scope_log} | "
                     f"applied=false | reason=kw_empty | vec_count={vec_count} | kw_count=0"
                 )
             else:
@@ -383,7 +419,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                 if not fused_chunks:
                     # No fused chunks: log and continue with vector-only
                     logger.info(
-                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id}{scope_log} | "
                         f"applied=false | reason=no_fused | "
                         f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
                         f"overlap={fusion_stats.overlap} | "
@@ -402,7 +438,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
                     ]
 
                     logger.info(
-                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                        f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id}{scope_log} | "
                         f"applied=true | "
                         f"vec_count={fusion_stats.vec_count} | kw_count={fusion_stats.kw_count} | "
                         f"overlap={fusion_stats.overlap} | fused_count={fusion_stats.fused_count} | "
@@ -427,7 +463,7 @@ def answer_question(query: str, tenant_id: str | None = None) -> AskResponse:
         except Exception as e:
             # Fail-open: log and continue with vector-only
             logger.info(
-                f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id} | "
+                f"[{query_id}] hybrid_fuse | tenant_id={effective_tenant_id}{scope_log} | "
                 f"applied=false | reason=error | err={type(e).__name__}: {e} | fallback=vector"
             )
             # points remains unchanged (vector-only fallback)

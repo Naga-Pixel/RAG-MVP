@@ -38,25 +38,26 @@ def keyword_retrieve(
     query: str,
     tenant_id: str,
     limit: int = 10,
+    doc_ids: list[str] | None = None,
 ) -> list[dict]:
     """
-    Retrieve chunks from Postgres FTS for comparison logging.
+    Retrieve chunks from Postgres FTS.
 
-    Phase B: This function is for LOGGING ONLY.
-    - Results are NOT used in /ask responses
-    - Results are NOT merged with vector results
-    - Failure returns empty list (fail-open)
+    Used by hybrid retrieval (Phase C) and comparison logging (Phase B).
+    Failure returns empty list (fail-open).
 
     Args:
         query: User query string
         tenant_id: Tenant identifier for filtering
         limit: Maximum number of results (default 10)
+        doc_ids: Optional list of doc_ids to restrict search to (hard scoping)
 
     Returns:
         List of dicts with keys: chunk_id, doc_id, rank
         Empty list on error (fail-open).
     """
-    if not settings.keyword_retrieval_logging_enabled:
+    # Allow keyword retrieval when hybrid is enabled OR logging is enabled
+    if not settings.hybrid_enabled and not settings.keyword_retrieval_logging_enabled:
         return []
 
     if not query or not query.strip():
@@ -76,6 +77,17 @@ def keyword_retrieve(
 
         cursor = conn.cursor()
 
+        # Build SQL with optional doc_ids filter
+        params = [query, tenant_id, query]
+
+        doc_filter_sql = ""
+        if doc_ids:
+            # Use ANY() for efficient array matching
+            doc_filter_sql = " AND doc_id = ANY(%s)"
+            params.append(doc_ids)
+
+        params.append(limit)
+
         # FTS query using websearch_to_tsquery for natural language parsing
         # Rank using ts_rank_cd (cover density ranking)
         # Match against combined title + text tsvector
@@ -91,11 +103,12 @@ def keyword_retrieve(
             WHERE tenant_id = %s
               AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, ''))
                   @@ websearch_to_tsquery('english', %s)
+              {doc_filter_sql}
             ORDER BY rank DESC
             LIMIT %s
         """
 
-        cursor.execute(retrieve_sql, (query, tenant_id, query, limit))
+        cursor.execute(retrieve_sql, params)
         rows = cursor.fetchall()
 
         results = []
