@@ -297,6 +297,62 @@
             background: var(--accent-hover);
         }
 
+        /* Push-to-talk button */
+        .ptt-btn {
+            background: var(--qa-bg-secondary);
+            border: 1px solid var(--qa-border);
+            border-radius: 9999px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .ptt-btn:hover {
+            border-color: var(--accent);
+            background: var(--qa-bg);
+        }
+        .ptt-btn svg {
+            width: 20px;
+            height: 20px;
+            color: var(--qa-text-muted);
+            transition: color 0.15s ease;
+        }
+        .ptt-btn:hover svg {
+            color: var(--accent);
+        }
+        .ptt-btn.recording {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            animation: pulse-recording 1s ease-in-out infinite;
+        }
+        .ptt-btn.recording svg {
+            color: #ef4444;
+        }
+        .ptt-btn.transcribing {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+        }
+        .ptt-btn.transcribing svg {
+            color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes pulse-recording {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .ptt-hint {
+            font-size: 0.75rem;
+            color: var(--qa-text-muted);
+            margin-left: 0.5rem;
+        }
+        .ptt-hint.recording {
+            color: #ef4444;
+        }
+
         /* Document selector dropdown */
         .doc-selector-row {
             display: flex;
@@ -602,14 +658,23 @@
             </div>
             <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
             <div class="search-footer">
-                <span class="hint">Press <kbd>Enter</kbd> to search</span>
-                <button id="submit" class="btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.3-4.3"></path>
-                    </svg>
-                    Ask
-                </button>
+                <span class="hint">Press <kbd>Enter</kbd> to search<span id="ptt-hint" class="ptt-hint"></span></span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button id="ptt-btn" class="ptt-btn" title="Hold to record (or click to toggle)">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" x2="12" y1="19" y2="22"></line>
+                        </svg>
+                    </button>
+                    <button id="submit" class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.3-4.3"></path>
+                        </svg>
+                        Ask
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -780,6 +845,8 @@
         const docClearBtn = document.getElementById('doc-clear-btn');
         const scopeIndicator = document.getElementById('scope-indicator');
         const scopeText = document.getElementById('scope-text');
+        const pttBtn = document.getElementById('ptt-btn');
+        const pttHint = document.getElementById('ptt-hint');
 
         // LocalStorage keys for active scope persistence
         const ACTIVE_FOLDER_KEY = 'oku_active_folder_id';
@@ -1773,6 +1840,262 @@
                 </div>
             `;
         }
+
+        // =================================================================
+        // Push-to-Talk (PTT) Recording
+        // =================================================================
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingStartTime = null;
+        let holdTimeout = null;
+        let isHoldMode = false;
+
+        // Check if browser supports audio recording
+        const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+        if (!pttSupported) {
+            pttBtn.style.display = 'none';
+        }
+
+        // Initialize MediaRecorder when needed
+        async function initMediaRecorder() {
+            if (mediaRecorder) return true;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+                });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    audioChunks = [];
+                    await sendAudioForTranscription(audioBlob);
+                };
+
+                return true;
+            } catch (err) {
+                console.error('Failed to init MediaRecorder:', err);
+                pttHint.textContent = ' Microphone access denied';
+                pttHint.classList.add('recording');
+                setTimeout(() => {
+                    pttHint.textContent = '';
+                    pttHint.classList.remove('recording');
+                }, 3000);
+                return false;
+            }
+        }
+
+        // Start recording
+        async function startRecording() {
+            if (isRecording) return;
+
+            const ready = await initMediaRecorder();
+            if (!ready) return;
+
+            audioChunks = [];
+            isRecording = true;
+            recordingStartTime = Date.now();
+
+            pttBtn.classList.add('recording');
+            pttHint.textContent = ' Recording...';
+            pttHint.classList.add('recording');
+
+            mediaRecorder.start();
+        }
+
+        // Stop recording
+        function stopRecording() {
+            if (!isRecording || !mediaRecorder) return;
+
+            isRecording = false;
+            const duration = Date.now() - recordingStartTime;
+
+            pttBtn.classList.remove('recording');
+            pttHint.classList.remove('recording');
+
+            // Only transcribe if recording was at least 0.5 seconds
+            if (duration < 500) {
+                pttHint.textContent = ' Too short';
+                setTimeout(() => { pttHint.textContent = ''; }, 1500);
+                mediaRecorder.stop();
+                audioChunks = [];
+                return;
+            }
+
+            pttBtn.classList.add('transcribing');
+            pttHint.textContent = ' Transcribing...';
+
+            mediaRecorder.stop();
+        }
+
+        // Send audio to /transcribe endpoint
+        async function sendAudioForTranscription(audioBlob) {
+            try {
+                const token = await getAccessToken();
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+
+                const formData = new FormData();
+                const extension = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
+                formData.append('audio', audioBlob, `recording.${extension}`);
+
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Transcription failed (${response.status})`;
+                    try {
+                        const errData = await response.json();
+                        errorMsg = errData.detail || errData.message || errorMsg;
+                    } catch {}
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json();
+
+                // Populate query input with transcribed text
+                if (data.text) {
+                    // Append to existing text if any, otherwise replace
+                    const existingText = queryInput.value.trim();
+                    if (existingText) {
+                        queryInput.value = existingText + ' ' + data.text;
+                    } else {
+                        queryInput.value = data.text;
+                    }
+                    // Trigger resize
+                    queryInput.dispatchEvent(new Event('input'));
+                    queryInput.focus();
+                }
+
+                pttHint.textContent = '';
+
+            } catch (err) {
+                console.error('Transcription error:', err);
+                pttHint.textContent = ' ' + err.message;
+                pttHint.classList.add('recording');
+                setTimeout(() => {
+                    pttHint.textContent = '';
+                    pttHint.classList.remove('recording');
+                }, 3000);
+            } finally {
+                pttBtn.classList.remove('transcribing');
+            }
+        }
+
+        // PTT button event handlers
+        // Support both hold-to-record (mousedown/mouseup) and click-to-toggle
+
+        pttBtn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // Only left click
+            e.preventDefault();
+
+            if (isRecording) {
+                // Already recording via toggle, stop it
+                stopRecording();
+                isHoldMode = false;
+                return;
+            }
+
+            // Start hold timer - if held for 200ms, enter hold mode
+            isHoldMode = false;
+            holdTimeout = setTimeout(() => {
+                isHoldMode = true;
+                startRecording();
+            }, 200);
+        });
+
+        pttBtn.addEventListener('mouseup', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+
+            if (holdTimeout) {
+                clearTimeout(holdTimeout);
+                holdTimeout = null;
+            }
+
+            if (isHoldMode && isRecording) {
+                // Was holding, stop recording
+                stopRecording();
+                isHoldMode = false;
+            } else if (!isHoldMode && !isRecording) {
+                // Quick click, toggle recording on
+                startRecording();
+            }
+        });
+
+        pttBtn.addEventListener('mouseleave', () => {
+            // If mouse leaves while holding, stop recording
+            if (holdTimeout) {
+                clearTimeout(holdTimeout);
+                holdTimeout = null;
+            }
+            if (isHoldMode && isRecording) {
+                stopRecording();
+                isHoldMode = false;
+            }
+        });
+
+        // Touch support for mobile
+        pttBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+
+            if (isRecording) {
+                stopRecording();
+                isHoldMode = false;
+                return;
+            }
+
+            isHoldMode = false;
+            holdTimeout = setTimeout(() => {
+                isHoldMode = true;
+                startRecording();
+            }, 200);
+        });
+
+        pttBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+
+            if (holdTimeout) {
+                clearTimeout(holdTimeout);
+                holdTimeout = null;
+            }
+
+            if (isHoldMode && isRecording) {
+                stopRecording();
+                isHoldMode = false;
+            } else if (!isHoldMode && !isRecording) {
+                startRecording();
+            }
+        });
+
+        // Keyboard shortcut: hold Space to record (when not typing in input)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && document.activeElement !== queryInput && !isRecording) {
+                e.preventDefault();
+                startRecording();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && isRecording && document.activeElement !== queryInput) {
+                e.preventDefault();
+                stopRecording();
+            }
+        });
 
         // =================================================================
         // Initialize

@@ -731,6 +731,61 @@ async def sync_upload(
     )
 
 
+class TranscribeResponse(BaseModel):
+    text: str
+    language: str | None = None
+    duration_seconds: float | None = None
+
+
+@app.post("/transcribe", response_model=TranscribeResponse)
+@limiter.limit(settings.rate_limit_ask)
+async def transcribe_audio_endpoint(
+    request: Request,
+    audio: UploadFile = File(...),
+    language: str | None = None,
+    user: dict = Depends(verify_supabase_token),
+):
+    """
+    Transcribe audio using OpenAI Whisper.
+
+    Accepts audio file (webm, mp3, wav, etc.) and returns transcribed text.
+    Used by push-to-talk feature in the UI.
+    """
+    from app.transcription import transcribe_audio, SUPPORTED_FORMATS
+
+    # Validate file extension
+    filename = audio.filename or "audio.webm"
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format: {suffix}. Supported: {', '.join(SUPPORTED_FORMATS)}",
+        )
+
+    # Read audio content
+    audio_bytes = await audio.read()
+
+    if len(audio_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+
+    # Max 25MB (Whisper limit)
+    if len(audio_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Audio file too large (max 25MB)")
+
+    try:
+        result = transcribe_audio(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            language=language,
+        )
+        return TranscribeResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Transcription failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Transcription failed")
+
+
 @app.get("/health")
 def health_check():
     """Health check endpoint. Returns minimal status information."""
