@@ -762,6 +762,56 @@
       color: #d97706;
     }
 
+    /* User bar */
+    .user-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px var(--pad);
+      background: rgba(0,0,0,0.02);
+      border-bottom: 1px solid var(--divider);
+      gap: 12px;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .user-email {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .logout-btn:hover {
+      background: #333;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -973,6 +1023,15 @@
         <div class="col-meta">Your connectors</div>
       </div>
 
+      <!-- User bar -->
+      <div class="user-bar" id="user-bar">
+        <div class="user-info">
+          <span class="user-label">Logged in as:</span>
+          <span class="user-email" id="user-email"></span>
+        </div>
+        <button class="logout-btn" id="btn-logout">Log Out</button>
+      </div>
+
       <div class="col-scroll">
         <!-- Document Search -->
         <div class="search-box">
@@ -1100,6 +1159,31 @@
       return session?.access_token || null;
     }
 
+    async function updateUserUI() {
+      if (!supabase) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        userEmail.textContent = session.user.email || 'Unknown';
+        userBar.classList.remove('hidden');
+      } else {
+        userBar.classList.add('hidden');
+      }
+    }
+
+    async function logout() {
+      if (!supabase) return;
+      try {
+        await supabase.auth.signOut();
+        // Clear local state
+        currentConversationId = null;
+        localStorage.removeItem('oku_conversations');
+        // Reload page to reset state
+        window.location.reload();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
+    }
+
     async function apiFetch(path, options = {}) {
       const token = await getAccessToken();
       const headers = { 'Content-Type': 'application/json', ...options.headers };
@@ -1151,6 +1235,11 @@
     const driveActionsConnect = document.getElementById('drive-actions-connect');
     const driveActionsConnected = document.getElementById('drive-actions-connected');
     const driveSyncStatus = document.getElementById('drive-sync-status');
+
+    // User bar elements
+    const userBar = document.getElementById('user-bar');
+    const userEmail = document.getElementById('user-email');
+    const btnLogout = document.getElementById('btn-logout');
 
     // =================================================================
     // State
@@ -1392,6 +1481,9 @@
 
     // New conversation button
     btnNewConversation.addEventListener('click', startNewConversation);
+
+    // Logout button
+    btnLogout.addEventListener('click', logout);
 
     // =================================================================
     // Query Input Auto-resize & Submit
@@ -1939,6 +2031,7 @@
     // =================================================================
     async function init() {
       await loadConfig();
+      await updateUserUI();
       await refreshDriveStatus();
       await loadFolders();
       await loadDocuments();
