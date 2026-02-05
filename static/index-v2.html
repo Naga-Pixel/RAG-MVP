@@ -225,6 +225,30 @@
       font-weight: 500;
     }
 
+    .conv-item:hover {
+      background: rgba(0,0,0,0.02);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
+
+    .conv-item.active {
+      background: var(--accent-glow);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+      border-bottom-color: transparent;
+    }
+
+    .conv-empty {
+      padding: 20px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
     /* ========================================
        MIDDLE COLUMN: CHAT
        ======================================== */
@@ -288,6 +312,133 @@
       max-width: var(--chatW);
       margin: 0 auto;
       padding: 0 var(--pad);
+    }
+
+    /* Chat messages */
+    .chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .chat-message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-message .role {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-message .role-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .chat-message.assistant .role-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .chat-message .content {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    .chat-message.user .content {
+      color: #374151;
+    }
+
+    .chat-message.assistant .content {
+      color: #1f2937;
+    }
+
+    /* Sources in chat */
+    .chat-sources {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--divider);
+    }
+
+    .sources-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1px solid var(--divider);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .sources-toggle:hover {
+      border-color: var(--accent);
+      color: var(--ink);
+    }
+
+    .sources-list {
+      display: none;
+      margin-top: 12px;
+      padding-left: 12px;
+      border-left: 2px solid var(--accent-glow);
+    }
+    .sources-list.visible {
+      display: block;
+    }
+
+    .source-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .source-item:last-child {
+      border-bottom: none;
+    }
+
+    .source-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .source-snippet {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    /* Loading indicator */
+    .chat-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--divider);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     /* ========================================
@@ -665,6 +816,15 @@
       </div>
 
       <div class="col-scroll">
+        <!-- Conversation Search -->
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="conv-search" class="search-input" placeholder="Search conversations...">
+        </div>
+
         <div class="section-head">
           <div class="section-name">
             <svg class="section-icon" viewBox="0 0 24 24" fill="none">
@@ -672,16 +832,13 @@
               <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
             Past conversations
-            <span class="badge">0</span>
+            <span class="badge" id="conv-count">0</span>
           </div>
-          <button class="linkbtn">New</button>
+          <button class="linkbtn" id="btn-new-conversation">New</button>
         </div>
 
-        <div class="conv-list">
-          <!-- Placeholder: conversations will be rendered here -->
-          <div style="padding: 20px 0; text-align: center; color: var(--muted); font-size: 13px;">
-            No conversations yet
-          </div>
+        <div class="conv-list" id="conv-list">
+          <!-- Conversations will be rendered here -->
         </div>
       </div>
     </aside>
@@ -1005,21 +1162,365 @@
     let allDocuments = [];
     let pickerApiLoaded = false;
 
+    // Conversation state
+    let currentConversationId = null;
+    let isSubmitting = false;
+
     // =================================================================
-    // Query Input Auto-resize
+    // Conversation DOM Elements
     // =================================================================
-    queryInput.addEventListener('input', function() {
-      this.style.height = 'auto';
-      this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    const convSearch = document.getElementById('conv-search');
+    const convCount = document.getElementById('conv-count');
+    const btnNewConversation = document.getElementById('btn-new-conversation');
+    const convList = document.getElementById('conv-list');
+    const emptyState = document.getElementById('empty-state');
+    const chatScroll = document.getElementById('chat-scroll');
+    const chatMessages = document.getElementById('chat-messages');
+    const stickyComposer = document.getElementById('sticky-composer');
+    const queryInputSticky = document.getElementById('query-input-sticky');
+    const askBtn = document.getElementById('ask-btn');
+    const askBtnSticky = document.getElementById('ask-btn-sticky');
+
+    // =================================================================
+    // ConversationStore - localStorage persistence
+    // =================================================================
+    const STORAGE_KEY = 'oku_conversations';
+
+    const ConversationStore = {
+      getAll() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch {
+          return [];
+        }
+      },
+
+      save(conversations) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      },
+
+      create(firstQuery) {
+        const conversations = this.getAll();
+        const now = new Date().toISOString();
+        const conv = {
+          id: 'conv_' + Date.now(),
+          title: firstQuery.slice(0, 50) + (firstQuery.length > 50 ? '...' : ''),
+          snippet: '',
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        };
+        conversations.unshift(conv);
+        this.save(conversations);
+        return conv;
+      },
+
+      update(id, updates) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          conversations[idx] = { ...conversations[idx], ...updates, updatedAt: new Date().toISOString() };
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      addMessage(convId, message) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === convId);
+        if (idx !== -1) {
+          conversations[idx].messages.push(message);
+          conversations[idx].updatedAt = new Date().toISOString();
+          // Update snippet from first assistant response
+          if (message.role === 'assistant' && !conversations[idx].snippet) {
+            conversations[idx].snippet = message.content.slice(0, 80) + (message.content.length > 80 ? '...' : '');
+          }
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      get(id) {
+        return this.getAll().find(c => c.id === id) || null;
+      },
+
+      delete(id) {
+        const conversations = this.getAll().filter(c => c.id !== id);
+        this.save(conversations);
+      },
+    };
+
+    // =================================================================
+    // Conversation UI
+    // =================================================================
+    function formatRelativeDate(isoString) {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
+
+    function renderConversationList(filter = '') {
+      let conversations = ConversationStore.getAll();
+      convCount.textContent = conversations.length;
+
+      // Apply filter
+      if (filter) {
+        const term = filter.toLowerCase();
+        conversations = conversations.filter(c =>
+          c.title.toLowerCase().includes(term) ||
+          c.snippet.toLowerCase().includes(term) ||
+          c.messages.some(m => m.content.toLowerCase().includes(term))
+        );
+      }
+
+      if (conversations.length === 0) {
+        convList.innerHTML = `<div class="conv-empty">${filter ? 'No matches' : 'No conversations yet'}</div>`;
+        return;
+      }
+
+      convList.innerHTML = conversations.map(c => `
+        <div class="conv-item${c.id === currentConversationId ? ' active' : ''}" data-conv-id="${c.id}">
+          <div class="conv-title">${escapeHtml(c.title)}</div>
+          ${c.snippet ? `<div class="conv-snippet">${escapeHtml(c.snippet)}</div>` : ''}
+          <div class="conv-meta">${formatRelativeDate(c.updatedAt)}</div>
+        </div>
+      `).join('');
+
+      // Attach click handlers
+      convList.querySelectorAll('.conv-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const id = item.dataset.convId;
+          loadConversation(id);
+        });
+      });
+    }
+
+    function loadConversation(id) {
+      const conv = ConversationStore.get(id);
+      if (!conv) return;
+
+      currentConversationId = id;
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Render messages
+      renderMessages(conv.messages);
+
+      // Update sidebar
+      renderConversationList();
+
+      // Scroll to bottom
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+
+    function renderMessages(messages) {
+      chatMessages.innerHTML = messages.map(m => {
+        let html = `
+          <div class="chat-message ${m.role}">
+            <div class="role">
+              <span class="role-dot"></span>
+              ${m.role === 'user' ? 'You' : 'Oku'}
+            </div>
+            <div class="content">${escapeHtml(m.content)}</div>
+        `;
+
+        // Add sources for assistant messages
+        if (m.role === 'assistant' && m.sources && m.sources.length > 0) {
+          html += `
+            <div class="chat-sources">
+              <button class="sources-toggle" onclick="this.nextElementSibling.classList.toggle('visible')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 12h6M12 9v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                ${m.sources.length} source${m.sources.length !== 1 ? 's' : ''}
+              </button>
+              <div class="sources-list">
+                ${m.sources.map(s => `
+                  <div class="source-item">
+                    <div class="source-title">${escapeHtml(s.doc_id || s.title || 'Source')}</div>
+                    ${s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        html += '</div>';
+        return html;
+      }).join('');
+    }
+
+    function startNewConversation() {
+      currentConversationId = null;
+
+      // Show empty state
+      emptyState.classList.remove('hidden');
+      chatScroll.classList.remove('active');
+      stickyComposer.classList.remove('active');
+
+      // Clear chat messages
+      chatMessages.innerHTML = '';
+
+      // Clear inputs
+      queryInput.value = '';
+      if (queryInputSticky) queryInputSticky.value = '';
+
+      // Update sidebar
+      renderConversationList();
+    }
+
+    // Conversation search
+    convSearch.addEventListener('input', (e) => {
+      renderConversationList(e.target.value.trim());
     });
 
-    queryInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        console.log('Would submit:', this.value);
-        // Actual submission will be added in Phase 3/4
+    // New conversation button
+    btnNewConversation.addEventListener('click', startNewConversation);
+
+    // =================================================================
+    // Query Input Auto-resize & Submit
+    // =================================================================
+    function setupQueryInput(input, isSticky = false) {
+      input.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+      });
+
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitQuery(this.value.trim(), isSticky);
+        }
+      });
+    }
+
+    setupQueryInput(queryInput, false);
+    if (queryInputSticky) setupQueryInput(queryInputSticky, true);
+
+    // Ask button handlers
+    askBtn.addEventListener('click', () => submitQuery(queryInput.value.trim(), false));
+    if (askBtnSticky) {
+      askBtnSticky.addEventListener('click', () => submitQuery(queryInputSticky.value.trim(), true));
+    }
+
+    // =================================================================
+    // Submit Query
+    // =================================================================
+    async function submitQuery(query, fromSticky = false) {
+      if (!query || isSubmitting) return;
+
+      isSubmitting = true;
+      const inputEl = fromSticky ? queryInputSticky : queryInput;
+      const btnEl = fromSticky ? askBtnSticky : askBtn;
+
+      // Get scope selectors
+      const folderSelector = fromSticky
+        ? document.getElementById('folder-selector-sticky')
+        : document.getElementById('folder-selector-empty');
+      const docSelector = fromSticky
+        ? document.getElementById('doc-selector-sticky')
+        : document.getElementById('doc-selector-empty');
+      const folderId = folderSelector?.value || '';
+      const docId = docSelector?.value || '';
+
+      // Create conversation if new
+      if (!currentConversationId) {
+        const conv = ConversationStore.create(query);
+        currentConversationId = conv.id;
       }
-    });
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Add user message to store and UI
+      const userMessage = { role: 'user', content: query };
+      ConversationStore.addMessage(currentConversationId, userMessage);
+
+      // Clear input
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+
+      // Render current messages + loading
+      const conv = ConversationStore.get(currentConversationId);
+      renderMessages(conv.messages);
+
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'chat-loading';
+      loadingDiv.innerHTML = '<div class="spinner"></div><span>Thinking...</span>';
+      chatMessages.appendChild(loadingDiv);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      // Disable button
+      btnEl.disabled = true;
+
+      try {
+        // Build request body
+        const body = { query };
+        if (folderId) body.folder_id = folderId;
+        if (docId) body.doc_id = docId;
+
+        const result = await apiFetch('/query', {
+          method: 'POST',
+          body,
+        });
+
+        // Remove loading indicator
+        loadingDiv.remove();
+
+        // Add assistant message
+        const assistantMessage = {
+          role: 'assistant',
+          content: result.answer || 'No answer returned.',
+          sources: result.sources || [],
+        };
+        ConversationStore.addMessage(currentConversationId, assistantMessage);
+
+        // Re-render messages
+        const updatedConv = ConversationStore.get(currentConversationId);
+        renderMessages(updatedConv.messages);
+
+        // Update sidebar
+        renderConversationList();
+
+        // Scroll to bottom
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      } catch (err) {
+        loadingDiv.remove();
+
+        // Add error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chat-message assistant';
+        errorDiv.innerHTML = `
+          <div class="role"><span class="role-dot"></span> Oku</div>
+          <div class="content" style="color: #dc2626;">Error: ${escapeHtml(err.message)}</div>
+        `;
+        chatMessages.appendChild(errorDiv);
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+      } finally {
+        isSubmitting = false;
+        btnEl.disabled = false;
+      }
+    }
 
     // =================================================================
     // Document Search (Real-time filtering)
@@ -1355,9 +1856,48 @@
         const docs = await apiFetch('/documents');
         allDocuments = docs;
         console.log('Loaded', docs.length, 'documents');
+        populateSelectors();
       } catch (err) {
         console.warn('Failed to load documents:', err);
       }
+    }
+
+    function populateSelectors() {
+      // Get unique folders
+      const folders = [...new Set(allDocuments.map(d => d.folder_id).filter(Boolean))];
+
+      // Folder selectors
+      const folderEmpty = document.getElementById('folder-selector-empty');
+      const folderSticky = document.getElementById('folder-selector-sticky');
+
+      const folderOptions = '<option value="">All folders</option>' +
+        folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+
+      if (folderEmpty) folderEmpty.innerHTML = folderOptions;
+      if (folderSticky) folderSticky.innerHTML = folderOptions;
+
+      // Document selectors
+      const docEmpty = document.getElementById('doc-selector-empty');
+      const docSticky = document.getElementById('doc-selector-sticky');
+
+      const docOptions = '<option value="">All documents</option>' +
+        allDocuments.map(d => {
+          const title = d.title || d.doc_id || 'Untitled';
+          return `<option value="${escapeHtml(d.doc_id)}">${escapeHtml(title)}</option>`;
+        }).join('');
+
+      if (docEmpty) docEmpty.innerHTML = docOptions;
+      if (docSticky) docSticky.innerHTML = docOptions;
+
+      // Sync selectors when one changes
+      function syncSelectors(source, target) {
+        if (source && target) {
+          source.addEventListener('change', () => target.value = source.value);
+          target.addEventListener('change', () => source.value = target.value);
+        }
+      }
+      syncSelectors(folderEmpty, folderSticky);
+      syncSelectors(docEmpty, docSticky);
     }
 
     // =================================================================
@@ -1377,6 +1917,9 @@
       await refreshDriveStatus();
       await loadDocuments();
       updateLocalUI();
+
+      // Load conversations
+      renderConversationList();
     }
 
     init();
