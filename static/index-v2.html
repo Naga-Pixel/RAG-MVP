@@ -1251,7 +1251,7 @@
       btnSyncDrive.disabled = true;
       showDriveStatus('Syncing...', '');
       try {
-        const result = await apiFetch('/sources/drive/sync', { method: 'POST' });
+        const result = await apiFetch('/sync/drive', { method: 'POST' });
         showDriveStatus(`Synced ${result.documents_processed || 0} documents`, 'success');
         await loadDocuments();
       } catch (err) {
