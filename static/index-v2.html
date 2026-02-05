@@ -441,6 +441,11 @@
       to { transform: rotate(360deg); }
     }
 
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
     /* ========================================
        COMPOSER (Query Box)
        ======================================== */
@@ -1484,6 +1489,145 @@
 
     // Logout button
     btnLogout.addEventListener('click', logout);
+
+    // =================================================================
+    // Push-to-Talk (PTT) Recording
+    // =================================================================
+    const micBtn = document.getElementById('mic-btn');
+    const micBtnSticky = document.getElementById('mic-btn-sticky');
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
+
+    const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+    if (!pttSupported) {
+      micBtn.style.display = 'none';
+      if (micBtnSticky) micBtnSticky.style.display = 'none';
+    }
+
+    async function initMediaRecorder() {
+      if (mediaRecorder) return true;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          audioChunks = [];
+          await sendAudioForTranscription(audioBlob);
+        };
+
+        return true;
+      } catch (err) {
+        console.error('Failed to init MediaRecorder:', err);
+        return false;
+      }
+    }
+
+    async function startRecording(btn) {
+      if (isRecording) return;
+
+      const ready = await initMediaRecorder();
+      if (!ready) return;
+
+      audioChunks = [];
+      isRecording = true;
+      recordingStartTime = Date.now();
+
+      btn.style.background = '#ef4444';
+      btn.style.animation = 'pulse 1s infinite';
+      mediaRecorder.start();
+    }
+
+    function stopRecording(btn, targetInput) {
+      if (!isRecording || !mediaRecorder) return;
+
+      isRecording = false;
+      const duration = Date.now() - recordingStartTime;
+
+      btn.style.background = '';
+      btn.style.animation = '';
+
+      if (duration < 500) {
+        mediaRecorder.stop();
+        audioChunks = [];
+        return;
+      }
+
+      btn.style.opacity = '0.6';
+      // Store target input for transcription callback
+      window._pttTargetInput = targetInput;
+      mediaRecorder.stop();
+    }
+
+    async function sendAudioForTranscription(audioBlob) {
+      const targetInput = window._pttTargetInput || queryInput;
+      const btn = targetInput === queryInput ? micBtn : micBtnSticky;
+
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error('Not authenticated');
+
+        const formData = new FormData();
+        const extension = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
+        formData.append('audio', audioBlob, `recording.${extension}`);
+
+        const response = await fetch('/transcribe', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          let errorMsg = `Transcription failed (${response.status})`;
+          try {
+            const errData = await response.json();
+            errorMsg = errData.detail || errData.message || errorMsg;
+          } catch {}
+          throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+
+        if (data.text) {
+          const existingText = targetInput.value.trim();
+          targetInput.value = existingText ? existingText + ' ' + data.text : data.text;
+          targetInput.dispatchEvent(new Event('input'));
+          targetInput.focus();
+        }
+
+      } catch (err) {
+        console.error('Transcription error:', err);
+      } finally {
+        btn.style.opacity = '';
+      }
+    }
+
+    // PTT event handlers
+    function setupMicButton(btn, targetInput) {
+      btn.addEventListener('mousedown', () => startRecording(btn));
+      btn.addEventListener('mouseup', () => stopRecording(btn, targetInput));
+      btn.addEventListener('mouseleave', () => stopRecording(btn, targetInput));
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(btn); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(btn, targetInput); });
+    }
+
+    setupMicButton(micBtn, queryInput);
+    if (micBtnSticky && queryInputSticky) {
+      setupMicButton(micBtnSticky, queryInputSticky);
+    }
 
     // =================================================================
     // Query Input Auto-resize & Submit
