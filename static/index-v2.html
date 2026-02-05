@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oku</title>
+
+  <!-- Fonts: Inter + Bricolage Grotesque -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================
+       CSS VARIABLES
+       ======================================== */
+    :root {
+      --bg: #ffffff;
+      --ink: #0b0b0b;
+      --muted: #6b6f76;
+      --divider: rgba(0,0,0,0.08);
+      --accent: #72e4ad;
+      --accent-glow: rgba(114,228,173,0.18);
+
+      --sideW: 320px;
+      --rightW: 360px;
+      --chatW: 750px;
+      --pad: 16px;
+
+      --font-body: "Inter", system-ui, -apple-system, sans-serif;
+      --font-brand: "Bricolage Grotesque", system-ui, sans-serif;
+    }
+
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       3-COLUMN LAYOUT
+       ======================================== */
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sideW) 1fr var(--rightW);
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .col + .col {
+      border-left: 1px solid var(--divider);
+    }
+
+    /* Column header */
+    .col-header {
+      padding: 20px var(--pad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    /* Single continuous line under all headers */
+    .app {
+      position: relative;
+    }
+    .app::after {
+      content: '';
+      position: absolute;
+      top: 61px; /* header height */
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--divider);
+      z-index: 1;
+    }
+
+    .col-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .col-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Scrollable content area */
+    .col-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px var(--pad) 16px;
+    }
+
+    /* ========================================
+       BRAND
+       ======================================== */
+    .brand {
+      font-family: var(--font-brand);
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1;
+    }
+
+    .brand-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    /* ========================================
+       LINK BUTTON
+       ======================================== */
+    .linkbtn {
+      border: none;
+      background: transparent;
+      color: rgba(0,0,0,0.78);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 6px 0;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 2px;
+    }
+    .linkbtn:hover { color: #000; }
+
+    /* ========================================
+       LEFT COLUMN: CONVERSATIONS
+       ======================================== */
+    .col-conversations .col-header {
+      padding: 20px var(--pad);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0 10px;
+    }
+
+    .section-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+    }
+
+    .badge {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Conversation list placeholder */
+    .conv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .conv-item {
+      padding: 10px 0;
+      cursor: pointer;
+      border-bottom: 1px solid var(--divider);
+    }
+    .conv-item:last-child { border-bottom: none; }
+
+    .conv-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .conv-snippet {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .conv-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: rgba(0,0,0,0.45);
+      font-weight: 500;
+    }
+
+    /* ========================================
+       MIDDLE COLUMN: CHAT
+       ======================================== */
+    .col-chat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px var(--pad);
+      text-align: center;
+    }
+
+    .empty-logo {
+      font-family: var(--font-brand);
+      font-weight: 700;
+      font-size: 120px;
+      letter-spacing: -2px;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .empty-tagline {
+      margin-top: 16px;
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+
+    /* In empty state, query box is part of centered content */
+    .empty-state .composer-inline {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    /* Chat scroll area (hidden in empty state) */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0;
+      display: none;
+    }
+    .chat-scroll.active { display: block; }
+
+    .chat-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    /* ========================================
+       COMPOSER (Query Box)
+       ======================================== */
+    /* Sticky composer at bottom (shown after conversation starts) */
+    .composer {
+      flex-shrink: 0;
+      background: var(--bg);
+      padding: 16px 0 32px;
+      display: none;
+    }
+    .composer.active {
+      display: block;
+    }
+
+    .composer-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    .query-box {
+      border: 1px solid var(--divider);
+      border-radius: 14px;
+      padding: 12px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Top row: scope selectors */
+    .query-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .query-select {
+      flex: 1;
+      max-width: 200px;
+      border-radius: 20px;
+      padding: 8px 28px 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      border: 1px solid var(--divider);
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6f76' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .query-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .query-divider {
+      height: 1px;
+      background: var(--divider);
+    }
+
+    /* Textarea */
+    .query-textarea {
+      width: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      background: transparent;
+      padding: 8px 4px;
+      min-height: 48px;
+      color: var(--ink);
+    }
+    .query-textarea::placeholder {
+      color: var(--muted);
+    }
+
+    /* Bottom row: hint + buttons */
+    .query-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-hint {
+      flex: 1;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      text-align: left;
+    }
+
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid var(--divider);
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+    .mic-btn:hover {
+      background: #5dd89a;
+    }
+
+    .ask-btn {
+      height: 44px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .ask-btn:hover {
+      background: #333;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ========================================
+       RIGHT COLUMN: DOCUMENTS
+       ======================================== */
+    .section {
+      padding: 10px 0;
+    }
+    .section + .section {
+      border-top: 1px solid var(--divider);
+    }
+
+    /* Folder list placeholder */
+    .folder-group {
+      margin-top: 8px;
+    }
+
+    .folder-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .folder-item:last-child { border-bottom: none; }
+
+    .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      cursor: pointer;
+    }
+
+    .folder-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .file-list {
+      margin-top: 8px;
+      padding-left: 12px;
+      border-left: 2px solid rgba(114,228,173,0.35);
+    }
+
+    .file-item {
+      padding: 4px 0;
+      font-size: 12px;
+      color: rgba(0,0,0,0.72);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .file-date {
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    /* ========================================
+       DOCUMENT SIDEBAR ENHANCEMENTS
+       ======================================== */
+    .search-box {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .search-box .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+    }
+    .search-box .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .search-box .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .section-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .empty-hint {
+      padding: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .folder-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .folder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .folder-item .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .folder-item .folder-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn-icon-small {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--divider);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .btn-icon-small:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .sync-status {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .sync-status.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: #16a34a;
+    }
+    .sync-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+    .sync-status.warning {
+      background: rgba(245, 158, 11, 0.1);
+      color: #d97706;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Drive folder list */
+    .drive-folder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .drive-folder-item:last-child {
+      border-bottom: none;
+    }
+    .drive-folder-item .folder-name {
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .col-conversations { order: 3; }
+      .col-chat { order: 1; }
+      .col-documents { order: 2; }
+      .col + .col {
+        border-left: none;
+        border-top: 1px solid var(--divider);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- ==========================================
+         LEFT COLUMN: Past Conversations
+         ========================================== -->
+    <aside class="col col-conversations">
+      <div class="col-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          Oku
+        </div>
+      </div>
+
+      <div class="col-scroll">
+        <div class="section-head">
+          <div class="section-name">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Past conversations
+            <span class="badge">0</span>
+          </div>
+          <button class="linkbtn">New</button>
+        </div>
+
+        <div class="conv-list">
+          <!-- Placeholder: conversations will be rendered here -->
+          <div style="padding: 20px 0; text-align: center; color: var(--muted); font-size: 13px;">
+            No conversations yet
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================
+         MIDDLE COLUMN: Chat
+         ========================================== -->
+    <main class="col col-chat">
+      <div class="col-header">
+        <div class="col-title">Chat</div>
+        <div class="col-meta">Ask and verify</div>
+      </div>
+
+      <div class="chat-area">
+        <!-- Empty State (with inline query box) -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-logo">Oku</div>
+          <div class="empty-tagline">----Ask a question, Close the loop.</div>
+
+          <!-- Query box inline in empty state -->
+          <div class="composer-inline">
+            <div class="query-box">
+              <div class="query-top">
+                <span class="query-label">Search in:</span>
+                <select class="query-select" id="folder-selector-empty">
+                  <option value="">All folders</option>
+                </select>
+                <select class="query-select" id="doc-selector-empty">
+                  <option value="">All documents</option>
+                </select>
+              </div>
+
+              <div class="query-divider"></div>
+
+              <textarea
+                class="query-textarea"
+                id="query-input"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-divider"></div>
+
+              <div class="query-bottom">
+                <span class="query-hint">Press Enter to ask</span>
+
+                <button class="mic-btn" id="mic-btn" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Messages (hidden until conversation starts) -->
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-center" id="chat-messages">
+            <!-- Messages will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Sticky Composer at bottom (shown after conversation starts) -->
+        <div class="composer" id="sticky-composer">
+          <div class="composer-center">
+            <div class="query-box">
+
+              <div class="query-top">
+                <span class="query-label">Search in:</span>
+                <select class="query-select" id="folder-selector-sticky">
+                  <option value="">All folders</option>
+                </select>
+                <select class="query-select" id="doc-selector-sticky">
+                  <option value="">All documents</option>
+                </select>
+              </div>
+
+              <div class="query-divider"></div>
+
+              <textarea
+                class="query-textarea"
+                id="query-input-sticky"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-divider"></div>
+
+              <div class="query-bottom">
+                <span class="query-hint">Press Enter to ask</span>
+
+                <button class="mic-btn" id="mic-btn-sticky" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn-sticky" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==========================================
+         RIGHT COLUMN: Documents
+         ========================================== -->
+    <aside class="col col-documents">
+      <div class="col-header">
+        <div class="col-title">Documents</div>
+        <div class="col-meta">Your connectors</div>
+      </div>
+
+      <div class="col-scroll">
+        <!-- Document Search -->
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="doc-search" class="search-input" placeholder="Search documents...">
+        </div>
+
+        <!-- Local Section -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Local
+              <span class="badge" id="local-badge">0 folders</span>
+            </div>
+            <div class="section-actions">
+              <button class="linkbtn" id="btn-select-folder">Select folder</button>
+            </div>
+          </div>
+
+          <!-- Hidden file picker -->
+          <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+
+          <!-- Local: Not selected state -->
+          <div id="local-not-selected" class="folder-group">
+            <div class="empty-hint">Select a folder to sync documents</div>
+          </div>
+
+          <!-- Local: Selected state -->
+          <div id="local-selected" class="folder-group hidden">
+            <div class="folder-item">
+              <div class="folder-info">
+                <span class="folder-name" id="local-folder-name"></span>
+                <span class="folder-meta" id="local-file-count"></span>
+              </div>
+              <button class="btn-icon-small" id="btn-clear-folder" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="section-buttons">
+              <button class="linkbtn" id="btn-select-different">Change folder</button>
+              <button class="linkbtn" id="btn-sync-local">Sync</button>
+            </div>
+          </div>
+
+          <div id="local-sync-status" class="sync-status hidden"></div>
+        </div>
+
+        <!-- Google Drive Section -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 19h20L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+              Google Drive
+              <span class="badge" id="drive-badge">Not connected</span>
+            </div>
+            <div class="section-actions" id="drive-actions-connect">
+              <button class="linkbtn" id="btn-connect-drive">Connect</button>
+            </div>
+            <div class="section-actions hidden" id="drive-actions-connected">
+              <button class="linkbtn" id="btn-add-drive-folder">Add folder</button>
+              <button class="linkbtn" id="btn-sync-drive">Sync</button>
+            </div>
+          </div>
+
+          <!-- Drive: Not connected state -->
+          <div id="drive-not-connected" class="folder-group">
+            <div class="empty-hint">Connect to sync from Google Drive</div>
+          </div>
+
+          <!-- Drive: Connected state -->
+          <div id="drive-connected" class="folder-group hidden">
+            <div id="drive-folder-list">
+              <!-- Drive folders will be rendered here -->
+            </div>
+          </div>
+
+          <div id="drive-sync-status" class="sync-status hidden"></div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script type="module">
+    // =================================================================
+    // ESM Import of Supabase
+    // =================================================================
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    // =================================================================
+    // Configuration
+    // =================================================================
+    let supabase = null;
+    let publicConfig = null;
+    const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.rtf'];
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config/frontend');
+        publicConfig = await response.json();
+        supabase = createClient(publicConfig.supabase_url, publicConfig.supabase_anon_key);
+        return true;
+      } catch (err) {
+        console.error('Failed to load config:', err);
+        return false;
+      }
+    }
+
+    // =================================================================
+    // Auth Helpers
+    // =================================================================
+    async function getAccessToken() {
+      if (!supabase) return null;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    }
+
+    async function apiFetch(path, options = {}) {
+      const token = await getAccessToken();
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(path, {
+        ...options,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || 'Request failed');
+      }
+      return response.json();
+    }
+
+    // =================================================================
+    // DOM Elements
+    // =================================================================
+    // Query input
+    const queryInput = document.getElementById('query-input');
+
+    // Document search
+    const docSearch = document.getElementById('doc-search');
+
+    // Local folder elements
+    const folderPicker = document.getElementById('folder-picker');
+    const btnSelectFolder = document.getElementById('btn-select-folder');
+    const btnSelectDifferent = document.getElementById('btn-select-different');
+    const btnClearFolder = document.getElementById('btn-clear-folder');
+    const btnSyncLocal = document.getElementById('btn-sync-local');
+    const localNotSelected = document.getElementById('local-not-selected');
+    const localSelected = document.getElementById('local-selected');
+    const localFolderName = document.getElementById('local-folder-name');
+    const localFileCount = document.getElementById('local-file-count');
+    const localBadge = document.getElementById('local-badge');
+    const localSyncStatus = document.getElementById('local-sync-status');
+
+    // Google Drive elements
+    const btnConnectDrive = document.getElementById('btn-connect-drive');
+    const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+    const btnSyncDrive = document.getElementById('btn-sync-drive');
+    const driveNotConnected = document.getElementById('drive-not-connected');
+    const driveConnected = document.getElementById('drive-connected');
+    const driveFolderList = document.getElementById('drive-folder-list');
+    const driveBadge = document.getElementById('drive-badge');
+    const driveActionsConnect = document.getElementById('drive-actions-connect');
+    const driveActionsConnected = document.getElementById('drive-actions-connected');
+    const driveSyncStatus = document.getElementById('drive-sync-status');
+
+    // =================================================================
+    // State
+    // =================================================================
+    let selectedFiles = [];
+    let selectedFolderName = '';
+    let driveFolders = [];
+    let driveConnectedState = false;
+    let allDocuments = [];
+    let pickerApiLoaded = false;
+
+    // =================================================================
+    // Query Input Auto-resize
+    // =================================================================
+    queryInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+
+    queryInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        console.log('Would submit:', this.value);
+        // Actual submission will be added in Phase 3/4
+      }
+    });
+
+    // =================================================================
+    // Document Search (Real-time filtering)
+    // =================================================================
+    let searchTimeout = null;
+    docSearch.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      clearTimeout(searchTimeout);
+
+      if (!term) {
+        // Show all - reset any filtering
+        console.log('Search cleared');
+        return;
+      }
+
+      // Phase 1: Client-side filename filter
+      const matches = allDocuments.filter(doc =>
+        (doc.title || doc.doc_id || '').toLowerCase().includes(term)
+      );
+      console.log('Client matches:', matches.length);
+
+      // Phase 2: Backend content search (debounced)
+      if (term.length >= 2) {
+        searchTimeout = setTimeout(async () => {
+          try {
+            // Backend search would go here
+            console.log('Would search backend for:', term);
+          } catch (err) {
+            console.error('Search error:', err);
+          }
+        }, 300);
+      }
+    });
+
+    // =================================================================
+    // Local Folder Management
+    // =================================================================
+    function updateLocalUI() {
+      if (selectedFiles.length > 0) {
+        localNotSelected.classList.add('hidden');
+        localSelected.classList.remove('hidden');
+        localFolderName.textContent = selectedFolderName;
+        localFileCount.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`;
+        localBadge.textContent = '1 folder';
+        btnSelectFolder.textContent = 'Change folder';
+      } else {
+        localNotSelected.classList.remove('hidden');
+        localSelected.classList.add('hidden');
+        localBadge.textContent = '0 folders';
+        btnSelectFolder.textContent = 'Select folder';
+      }
+    }
+
+    function clearFolderSelection() {
+      selectedFiles = [];
+      selectedFolderName = '';
+      folderPicker.value = '';
+      updateLocalUI();
+      localSyncStatus.classList.add('hidden');
+    }
+
+    btnSelectFolder.addEventListener('click', () => folderPicker.click());
+    btnSelectDifferent.addEventListener('click', () => folderPicker.click());
+    btnClearFolder.addEventListener('click', clearFolderSelection);
+
+    folderPicker.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      selectedFiles = files.filter(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        return SUPPORTED_EXTENSIONS.includes(ext);
+      });
+
+      if (files.length > 0 && files[0].webkitRelativePath) {
+        selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+      } else {
+        selectedFolderName = 'Selected folder';
+      }
+
+      updateLocalUI();
+
+      if (selectedFiles.length === 0 && files.length > 0) {
+        showLocalStatus('No supported files found in folder', 'warning');
+      }
+    });
+
+    function showLocalStatus(message, type = '') {
+      localSyncStatus.textContent = message;
+      localSyncStatus.className = 'sync-status ' + type;
+      localSyncStatus.classList.remove('hidden');
+    }
+
+    btnSyncLocal.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      btnSyncLocal.disabled = true;
+      showLocalStatus('Syncing...', '');
+
+      try {
+        const formData = new FormData();
+        formData.append('folder_name', selectedFolderName);
+        selectedFiles.forEach(file => formData.append('files', file));
+
+        const token = await getAccessToken();
+        const response = await fetch('/sync/upload', {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || 'Sync failed');
+        }
+
+        const result = await response.json();
+        showLocalStatus(`Synced ${result.documents_processed || 0} documents`, 'success');
+        await loadDocuments();
+      } catch (err) {
+        showLocalStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncLocal.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Google Drive Management
+    // =================================================================
+    function updateDriveUI() {
+      if (driveConnectedState) {
+        driveNotConnected.classList.add('hidden');
+        driveConnected.classList.remove('hidden');
+        driveActionsConnect.classList.add('hidden');
+        driveActionsConnected.classList.remove('hidden');
+        driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+        renderDriveFolders();
+      } else {
+        driveNotConnected.classList.remove('hidden');
+        driveConnected.classList.add('hidden');
+        driveActionsConnect.classList.remove('hidden');
+        driveActionsConnected.classList.add('hidden');
+        driveBadge.textContent = 'Not connected';
+      }
+    }
+
+    function renderDriveFolders() {
+      if (driveFolders.length === 0) {
+        driveFolderList.innerHTML = '<div class="empty-hint">No folders added yet</div>';
+        return;
+      }
+
+      driveFolderList.innerHTML = driveFolders.map(f => `
+        <div class="drive-folder-item">
+          <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
+          <button class="btn-icon-small" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+
+      // Attach delete handlers
+      driveFolderList.querySelectorAll('button[data-folder-id]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const folderId = btn.dataset.folderId;
+          btn.disabled = true;
+          try {
+            const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' });
+            driveFolders = data.folders || [];
+            renderDriveFolders();
+            driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+          } catch (err) {
+            showDriveStatus('Failed to remove folder', 'error');
+          }
+        });
+      });
+    }
+
+    function showDriveStatus(message, type = '') {
+      driveSyncStatus.textContent = message;
+      driveSyncStatus.className = 'sync-status ' + type;
+      driveSyncStatus.classList.remove('hidden');
+      setTimeout(() => driveSyncStatus.classList.add('hidden'), 3000);
+    }
+
+    async function refreshDriveStatus() {
+      try {
+        const data = await apiFetch('/sources/drive/status');
+        driveConnectedState = data.connected;
+        driveFolders = data.folders || [];
+        updateDriveUI();
+      } catch (err) {
+        console.error('Failed to refresh drive status:', err);
+      }
+    }
+
+    btnConnectDrive.addEventListener('click', async () => {
+      btnConnectDrive.disabled = true;
+      try {
+        const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
+        const authUrl = data.auth_url;
+
+        const width = 600, height = 700;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        const popup = window.open(authUrl, 'drive_oauth', `width=${width},height=${height},left=${left},top=${top}`);
+
+        const messageHandler = async (event) => {
+          if (event.data?.type === 'drive_oauth_success') {
+            window.removeEventListener('message', messageHandler);
+            await refreshDriveStatus();
+            showDriveStatus('Google Drive connected!', 'success');
+          } else if (event.data?.type === 'drive_oauth_error') {
+            window.removeEventListener('message', messageHandler);
+            showDriveStatus('Connection failed', 'error');
+          }
+        };
+        window.addEventListener('message', messageHandler);
+      } catch (err) {
+        showDriveStatus('Failed to connect: ' + err.message, 'error');
+      } finally {
+        btnConnectDrive.disabled = false;
+      }
+    });
+
+    btnSyncDrive.addEventListener('click', async () => {
+      btnSyncDrive.disabled = true;
+      showDriveStatus('Syncing...', '');
+      try {
+        const result = await apiFetch('/sources/drive/sync', { method: 'POST' });
+        showDriveStatus(`Synced ${result.documents_processed || 0} documents`, 'success');
+        await loadDocuments();
+      } catch (err) {
+        showDriveStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncDrive.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Google Picker API
+    // =================================================================
+    async function loadPickerApi() {
+      if (pickerApiLoaded) return true;
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => {
+          gapi.load('picker', () => {
+            pickerApiLoaded = true;
+            resolve(true);
+          });
+        };
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    }
+
+    // Add Drive folder via Google Picker
+    btnAddDriveFolder.addEventListener('click', async () => {
+      // Load Picker API if not loaded
+      if (!pickerApiLoaded) {
+        showDriveStatus('Loading Google Picker...', '');
+        const loaded = await loadPickerApi();
+        if (!loaded) {
+          showDriveStatus('Failed to load Google Picker', 'error');
+          return;
+        }
+      }
+
+      btnAddDriveFolder.disabled = true;
+      try {
+        // Get access token for Picker
+        const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+        const accessToken = tokenData.access_token;
+
+        if (!publicConfig?.google_picker_api_key) {
+          showDriveStatus('Google Picker API key not configured', 'error');
+          btnAddDriveFolder.disabled = false;
+          return;
+        }
+
+        // Create folder-only view
+        const view = new google.picker.DocsView()
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(true)
+          .setMimeTypes('application/vnd.google-apps.folder');
+
+        // Build and show Picker
+        const picker = new google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(accessToken)
+          .setDeveloperKey(publicConfig.google_picker_api_key)
+          .setCallback(async (data) => {
+            if (data.action === google.picker.Action.PICKED) {
+              const folder = data.docs[0];
+              try {
+                const result = await apiFetch('/sources/drive/folders', {
+                  method: 'POST',
+                  body: {
+                    folder_id: folder.id,
+                    folder_name: folder.name,
+                  },
+                });
+                driveFolders = result.folders || [];
+                renderDriveFolders();
+                driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+                showDriveStatus(`Added folder: ${folder.name}`, 'success');
+              } catch (err) {
+                showDriveStatus('Failed to add folder: ' + err.message, 'error');
+              }
+            }
+            btnAddDriveFolder.disabled = false;
+          })
+          .setTitle('Select a folder to sync')
+          .build();
+
+        picker.setVisible(true);
+
+      } catch (err) {
+        showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
+        btnAddDriveFolder.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Load Documents
+    // =================================================================
+    async function loadDocuments() {
+      try {
+        const docs = await apiFetch('/documents');
+        allDocuments = docs;
+        console.log('Loaded', docs.length, 'documents');
+      } catch (err) {
+        console.warn('Failed to load documents:', err);
+      }
+    }
+
+    // =================================================================
+    // Utilities
+    // =================================================================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // =================================================================
+    // Initialize
+    // =================================================================
+    async function init() {
+      await loadConfig();
+      await refreshDriveStatus();
+      await loadDocuments();
+      updateLocalUI();
+    }
+
+    init();
+  </script>
+</body>
+</html>
