@@ -339,7 +339,7 @@
     .chat-scroll {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 0;
+      padding: 24px 0 120px;
       display: none;
     }
     .chat-scroll.active { display: block; }
@@ -537,9 +537,10 @@
     /* Sticky composer at bottom (shown after conversation starts) */
     .composer {
       flex-shrink: 0;
-      background: var(--bg);
-      padding: 16px 0 32px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 20%);
+      padding: 32px 0 32px;
       display: none;
+      position: relative;
     }
     .composer.active {
       display: block;
@@ -593,8 +594,7 @@
       background-position: right 12px center;
     }
     .query-select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
+      outline: none;
     }
 
     .query-divider {
@@ -906,20 +906,77 @@
       display: none !important;
     }
 
-    /* Drive folder list */
-    .drive-folder-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
+    /* Drive folder list - expandable */
+    .folder-expandable {
       border-bottom: 1px solid var(--divider);
     }
-    .drive-folder-item:last-child {
+    .folder-expandable:last-child {
       border-bottom: none;
     }
-    .drive-folder-item .folder-name {
-      font-size: 13px;
+
+    .folder-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      gap: 8px;
+    }
+
+    .folder-toggle {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      padding: 0;
+    }
+    .folder-toggle:hover {
       color: var(--ink);
+    }
+
+    .folder-toggle .chevron {
+      transition: transform 0.15s;
+    }
+    .folder-toggle .chevron.expanded {
+      transform: rotate(90deg);
+    }
+
+    .folder-row .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .folder-doc-count {
+      font-size: 11px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .folder-docs {
+      padding: 0 0 8px 32px;
+    }
+
+    .folder-doc-item {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .folder-doc-empty {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 4px 0;
     }
 
     /* ========================================
@@ -1181,8 +1238,13 @@
         <div class="section">
           <div class="section-head">
             <div class="section-name">
-              <svg class="section-icon" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 19h20L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <svg class="section-icon" viewBox="0 0 87.3 78" style="width: 18px; height: 16px;">
+                <path d="M6.6 66.85L16.3 78h54.8l9.7-11.15z" fill="#0066da"/>
+                <path d="M27.5 0L0 45.5l16.6 21.35L71 21.35z" fill="#00ac47"/>
+                <path d="M71 21.35L43.5 0 27.5 0l27.5 45.5L71 66.85l16.3-21.35z" fill="#ea4335"/>
+                <path d="M27.5 45.5L16.6 66.85h54.8L55 45.5z" fill="#00832d"/>
+                <path d="M55 45.5l16.3 21.35 16-21.35L59.8 0 43.5 0z" fill="#2684fc"/>
+                <path d="M27.5 45.5L0 45.5l16.6 21.35z" fill="#ffba00"/>
               </svg>
               Google Drive
               <span class="badge" id="drive-badge">Not connected</span>
@@ -2076,20 +2138,51 @@
         return;
       }
 
-      driveFolderList.innerHTML = driveFolders.map(f => `
-        <div class="drive-folder-item">
-          <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
-          <button class="btn-icon-small" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
-            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-      `).join('');
+      driveFolderList.innerHTML = driveFolders.map(f => {
+        // Get documents in this folder
+        const folderDocs = allDocuments.filter(d => d.folder_id === f.folder_id);
+        const docCount = folderDocs.length;
+
+        return `
+          <div class="folder-expandable" data-folder-id="${escapeHtml(f.folder_id)}">
+            <div class="folder-row">
+              <button class="folder-toggle" title="Expand">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
+              <span class="folder-doc-count">${docCount}</span>
+              <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="folder-docs hidden">
+              ${folderDocs.length > 0 ? folderDocs.map(d => `
+                <div class="folder-doc-item">${escapeHtml(d.title || d.doc_id)}</div>
+              `).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach toggle handlers
+      driveFolderList.querySelectorAll('.folder-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const expandable = btn.closest('.folder-expandable');
+          const docs = expandable.querySelector('.folder-docs');
+          const chevron = btn.querySelector('.chevron');
+          docs.classList.toggle('hidden');
+          chevron.classList.toggle('expanded');
+        });
+      });
 
       // Attach delete handlers
-      driveFolderList.querySelectorAll('button[data-folder-id]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+      driveFolderList.querySelectorAll('.folder-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
           const folderId = btn.dataset.folderId;
           btn.disabled = true;
           try {
