@@ -257,6 +257,7 @@ def get_frontend_config():
     return {
         "supabase_url": settings.supabase_url,
         "supabase_anon_key": settings.supabase_anon_key,
+        "google_picker_api_key": settings.google_picker_api_key,
     }
 
 
