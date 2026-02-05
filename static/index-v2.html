@@ -419,6 +419,55 @@
       line-height: 1.5;
     }
 
+    /* Suggestions */
+    .chat-suggestions {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(0,0,0,0.02);
+      border-radius: 8px;
+    }
+
+    .suggestions-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-chip {
+      padding: 6px 12px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 16px;
+      font-size: 12px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .suggestion-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .suggestion-docs {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     /* Loading indicator */
     .chat-loading {
       display: flex;
@@ -1455,9 +1504,48 @@
           `;
         }
 
+        // Add suggestions for assistant messages
+        if (m.role === 'assistant' && m.suggestions) {
+          const { topics, doc_titles, scope_hint } = m.suggestions;
+          let suggestionsContent = '';
+
+          if (scope_hint) {
+            suggestionsContent += `<div class="suggestion-hint">${escapeHtml(scope_hint)}</div>`;
+          }
+          if (topics && topics.length > 0) {
+            suggestionsContent += `
+              <div class="suggestion-topics">
+                ${topics.map(t => `<span class="suggestion-chip" data-query="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            `;
+          }
+          if (doc_titles && doc_titles.length > 0) {
+            suggestionsContent += `<div class="suggestion-docs">Related: ${doc_titles.map(d => escapeHtml(d)).join(', ')}</div>`;
+          }
+
+          if (suggestionsContent) {
+            html += `
+              <div class="chat-suggestions">
+                <div class="suggestions-header">Try instead</div>
+                ${suggestionsContent}
+              </div>
+            `;
+          }
+        }
+
         html += '</div>';
         return html;
       }).join('');
+
+      // Attach click handlers for suggestion chips
+      chatMessages.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const query = chip.dataset.query;
+          const input = stickyComposer.classList.contains('active') ? queryInputSticky : queryInput;
+          input.value = query;
+          input.focus();
+        });
+      });
     }
 
     function startNewConversation() {
@@ -1740,6 +1828,7 @@
           role: 'assistant',
           content: result.answer || 'No answer returned.',
           sources: result.sources || [],
+          suggestions: result.suggestions || null,
         };
         ConversationStore.addMessage(currentConversationId, assistantMessage);
 
