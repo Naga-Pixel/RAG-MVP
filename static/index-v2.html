@@ -1875,16 +1875,28 @@
       }
     }
 
-    function populateSelectors() {
-      // Get unique folders
-      const folders = [...new Set(allDocuments.map(d => d.folder_id).filter(Boolean))];
+    let allFolders = [];
 
-      // Folder selectors
+    async function loadFolders() {
+      try {
+        allFolders = await apiFetch('/folders');
+        console.log('Loaded', allFolders.length, 'folders');
+      } catch (err) {
+        console.warn('Failed to load folders:', err);
+        allFolders = [];
+      }
+    }
+
+    function populateSelectors() {
+      // Folder selectors - use allFolders which has folder_name
       const folderEmpty = document.getElementById('folder-selector-empty');
       const folderSticky = document.getElementById('folder-selector-sticky');
 
       const folderOptions = '<option value="">All folders</option>' +
-        folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+        allFolders.map(f => {
+          const name = f.folder_name || f.folder_id;
+          return `<option value="${escapeHtml(f.folder_id)}">${escapeHtml(name)}</option>`;
+        }).join('');
 
       if (folderEmpty) folderEmpty.innerHTML = folderOptions;
       if (folderSticky) folderSticky.innerHTML = folderOptions;
@@ -1928,6 +1940,7 @@
     async function init() {
       await loadConfig();
       await refreshDriveStatus();
+      await loadFolders();
       await loadDocuments();
       updateLocalUI();
 
