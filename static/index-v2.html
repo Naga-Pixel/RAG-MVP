@@ -249,6 +249,42 @@
       font-size: 13px;
     }
 
+    .conv-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .conv-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .conv-delete {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .conv-item:hover .conv-delete {
+      opacity: 1;
+    }
+
+    .conv-delete:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
     /* ========================================
        MIDDLE COLUMN: CHAT
        ======================================== */
@@ -1434,19 +1470,48 @@
 
       convList.innerHTML = conversations.map(c => `
         <div class="conv-item${c.id === currentConversationId ? ' active' : ''}" data-conv-id="${c.id}">
-          <div class="conv-title">${escapeHtml(c.title)}</div>
-          ${c.snippet ? `<div class="conv-snippet">${escapeHtml(c.snippet)}</div>` : ''}
-          <div class="conv-meta">${formatRelativeDate(c.updatedAt)}</div>
+          <div class="conv-item-content">
+            <div class="conv-title">${escapeHtml(c.title)}</div>
+            ${c.snippet ? `<div class="conv-snippet">${escapeHtml(c.snippet)}</div>` : ''}
+            <div class="conv-meta">${formatRelativeDate(c.updatedAt)}</div>
+          </div>
+          <button class="conv-delete" data-conv-id="${c.id}" title="Delete conversation">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
       `).join('');
 
-      // Attach click handlers
+      // Attach click handlers for loading conversations
       convList.querySelectorAll('.conv-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+          // Don't load if clicking delete button
+          if (e.target.closest('.conv-delete')) return;
           const id = item.dataset.convId;
           loadConversation(id);
         });
       });
+
+      // Attach click handlers for delete buttons
+      convList.querySelectorAll('.conv-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.convId;
+          deleteConversation(id);
+        });
+      });
+    }
+
+    function deleteConversation(id) {
+      ConversationStore.delete(id);
+
+      // If deleting current conversation, start new one
+      if (id === currentConversationId) {
+        startNewConversation();
+      } else {
+        renderConversationList();
+      }
     }
 
     function loadConversation(id) {
