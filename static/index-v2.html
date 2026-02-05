@@ -1476,9 +1476,22 @@
         // Build request body
         const body = { query };
         if (folderId) body.folder_id = folderId;
-        if (docId) body.doc_id = docId;
+        if (docId) body.doc_ids = [docId];
 
-        const result = await apiFetch('/query', {
+        // Include conversation history for multi-turn context
+        const conv = ConversationStore.get(currentConversationId);
+        if (conv && conv.messages.length > 0) {
+          // Only include messages before the current one (exclude the just-added user message)
+          const history = conv.messages.slice(0, -1).map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
+          if (history.length > 0) {
+            body.conversation_history = history;
+          }
+        }
+
+        const result = await apiFetch('/ask', {
           method: 'POST',
           body,
         });
