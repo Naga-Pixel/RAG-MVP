@@ -987,9 +987,26 @@
       font-size: 12px;
       color: var(--muted);
       padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .folder-doc-item .doc-name {
+      flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .folder-doc-item .doc-type {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(0,0,0,0.06);
+      padding: 2px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
     }
 
     .folder-doc-empty {
@@ -2177,9 +2194,16 @@
               </button>
             </div>
             <div class="folder-docs hidden">
-              ${folderDocs.length > 0 ? folderDocs.map(d => `
-                <div class="folder-doc-item">${escapeHtml(d.title || d.doc_id)}</div>
-              `).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+              ${folderDocs.length > 0 ? folderDocs.map(d => {
+                // Get file extension from source_file or try to infer from title
+                const fileName = d.source_file || d.title || d.doc_id;
+                const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
+                const displayName = d.title || d.doc_id;
+                return `<div class="folder-doc-item">
+                  <span class="doc-name">${escapeHtml(displayName)}</span>
+                  ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
+                </div>`;
+              }).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
             </div>
           </div>
         `;

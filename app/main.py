@@ -291,6 +291,7 @@ class DocumentInfo(BaseModel):
     chunk_count: int = 0
     folder_id: str | None = None
     folder_name: str | None = None
+    source_file: str | None = None  # Original filename with extension
 
 
 @app.get("/folders", response_model=list[FolderInfo])
@@ -383,7 +384,7 @@ async def list_documents(
 
         # Scroll through all points for tenant to get unique doc_ids
         # This is less efficient but works as fallback
-        doc_map = {}  # doc_id -> {title, count, folder_id, folder_name}
+        doc_map = {}  # doc_id -> {title, count, folder_id, folder_name, source_file}
 
         offset = None
         while True:
@@ -392,7 +393,7 @@ async def list_documents(
                 scroll_filter=Filter(must=must_conditions),
                 limit=100,
                 offset=offset,
-                with_payload=["doc_id", "title", "folder_id", "folder_name"],
+                with_payload=["doc_id", "title", "folder_id", "folder_name", "source_file"],
                 with_vectors=False,
             )
 
@@ -406,9 +407,10 @@ async def list_documents(
                 title = payload.get("title")
                 f_id = payload.get("folder_id")
                 f_name = payload.get("folder_name")
+                src_file = payload.get("source_file")
 
                 if doc_id not in doc_map:
-                    doc_map[doc_id] = {"title": title, "count": 0, "folder_id": f_id, "folder_name": f_name}
+                    doc_map[doc_id] = {"title": title, "count": 0, "folder_id": f_id, "folder_name": f_name, "source_file": src_file}
                 doc_map[doc_id]["count"] += 1
 
             if offset is None:
@@ -421,6 +423,7 @@ async def list_documents(
                 chunk_count=info["count"],
                 folder_id=info["folder_id"],
                 folder_name=info["folder_name"],
+                source_file=info["source_file"],
             )
             for doc_id, info in sorted(doc_map.items(), key=lambda x: (x[1]["title"] or "", x[0]))
         ]
