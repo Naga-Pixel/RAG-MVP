@@ -130,6 +130,7 @@ def upsert_points(
             title = first_payload.get("title")
             folder_id = first_payload.get("folder_id")
             folder_name = first_payload.get("folder_name")
+            source_file = first_payload.get("source_file")
 
             fts_chunks = []
             for pt in points:
@@ -148,6 +149,7 @@ def upsert_points(
                 ingest_id,
                 folder_id=folder_id,
                 folder_name=folder_name,
+                source_file=source_file,
             )
 
         except Exception as e:

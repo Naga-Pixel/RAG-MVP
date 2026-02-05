@@ -340,7 +340,8 @@ async def list_documents(
             if folder_id:
                 cursor.execute(f"""
                     SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
-                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name
+                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name,
+                           MAX(source_file) as source_file
                     FROM {fqtn}
                     WHERE tenant_id = %s AND folder_id = %s
                     GROUP BY doc_id
@@ -349,7 +350,8 @@ async def list_documents(
             else:
                 cursor.execute(f"""
                     SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
-                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name
+                           MAX(folder_id) as folder_id, MAX(folder_name) as folder_name,
+                           MAX(source_file) as source_file
                     FROM {fqtn}
                     WHERE tenant_id = %s
                     GROUP BY doc_id
@@ -366,6 +368,7 @@ async def list_documents(
                     chunk_count=row[2],
                     folder_id=row[3],
                     folder_name=row[4],
+                    source_file=row[5] if len(row) > 5 else None,
                 )
                 for row in rows
             ]
