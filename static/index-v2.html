@@ -339,10 +339,25 @@
     .chat-scroll {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 0 120px;
+      padding: 24px 0 180px;
       display: none;
     }
     .chat-scroll.active { display: block; }
+
+    /* Minimal scrollbar - just grey bar, no track */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
 
     .chat-center {
       max-width: var(--chatW);
@@ -537,13 +552,18 @@
     /* Sticky composer at bottom (shown after conversation starts) */
     .composer {
       flex-shrink: 0;
-      background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 20%);
-      padding: 32px 0 32px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 40%);
+      padding: 48px 0 32px;
       display: none;
       position: relative;
+      margin-top: -80px;
+      pointer-events: none;
     }
     .composer.active {
       display: block;
+    }
+    .composer-center {
+      pointer-events: auto;
     }
 
     .composer-center {
@@ -1238,12 +1258,7 @@
         <div class="section">
           <div class="section-head">
             <div class="section-name">
-              <svg class="section-icon" viewBox="0 0 46 46" style="width: 18px; height: 18px;">
-                <path d="M15.5 4L4 24l7 11.5h11l7-11.5L15.5 4z" fill="#4285f4"/>
-                <path d="M30.5 4L15.5 4 27 24h15L30.5 4z" fill="#0f9d58"/>
-                <path d="M42 24H27l-5.5 11.5h15L42 24z" fill="#f4b400"/>
-                <path d="M4 24l7 11.5h10.5L27 24H4z" fill="#db4437"/>
-              </svg>
+              <img src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png" alt="Drive" style="width: 18px; height: 18px;">
               Google Drive
               <span class="badge" id="drive-badge">Not connected</span>
             </div>
@@ -2429,6 +2444,11 @@
       await loadFolders();
       await loadDocuments();
       updateLocalUI();
+
+      // Re-render drive folders now that documents are loaded
+      if (driveConnectedState) {
+        renderDriveFolders();
+      }
 
       // Load conversations
       renderConversationList();
