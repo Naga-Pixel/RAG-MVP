@@ -20,6 +20,36 @@ from app.scope_resolver import resolve_scope_from_query, ResolvedScope
 logger = get_logger(__name__)
 client = OpenAI(api_key=settings.openai_api_key)
 
+
+def normalize_query(query: str) -> str:
+    """
+    Normalize query for better retrieval matching.
+
+    Fixes issues like "What's GDPR?" where the question mark is attached
+    to the last word, causing FTS to search for "GDPR?" instead of "GDPR".
+
+    Transformations:
+    - Add space before terminal punctuation attached to words (? ! . ,)
+    - Collapse multiple spaces
+
+    Examples:
+        "What's GDPR?" -> "What's GDPR ?"
+        "Hello, world!" -> "Hello , world !"
+        "test?test" -> "test?test" (no change - punctuation in middle of word)
+    """
+    if not query:
+        return query
+
+    # Add space before terminal punctuation that's attached to a word character
+    # Match: word char followed by punctuation at end of string or before space
+    normalized = re.sub(r'(\w)([?!.,])(\s|$)', r'\1 \2\3', query)
+
+    # Collapse multiple spaces
+    normalized = re.sub(r' +', ' ', normalized)
+
+    return normalized.strip()
+
+
 # Regex for extracting citations from answer text
 # Matches: [doc_id], [doc_id:12], [doc_id#12]
 CITATION_PATTERN = re.compile(r"\[(?P<doc>[A-Za-z0-9_\-]+)(?:(?:#|:)(?P<chunk>\d+))?\]")
@@ -592,6 +622,12 @@ def answer_question(
     # Generate query ID for logging
     query_id = str(uuid.uuid4())[:8]
     effective_tenant_id = tenant_id or settings.default_tenant_id
+
+    # Normalize query for better retrieval (e.g., "GDPR?" -> "GDPR ?")
+    original_query = query
+    query = normalize_query(query)
+    if query != original_query:
+        logger.debug(f"[{query_id}] query_normalized | original=\"{original_query}\" | normalized=\"{query}\"")
 
     # Initialize scope metadata
     scope_source = "none"
