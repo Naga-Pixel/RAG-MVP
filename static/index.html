@@ -325,7 +325,7 @@
       font-size: 15px;
       color: var(--muted);
       font-weight: 400;
-      letter-spacing: 0.5px;
+      letter-spacing: 0;
     }
 
     /* In empty state, query box is part of centered content */
@@ -1083,6 +1083,44 @@
     }
 
     /* ========================================
+       ADVANCED SEARCH DROPDOWN
+       ======================================== */
+    .advanced-search-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      padding: 4px 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .advanced-search-toggle:hover {
+      color: var(--ink);
+    }
+    .advanced-search-toggle .chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.15s;
+    }
+    .advanced-search-toggle.expanded .chevron {
+      transform: rotate(180deg);
+    }
+    .advanced-search-content {
+      display: none;
+      margin-top: 8px;
+    }
+    .advanced-search-content.visible {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ========================================
        RESPONSIVE - MOBILE
        ======================================== */
     @media (max-width: 768px) {
@@ -1195,6 +1233,43 @@
       .logout-btn {
         padding: 10px 20px;
       }
+
+      /* Collapsible composer on mobile */
+      .composer.collapsed .query-box {
+        padding: 8px 12px;
+      }
+      .composer.collapsed .query-textarea,
+      .composer.collapsed .query-divider,
+      .composer.collapsed .query-bottom,
+      .composer.collapsed .advanced-search-toggle,
+      .composer.collapsed .advanced-search-content {
+        display: none;
+      }
+      .composer.collapsed .composer-expand-btn {
+        display: flex;
+      }
+      .composer-expand-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px;
+        background: none;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .composer-expand-btn:hover {
+        color: var(--ink);
+      }
+      .composer-expand-btn svg {
+        width: 18px;
+        height: 18px;
+      }
     }
 
     /* ========================================
@@ -1216,7 +1291,7 @@
 
     .auth-brand {
       font-family: var(--font-brand);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 64px;
       color: var(--ink);
       margin-bottom: 8px;
@@ -1435,7 +1510,13 @@
           <!-- Query box inline in empty state -->
           <div class="composer-inline">
             <div class="query-box">
-              <div class="query-top">
+              <button class="advanced-search-toggle" id="advanced-toggle-empty" type="button">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Advanced search
+              </button>
+              <div class="advanced-search-content" id="advanced-content-empty">
                 <span class="query-label">Search in:</span>
                 <select class="query-select" id="folder-selector-empty">
                   <option value="">All folders</option>
@@ -1491,7 +1572,21 @@
           <div class="composer-center">
             <div class="query-box">
 
-              <div class="query-top">
+              <!-- Mobile expand button (visible when collapsed) -->
+              <button class="composer-expand-btn" id="composer-expand-btn" type="button">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Tap to ask a question
+              </button>
+
+              <button class="advanced-search-toggle" id="advanced-toggle-sticky" type="button">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Advanced search
+              </button>
+              <div class="advanced-search-content" id="advanced-content-sticky">
                 <span class="query-label">Search in:</span>
                 <select class="query-select" id="folder-selector-sticky">
                   <option value="">All folders</option>
@@ -2384,6 +2479,52 @@
     }
 
     // =================================================================
+    // Advanced Search Toggle
+    // =================================================================
+    function setupAdvancedToggle(toggleId, contentId) {
+      const toggle = document.getElementById(toggleId);
+      const content = document.getElementById(contentId);
+      if (!toggle || !content) return;
+
+      toggle.addEventListener('click', () => {
+        const isExpanded = toggle.classList.toggle('expanded');
+        content.classList.toggle('visible', isExpanded);
+      });
+    }
+
+    setupAdvancedToggle('advanced-toggle-empty', 'advanced-content-empty');
+    setupAdvancedToggle('advanced-toggle-sticky', 'advanced-content-sticky');
+
+    // =================================================================
+    // Mobile Composer Collapse/Expand
+    // =================================================================
+    const composerExpandBtn = document.getElementById('composer-expand-btn');
+
+    function isMobileView() {
+      return window.innerWidth <= 768;
+    }
+
+    function collapseMobileComposer() {
+      if (isMobileView() && stickyComposer) {
+        stickyComposer.classList.add('collapsed');
+      }
+    }
+
+    function expandMobileComposer() {
+      if (stickyComposer) {
+        stickyComposer.classList.remove('collapsed');
+        // Focus the input after expanding
+        if (queryInputSticky) {
+          setTimeout(() => queryInputSticky.focus(), 100);
+        }
+      }
+    }
+
+    if (composerExpandBtn) {
+      composerExpandBtn.addEventListener('click', expandMobileComposer);
+    }
+
+    // =================================================================
     // Submit Query
     // =================================================================
     async function submitQuery(query, fromSticky = false) {
@@ -2497,6 +2638,10 @@
       } finally {
         isSubmitting = false;
         btnEl.disabled = false;
+        // Collapse composer on mobile after query
+        if (fromSticky) {
+          collapseMobileComposer();
+        }
       }
     }
 
