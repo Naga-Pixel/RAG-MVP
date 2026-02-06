@@ -2641,10 +2641,8 @@
       } finally {
         isSubmitting = false;
         btnEl.disabled = false;
-        // Collapse composer on mobile after query
-        if (fromSticky) {
-          collapseMobileComposer();
-        }
+        // Collapse composer on mobile after any query (sticky composer is now visible)
+        collapseMobileComposer();
       }
     }
 
