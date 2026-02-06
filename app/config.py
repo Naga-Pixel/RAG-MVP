@@ -217,7 +217,12 @@ class Settings(BaseSettings):
         description="API key for authenticating sync/admin endpoints",
     )
     cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "https://oku.systems",
+            "https://www.oku.systems",
+        ],
         alias="CORS_ORIGINS",
         description="Comma-separated list of allowed CORS origins",
     )

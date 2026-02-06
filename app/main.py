@@ -265,6 +265,11 @@ def get_frontend_config():
 @limiter.limit(settings.rate_limit_ask)
 async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
     """Answer a question using RAG. Rate limited to prevent API abuse."""
+    # Log origin/host for domain migration debugging
+    origin = request.headers.get("origin", "none")
+    host = request.headers.get("host", "none")
+    logger.info(f"[ask] origin={origin} host={host} user={user.get('user_id', 'unknown')[:8]}...")
+
     # Convert conversation history to list of dicts
     history = None
     if body.conversation_history:

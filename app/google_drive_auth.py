@@ -363,6 +363,9 @@ async def start_drive_oauth(user: dict = Depends(verify_supabase_token)):
     query = "&".join(f"{k}={v}" for k, v in params.items())
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
 
+    # Log redirect_uri for domain migration debugging (no secrets)
+    logger.info(f"[drive_oauth_start] redirect_uri={settings.google_drive_redirect_uri}")
+
     return OAuthStartResponse(auth_url=auth_url)
 
 
@@ -374,6 +377,9 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
     """
     # Determine origin for postMessage
     origin = settings.google_drive_redirect_uri.rsplit("/oauth", 1)[0]
+
+    # Log callback origin for domain migration debugging
+    logger.info(f"[drive_oauth_callback] postMessage_origin={origin} has_code={code is not None} has_error={error is not None}")
 
     if error:
         return HTMLResponse(f"""
