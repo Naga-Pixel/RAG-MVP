@@ -1,2306 +1,2484 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oku — Document Q&A</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
-    <style>
-        @font-face {
-            font-family: 'Bricolage Grotesque';
-            src: url('/static/fonts/BricolageGrotesque-VariableFont_opsz,wdth,wght.ttf') format('truetype');
-            font-weight: 100 900;
-            font-style: normal;
-            font-display: swap;
-        }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oku</title>
 
-        :root {
-            /* Light mode (default for non-Q&A sections) */
-            --bg-primary: #f8f9fa;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f1f3f4;
-            --border: #c9c9c9;
-            --border-light: #d0d0d0;
-            --text-primary: #1a1a1a;
-            --text-secondary: #4a4a4a;
-            --text-muted: #6a6a6a;
-            --accent: #03ff85;
-            --accent-hover: #02cc6a;
-            --accent-glow: rgba(3, 255, 133, 0.15);
-            --success: #22c55e;
-            --error: #ef4444;
-            --warning: #f59e0b;
-            /* Dark mode vars for Q&A */
-            --qa-bg: #1f201f;
-            --qa-bg-secondary: #282928;
-            --qa-border: #888888;
-            --qa-text: #eeffed;
-            --qa-text-secondary: #b8c9b6;
-            --qa-text-muted: #7a8a78;
-        }
+  <!-- Fonts: Inter + Bricolage Grotesque -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+  <style>
+    /* ========================================
+       CSS VARIABLES
+       ======================================== */
+    :root {
+      --bg: #ffffff;
+      --ink: #0b0b0b;
+      --muted: #6b6f76;
+      --divider: rgba(0,0,0,0.08);
+      --accent: #72e4ad;
+      --accent-glow: rgba(114,228,173,0.18);
 
-        body {
-            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
+      --sideW: 320px;
+      --rightW: 360px;
+      --chatW: 750px;
+      --pad: 16px;
 
-        .container {
-            max-width: 100%;
-            margin: 0;
-            padding: 150px 50px 3rem 50px;
-        }
+      --font-body: "Inter", system-ui, -apple-system, sans-serif;
+      --font-brand: "Bricolage Grotesque", system-ui, sans-serif;
+    }
 
-        .auth-container {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 3rem 1.5rem;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            text-align: center;
-        }
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
 
-        header { text-align: center; margin-bottom: 3rem; }
-        h1 { font-size: 90px; font-weight: 600; letter-spacing: -0.02em; color: var(--bg-secondary); }
-        .auth-container header { width: 100vw; margin-left: calc(-50vw + 50%); }
-        .landing-title {
-            font-family: 'Bricolage Grotesque', sans-serif;
-            font-size: 80px;
-            line-height: 1;
-            color: var(--text-primary);
-            text-align: center;
-        }
-        .subtitle { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
-        .auth-container .subtitle { margin-top: 8px; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
 
-        /* Oku branding - logged in state */
-        .brand-box {
-            font-family: 'Bricolage Grotesque', sans-serif;
-            background: transparent;
-            color: #1f201f;
-            padding: 0;
-            font-size: 2.25rem;
-            font-weight: 600;
-            letter-spacing: -0.01em;
-        }
+    /* ========================================
+       3-COLUMN LAYOUT
+       ======================================== */
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sideW) 1fr var(--rightW);
+    }
 
-        .btn {
-            background: var(--accent);
-            color: #181918;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 9999px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        .btn:active { transform: translateY(0); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-        .btn-secondary:hover { background: var(--bg-tertiary); border-color: var(--text-primary); }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-        .btn-outline:hover { background: var(--bg-tertiary); }
-        .btn-danger { background: var(--error); color: white; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-dark { background: var(--text-primary); color: var(--bg-secondary); }
-        .btn-dark:hover { background: var(--text-secondary); }
-        .btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
-        .btn-icon { padding: 0.3rem 0.5rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-        .btn-icon:hover { background: var(--error); border-color: var(--error); color: white; }
-        /* Panel buttons - dark/transparent for light sections */
-        .panel .btn:not(.btn-secondary):not(.btn-danger) { background: var(--text-primary); color: var(--bg-secondary); }
-        .panel .btn:not(.btn-secondary):not(.btn-danger):hover { background: var(--text-secondary); }
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
 
-        .btn-google {
-            background: white;
-            color: #333;
-            width: 100%;
-            padding: 0.85rem 1.5rem;
-            font-size: 1rem;
-        }
-        .btn-google:hover { background: #f5f5f5; }
-        .btn-google svg { width: 20px; height: 20px; }
+    .col + .col {
+      border-left: 1px solid var(--divider);
+    }
 
-        .divider {
-            display: flex;
-            align-items: center;
-            margin: 1.5rem 0;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
-        .divider span { padding: 0 1rem; }
+    /* Column header */
+    .col-header {
+      padding: 20px var(--pad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
 
-        .panel {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .panel h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .panel-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            align-items: flex-end;
-            margin-bottom: 1rem;
-        }
-        .panel-row:last-child { margin-bottom: 0; }
+    /* Single continuous line under all headers */
+    .app {
+      position: relative;
+    }
+    .app::after {
+      content: '';
+      position: absolute;
+      top: 61px; /* header height */
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--divider);
+      z-index: 1;
+    }
 
-        .input-group { flex: 1; min-width: 150px; }
-        .input-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .input-group input {
-            width: 100%;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.6rem 0.75rem;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 0.95rem;
-        }
-        .input-group input:focus { outline: none; border-color: var(--accent); }
+    .col-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
 
-        .auth-buttons { display: flex; gap: 0.5rem; }
-        .auth-status { margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary); text-align: center; }
-        .auth-status.success { color: var(--success); }
-        .auth-status.error { color: var(--error); }
-        .auth-status.warning { color: var(--warning); }
+    .col-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
 
-        .logged-in-info { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-        .logged-in-info .user-email { color: var(--success); font-weight: 500; }
+    /* Scrollable content area */
+    .col-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px var(--pad) 16px;
+    }
 
-        .app-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        .app-header-left { display: flex; align-items: center; gap: 1rem; }
-        .app-header h1 { font-size: 2rem; }
-        .user-info { color: var(--text-secondary); font-size: 0.9rem; }
+    /* ========================================
+       BRAND
+       ======================================== */
+    .brand {
+      font-family: var(--font-brand);
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1;
+    }
 
-        .output-area {
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 0.75rem;
-            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            white-space: pre-wrap;
-            word-break: break-word;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .output-area.error-text { color: var(--error); }
-        .output-area.success-text { color: var(--success); }
-        .output-area.warning-text { color: var(--warning); }
+    .brand-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      flex-shrink: 0;
+    }
 
-        .folder-list { margin: 1rem 0; }
-        .folder-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            margin-bottom: 0.5rem;
-            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 0.85rem;
-        }
-        .folder-item .folder-path { color: var(--text-primary); word-break: break-all; }
-        .folder-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 0.5rem 0; }
+    /* ========================================
+       LINK BUTTON
+       ======================================== */
+    .linkbtn {
+      border: none;
+      background: transparent;
+      color: rgba(0,0,0,0.78);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 6px 0;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 2px;
+    }
+    .linkbtn:hover { color: #000; }
 
-        .state-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    /* ========================================
+       LEFT COLUMN: CONVERSATIONS
+       ======================================== */
+    .col-conversations .col-header {
+      padding: 20px var(--pad);
+    }
 
-        /* Q&A Section - Dark mode styling */
-        .search-box {
-            background: var(--qa-bg);
-            border: none;
-            border-radius: 16px;
-            padding: 1.25rem 1.5rem;
-            transition: all 0.15s ease;
-            margin-bottom: 2rem;
-            position: relative;
-        }
-        .search-box:focus-within {
-            box-shadow: none;
-            transform: none;
-        }
-        .search-input {
-            width: 100%;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--qa-text);
-            font-size: 1.1rem;
-            font-family: inherit;
-            resize: none;
-            min-height: 1.6em;
-            max-height: 200px;
-        }
-        .search-input::placeholder { color: var(--qa-text-muted); }
-        .search-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--qa-border);
-        }
-        .search-footer .hint { font-size: 0.85rem; color: var(--qa-text-muted); }
-        .search-footer .hint kbd {
-            background: var(--qa-bg-secondary);
-            padding: 0.2em 0.5em;
-            border-radius: 4px;
-            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 0.8em;
-            border: 1px solid var(--qa-border);
-            color: var(--qa-text-secondary);
-        }
-        .search-footer .btn {
-            background: var(--accent);
-            color: #181918;
-        }
-        .search-footer .btn:hover {
-            background: var(--accent-hover);
-        }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0 10px;
+    }
 
-        /* Push-to-talk button */
-        .ptt-btn {
-            background: var(--qa-bg-secondary);
-            border: 1px solid var(--qa-border);
-            border-radius: 9999px;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            flex-shrink: 0;
-        }
-        .ptt-btn:hover {
-            border-color: var(--accent);
-            background: var(--qa-bg);
-        }
-        .ptt-btn svg {
-            width: 20px;
-            height: 20px;
-            color: var(--qa-text-muted);
-            transition: color 0.15s ease;
-        }
-        .ptt-btn:hover svg {
-            color: var(--accent);
-        }
-        .ptt-btn.recording {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: #ef4444;
-            animation: pulse-recording 1s ease-in-out infinite;
-        }
-        .ptt-btn.recording svg {
-            color: #ef4444;
-        }
-        .ptt-btn.transcribing {
-            background: var(--accent-glow);
-            border-color: var(--accent);
-        }
-        .ptt-btn.transcribing svg {
-            color: var(--accent);
-            animation: spin 1s linear infinite;
-        }
-        @keyframes pulse-recording {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        .ptt-hint {
-            font-size: 0.75rem;
-            color: var(--qa-text-muted);
-            margin-left: 0.5rem;
-        }
-        .ptt-hint.recording {
-            color: #ef4444;
-        }
+    .section-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-        /* Document selector dropdown */
-        .doc-selector-row {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--qa-border);
-        }
-        .doc-selector-label {
-            font-size: 0.85rem;
-            color: var(--qa-text-muted);
-            white-space: nowrap;
-        }
-        .doc-selector {
-            flex: 1;
-            background: var(--qa-bg-secondary);
-            border: 1px solid var(--qa-border);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            color: var(--qa-text);
-            font-family: inherit;
-            font-size: 0.9rem;
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8a78' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.75rem center;
-            padding-right: 2rem;
-        }
-        .doc-selector:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .doc-selector option {
-            background: var(--qa-bg-secondary);
-            color: var(--qa-text);
-        }
-        .doc-clear-btn {
-            background: transparent;
-            border: 1px solid var(--qa-border);
-            border-radius: 6px;
-            padding: 0.4rem 0.6rem;
-            color: var(--qa-text-muted);
-            font-family: inherit;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            white-space: nowrap;
-        }
-        .doc-clear-btn:hover {
-            border-color: var(--qa-text-secondary);
-            color: var(--qa-text);
-        }
-        .doc-clear-btn.hidden {
-            display: none;
-        }
-        .active-doc-indicator {
-            font-size: 0.75rem;
-            color: var(--accent);
-            margin-left: 0.25rem;
-        }
-        .scope-indicator {
-            display: none;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            background: var(--accent-glow);
-            border: 1px solid var(--accent);
-            border-radius: 8px;
-            font-size: 0.8rem;
-            color: var(--accent);
-            margin-bottom: 0.75rem;
-        }
-        .scope-indicator.visible {
-            display: flex;
-        }
-        .scope-indicator svg {
-            width: 14px;
-            height: 14px;
-        }
-        .scope-indicator .scope-text {
-            flex: 1;
-        }
-        .scope-indicator .scope-auto {
-            font-size: 0.7rem;
-            opacity: 0.8;
-            margin-left: 0.25rem;
-        }
+    .section-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+    }
 
-        /* General hint styling (for light sections) */
-        .hint { font-size: 0.85rem; color: var(--text-muted); }
-        .hint kbd {
-            background: var(--bg-tertiary);
-            padding: 0.2em 0.5em;
-            border-radius: 4px;
-            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-            font-size: 0.8em;
-            border: 1px solid var(--border);
-        }
+    .badge {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
 
-        /* Results area - Dark mode */
-        #results {
-            background: var(--qa-bg);
-            border: none;
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            min-height: 80px;
-        }
-        #results:empty {
-            display: none;
-        }
+    /* Conversation list placeholder */
+    .conv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
 
-        /* Q&A Loading and answer styles - Dark mode */
-        .loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 2rem; color: var(--qa-text-secondary); }
-        .spinner { width: 20px; height: 20px; border: 2px solid var(--qa-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+    .conv-item {
+      padding: 10px 0;
+      cursor: pointer;
+      border-bottom: 1px solid var(--divider);
+    }
+    .conv-item:last-child { border-bottom: none; }
 
-        .answer-card {
-            background: var(--qa-bg-secondary);
-            border: 1px solid var(--qa-border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 0;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .answer-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            color: var(--qa-text-secondary);
-            font-size: 0.85rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .answer-header svg { width: 16px; height: 16px; color: var(--success); }
-        .answer-text { font-size: 1.05rem; line-height: 1.7; color: var(--qa-text); }
+    .conv-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.4;
+    }
 
-        .sources-section { margin-top: 1.5rem; }
-        .sources-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: transparent;
-            border: 1px solid var(--qa-border);
-            border-radius: 9999px;
-            padding: 0.4rem 0.75rem;
-            font-family: inherit;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--qa-text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .sources-toggle:hover { border-color: var(--qa-text-muted); color: var(--qa-text); }
-        .sources-toggle svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
-        .sources-toggle.expanded svg { transform: rotate(180deg); }
-        .sources-list { display: none; margin-top: 0.75rem; }
-        .sources-list.visible { display: block; }
-        .sources-header { font-size: 0.85rem; font-weight: 500; color: var(--qa-text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .source-item { background: var(--qa-bg); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid var(--qa-border); transition: border-color 0.15s ease; }
-        .source-item:hover { border-color: var(--accent); }
-        .source-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .source-id { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--accent); background: var(--accent-glow); padding: 0.2em 0.5em; border-radius: 4px; }
-        .source-title { font-size: 0.9rem; font-weight: 500; color: var(--qa-text); }
-        .source-snippet { font-size: 0.85rem; color: var(--qa-text-secondary); line-height: 1.5; }
+    .conv-snippet {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
 
-        .error-box {
-            background: rgba(255, 68, 68, 0.15);
-            border: 1px solid rgba(255, 68, 68, 0.4);
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            color: #ff6b6b;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .error-box svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .conv-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: rgba(0,0,0,0.45);
+      font-weight: 500;
+    }
 
-        .empty-state { text-align: center; padding: 2rem 1rem; color: var(--qa-text-muted); }
-        .empty-state p { max-width: 300px; margin: 0 auto; font-size: 0.95rem; }
+    .conv-item:hover {
+      background: rgba(0,0,0,0.02);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
 
-        /* Chat-style conversation */
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .chat-message {
-            max-width: 85%;
-            animation: fadeIn 0.3s ease;
-        }
-        .chat-message.user {
-            align-self: flex-end;
-            background: var(--accent-glow);
-            border: 1px solid var(--accent);
-            border-radius: 16px 16px 4px 16px;
-            padding: 0.75rem 1rem;
-            color: var(--qa-text);
-        }
-        .chat-message.assistant {
-            align-self: flex-start;
-            width: 100%;
-            max-width: 100%;
-        }
-        .chat-message .user-label {
-            font-size: 0.75rem;
-            color: var(--accent);
-            margin-bottom: 0.25rem;
-            font-weight: 500;
-        }
-        .chat-message .user-text {
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        .new-conversation-btn {
-            background: transparent;
-            border: 1px solid var(--qa-border);
-            border-radius: 8px;
-            padding: 0.4rem 0.75rem;
-            font-family: inherit;
-            font-size: 0.8rem;
-            color: var(--qa-text-muted);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            margin-bottom: 1rem;
-        }
-        .new-conversation-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-        .new-conversation-btn.hidden {
-            display: none;
-        }
+    .conv-item.active {
+      background: var(--accent-glow);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+      border-bottom-color: transparent;
+    }
 
-        /* Search suggestions box */
-        .suggestions-box {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: var(--qa-bg);
-            border: 1px dashed var(--qa-border);
-            border-radius: 10px;
-        }
-        .suggestions-header {
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--qa-text-muted);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .suggestions-hint {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            background: var(--accent-glow);
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: var(--accent);
-            margin-bottom: 0.75rem;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .suggestions-hint:hover {
-            background: rgba(3, 255, 133, 0.25);
-        }
-        .suggestions-hint svg {
-            width: 14px;
-            height: 14px;
-            flex-shrink: 0;
-        }
-        .suggestions-topics {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .suggestion-topic {
-            background: var(--qa-bg-secondary);
-            border: 1px solid var(--qa-border);
-            border-radius: 9999px;
-            padding: 0.3rem 0.75rem;
-            font-size: 0.8rem;
-            color: var(--qa-text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .suggestion-topic:hover {
-            border-color: var(--accent);
-            color: var(--qa-text);
-        }
-        .suggestions-docs {
-            margin-top: 0.75rem;
-            font-size: 0.8rem;
-            color: var(--qa-text-muted);
-        }
-        .suggestions-docs span {
-            color: var(--qa-text-secondary);
-        }
+    .conv-empty {
+      padding: 20px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
 
-        footer { text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
-        footer a { color: var(--text-secondary); text-decoration: none; }
-        footer a:hover { color: var(--accent); }
+    .conv-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
 
-        .hidden { display: none !important; }
+    .conv-item-content {
+      flex: 1;
+      min-width: 0;
+    }
 
-        /* Sync Modal Overlay */
-        .sync-modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-        }
-        .sync-modal-overlay.visible {
-            display: flex;
-        }
-        .sync-modal-box {
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            padding: 2rem 2.5rem;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-        .sync-modal-box h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-        .sync-modal-box p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            margin-bottom: 1.25rem;
-        }
-        .sync-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto;
-        }
-    </style>
+    .conv-delete {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .conv-item:hover .conv-delete {
+      opacity: 1;
+    }
+
+    .conv-delete:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    /* ========================================
+       MIDDLE COLUMN: CHAT
+       ======================================== */
+    .col-chat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px var(--pad);
+      text-align: center;
+    }
+
+    .empty-logo {
+      font-family: var(--font-brand);
+      font-weight: 700;
+      font-size: 120px;
+      letter-spacing: -2px;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .empty-tagline {
+      margin-top: 16px;
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+
+    /* In empty state, query box is part of centered content */
+    .empty-state .composer-inline {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    /* Chat scroll area (hidden in empty state) */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0 180px;
+      display: none;
+    }
+    .chat-scroll.active { display: block; }
+
+    /* Minimal scrollbar - just grey bar, no track */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .chat-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    /* Chat messages */
+    .chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .chat-message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-message .role {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-message .role-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .chat-message.assistant .role-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .chat-message .content {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    .chat-message.user .content {
+      color: #374151;
+    }
+
+    .chat-message.assistant .content {
+      color: #1f2937;
+    }
+
+    /* Sources in chat */
+    .chat-sources {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--divider);
+    }
+
+    .sources-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1px solid var(--divider);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .sources-toggle:hover {
+      border-color: var(--accent);
+      color: var(--ink);
+    }
+
+    .sources-list {
+      display: none;
+      margin-top: 12px;
+      padding-left: 12px;
+      border-left: 2px solid var(--accent-glow);
+    }
+    .sources-list.visible {
+      display: block;
+    }
+
+    .source-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .source-item:last-child {
+      border-bottom: none;
+    }
+
+    .source-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .source-snippet {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    /* Suggestions */
+    .chat-suggestions {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(0,0,0,0.02);
+      border-radius: 8px;
+    }
+
+    .suggestions-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-chip {
+      padding: 6px 12px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 16px;
+      font-size: 12px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .suggestion-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .suggestion-docs {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Loading indicator */
+    .chat-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--divider);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    /* ========================================
+       COMPOSER (Query Box)
+       ======================================== */
+    /* Sticky composer at bottom (shown after conversation starts) */
+    .composer {
+      flex-shrink: 0;
+      background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 40%);
+      padding: 48px 0 32px;
+      display: none;
+      position: relative;
+      margin-top: -80px;
+      pointer-events: none;
+    }
+    .composer.active {
+      display: block;
+    }
+    .composer-center {
+      pointer-events: auto;
+    }
+
+    .composer-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    .query-box {
+      border: 1px solid var(--divider);
+      border-radius: 14px;
+      padding: 12px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Top row: scope selectors */
+    .query-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .query-select {
+      flex: 1;
+      max-width: 200px;
+      border-radius: 20px;
+      padding: 8px 28px 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      border: 1px solid var(--divider);
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6f76' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .query-select:focus {
+      outline: none;
+    }
+
+    .query-divider {
+      height: 1px;
+      background: var(--divider);
+    }
+
+    /* Textarea */
+    .query-textarea {
+      width: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      background: transparent;
+      padding: 8px 4px;
+      min-height: 48px;
+      color: var(--ink);
+    }
+    .query-textarea::placeholder {
+      color: var(--muted);
+    }
+
+    /* Bottom row: hint + buttons */
+    .query-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-hint {
+      flex: 1;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      text-align: left;
+    }
+
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid var(--divider);
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+    .mic-btn:hover {
+      background: #5dd89a;
+    }
+
+    .ask-btn {
+      height: 44px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .ask-btn:hover {
+      background: #333;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ========================================
+       RIGHT COLUMN: DOCUMENTS
+       ======================================== */
+    .section {
+      padding: 10px 0;
+    }
+    .section + .section {
+      border-top: 1px solid var(--divider);
+    }
+
+    /* Folder list placeholder */
+    .folder-group {
+      margin-top: 8px;
+    }
+
+    .folder-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .folder-item:last-child { border-bottom: none; }
+
+    .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      cursor: pointer;
+    }
+
+    .folder-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .file-list {
+      margin-top: 8px;
+      padding-left: 12px;
+      border-left: 2px solid rgba(114,228,173,0.35);
+    }
+
+    .file-item {
+      padding: 4px 0;
+      font-size: 12px;
+      color: rgba(0,0,0,0.72);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .file-date {
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    /* ========================================
+       DOCUMENT SIDEBAR ENHANCEMENTS
+       ======================================== */
+    .search-box {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .search-box .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+    }
+    .search-box .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .search-box .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .section-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .empty-hint {
+      padding: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .folder-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .folder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .folder-item .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .folder-item .folder-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn-icon-small {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--divider);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .btn-icon-small:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .sync-status {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .sync-status.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: #16a34a;
+    }
+    .sync-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+    .sync-status.warning {
+      background: rgba(245, 158, 11, 0.1);
+      color: #d97706;
+    }
+
+    /* User bar */
+    .user-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px var(--pad);
+      background: rgba(0,0,0,0.02);
+      border-bottom: 1px solid var(--divider);
+      gap: 12px;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .user-email {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .logout-btn:hover {
+      background: #333;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Drive folder list - expandable */
+    .folder-expandable {
+      border-bottom: 1px solid var(--divider);
+    }
+    .folder-expandable:last-child {
+      border-bottom: none;
+    }
+
+    .folder-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      gap: 8px;
+    }
+
+    .folder-toggle {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      padding: 0;
+    }
+    .folder-toggle:hover {
+      color: var(--ink);
+    }
+
+    .folder-toggle .chevron {
+      transition: transform 0.15s;
+    }
+    .folder-toggle .chevron.expanded {
+      transform: rotate(90deg);
+    }
+
+    .folder-row .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .folder-doc-count {
+      font-size: 11px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .folder-docs {
+      padding: 0 0 8px 32px;
+    }
+
+    .folder-doc-item {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .folder-doc-item .doc-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .folder-doc-item .doc-type {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(0,0,0,0.06);
+      padding: 2px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .folder-doc-empty {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+      }
+      .col-conversations { order: 3; }
+      .col-chat { order: 1; }
+      .col-documents { order: 2; }
+      .col + .col {
+        border-left: none;
+        border-top: 1px solid var(--divider);
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <!-- Auth View (shown when logged out) -->
-    <div id="authView" class="auth-container">
-        <header>
-            <h1 class="landing-title">Oku</h1>
-            <p class="subtitle">Ask questions about your indexed documents</p>
-        </header>
+  <div class="app">
 
-        <div class="panel">
-            <button id="btn-google" class="btn btn-google">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-            </button>
-
-            <div class="divider"><span>or</span></div>
-
-            <div class="panel-row">
-                <div class="input-group" style="min-width: 100%;">
-                    <label for="auth-email">Email</label>
-                    <input type="email" id="auth-email" placeholder="you@example.com">
-                </div>
-            </div>
-            <div class="panel-row">
-                <div class="input-group" style="min-width: 100%;">
-                    <label for="auth-password">Password</label>
-                    <input type="password" id="auth-password" placeholder="Enter your password">
-                </div>
-            </div>
-            <div class="panel-row" style="margin-top: 1rem;">
-                <button id="btn-login" class="btn" style="flex: 1;">Log in</button>
-                <button id="btn-signup" class="btn btn-secondary" style="flex: 1;">Sign up</button>
-            </div>
-            <div id="auth-status" class="auth-status"></div>
+    <!-- ==========================================
+         LEFT COLUMN: Past Conversations
+         ========================================== -->
+    <aside class="col col-conversations">
+      <div class="col-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          Oku
         </div>
-    </div>
+      </div>
 
-    <!-- App View (shown when logged in) -->
-    <div id="appView" class="container hidden">
-        <div class="app-header">
-            <div class="app-header-left">
-                <span class="brand-box">Oku</span>
-                <span class="user-info">Logged in as <span id="user-email" class="user-email" style="color: var(--accent);"></span></span>
-            </div>
-            <button id="btn-logout" class="btn btn-dark btn-small">Log out</button>
-        </div>
-
-        <!-- Q&A Section (moved to top) -->
+      <div class="col-scroll">
+        <!-- Conversation Search -->
         <div class="search-box">
-            <div class="doc-selector-row">
-                <span class="doc-selector-label">Search in:</span>
-                <select id="folder-selector" class="doc-selector" style="max-width: 180px;">
-                    <option value="">All folders</option>
-                </select>
-                <select id="doc-selector" class="doc-selector">
-                    <option value="">All documents</option>
-                </select>
-                <button id="doc-clear-btn" class="doc-clear-btn hidden" title="Clear scope">Clear</button>
-            </div>
-            <div id="scope-indicator" class="scope-indicator">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <span class="scope-text" id="scope-text">Scoped to: </span>
-            </div>
-            <textarea id="query" class="search-input" placeholder="What would you like to know?" rows="1"></textarea>
-            <div class="search-footer">
-                <span class="hint">Press <kbd>Enter</kbd> to search<span id="ptt-hint" class="ptt-hint"></span></span>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button id="ptt-btn" class="ptt-btn" title="Hold to record (or click to toggle)">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" x2="12" y1="19" y2="22"></line>
-                        </svg>
-                    </button>
-                    <button id="submit" class="btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.3-4.3"></path>
-                        </svg>
-                        Ask
-                    </button>
-                </div>
-            </div>
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="conv-search" class="search-input" placeholder="Search conversations...">
         </div>
 
-        <button id="new-conversation-btn" class="new-conversation-btn hidden">+ New conversation</button>
-        <div id="results"></div>
+        <div class="section-head">
+          <div class="section-name">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Past conversations
+            <span class="badge" id="conv-count">0</span>
+          </div>
+          <button class="linkbtn" id="btn-new-conversation">New</button>
+        </div>
+
+        <div class="conv-list" id="conv-list">
+          <!-- Conversations will be rendered here -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================
+         MIDDLE COLUMN: Chat
+         ========================================== -->
+    <main class="col col-chat">
+      <div class="col-header">
+        <div class="col-title">Chat</div>
+        <div class="col-meta">Ask and verify</div>
+      </div>
+
+      <div class="chat-area">
+        <!-- Empty State (with inline query box) -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-logo">Oku</div>
+          <div class="empty-tagline">----Ask a question, Close the loop.</div>
+
+          <!-- Query box inline in empty state -->
+          <div class="composer-inline">
+            <div class="query-box">
+              <div class="query-top">
+                <span class="query-label">Search in:</span>
+                <select class="query-select" id="folder-selector-empty">
+                  <option value="">All folders</option>
+                </select>
+                <select class="query-select" id="doc-selector-empty">
+                  <option value="">All documents</option>
+                </select>
+              </div>
+
+              <div class="query-divider"></div>
+
+              <textarea
+                class="query-textarea"
+                id="query-input"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-divider"></div>
+
+              <div class="query-bottom">
+                <span class="query-hint">Press Enter to ask</span>
+
+                <button class="mic-btn" id="mic-btn" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Messages (hidden until conversation starts) -->
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-center" id="chat-messages">
+            <!-- Messages will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Sticky Composer at bottom (shown after conversation starts) -->
+        <div class="composer" id="sticky-composer">
+          <div class="composer-center">
+            <div class="query-box">
+
+              <div class="query-top">
+                <span class="query-label">Search in:</span>
+                <select class="query-select" id="folder-selector-sticky">
+                  <option value="">All folders</option>
+                </select>
+                <select class="query-select" id="doc-selector-sticky">
+                  <option value="">All documents</option>
+                </select>
+              </div>
+
+              <div class="query-divider"></div>
+
+              <textarea
+                class="query-textarea"
+                id="query-input-sticky"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-divider"></div>
+
+              <div class="query-bottom">
+                <span class="query-hint">Press Enter to ask</span>
+
+                <button class="mic-btn" id="mic-btn-sticky" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn-sticky" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==========================================
+         RIGHT COLUMN: Documents
+         ========================================== -->
+    <aside class="col col-documents">
+      <div class="col-header">
+        <div class="col-title">Documents</div>
+        <div class="col-meta">Your connectors</div>
+      </div>
+
+      <!-- User bar -->
+      <div class="user-bar" id="user-bar">
+        <div class="user-info">
+          <span class="user-label">Logged in as:</span>
+          <span class="user-email" id="user-email"></span>
+        </div>
+        <button class="logout-btn" id="btn-logout">Log Out</button>
+      </div>
+
+      <div class="col-scroll">
+        <!-- Document Search -->
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="doc-search" class="search-input" placeholder="Search documents...">
+        </div>
+
+        <!-- Local Section -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Local
+              <span class="badge" id="local-badge">0 folders</span>
+            </div>
+            <div class="section-actions">
+              <button class="linkbtn" id="btn-select-folder">Select folder</button>
+            </div>
+          </div>
+
+          <!-- Hidden file picker -->
+          <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+
+          <!-- Local: Not selected state -->
+          <div id="local-not-selected" class="folder-group">
+            <div class="empty-hint">Select a folder to sync documents</div>
+          </div>
+
+          <!-- Local: Selected state -->
+          <div id="local-selected" class="folder-group hidden">
+            <div class="folder-item">
+              <div class="folder-info">
+                <span class="folder-name" id="local-folder-name"></span>
+                <span class="folder-meta" id="local-file-count"></span>
+              </div>
+              <button class="btn-icon-small" id="btn-clear-folder" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="section-buttons">
+              <button class="linkbtn" id="btn-select-different">Change folder</button>
+              <button class="linkbtn" id="btn-sync-local">Sync</button>
+            </div>
+          </div>
+
+          <div id="local-sync-status" class="sync-status hidden"></div>
+        </div>
 
         <!-- Google Drive Section -->
-        <div class="panel">
-            <h2>Google Drive</h2>
-            <div id="drive-not-connected">
-                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
-                    Connect your Google Drive to sync documents from specific folders.
-                </p>
-                <button id="btn-connect-drive" class="btn">
-                    <svg viewBox="0 0 87.3 78" style="width:18px;height:18px;margin-right:4px">
-                        <path fill="#0066da" d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H1.2c0 1.55.4 3.1 1.2 4.5l4.2 9.35z"/>
-                        <path fill="#00ac47" d="M43.65 25.15L29.9 1.35c-1.35.8-2.5 1.9-3.3 3.3L1.2 52.7c-.8 1.4-1.2 2.95-1.2 4.5h27.4l16.25-32.05z"/>
-                        <path fill="#ea4335" d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.2c.8-1.4 1.2-2.95 1.2-4.5H59.9L73.55 76.8z"/>
-                        <path fill="#00832d" d="M43.65 25.15L57.4 1.35C56.05.55 54.5.15 52.9.15h-18.5c-1.6 0-3.15.45-4.5 1.2l13.75 23.8z"/>
-                        <path fill="#2684fc" d="M59.9 52.7H27.4l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.5c1.6 0 3.15-.45 4.5-1.2L59.9 52.7z"/>
-                        <path fill="#ffba00" d="M73.4 26.5L60.65 3.65c-.8-1.4-1.95-2.5-3.3-3.3L43.6 25.15 59.85 52.7h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z"/>
-                    </svg>
-                    Connect Google Drive
-                </button>
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <img src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png" alt="Drive" style="width: 18px; height: 18px;">
+              Google Drive
+              <span class="badge" id="drive-badge">Not connected</span>
             </div>
-            <div id="drive-connected" class="hidden">
-                <div id="drive-folder-list" class="folder-list">
-                    <div class="folder-empty">No folders selected yet</div>
-                </div>
-                <div class="panel-row" style="margin-top: 1rem;">
-                    <button id="btn-add-drive-folder" class="btn btn-secondary btn-small">+ Add Folder</button>
-                    <button id="btn-sync-drive" class="btn btn-small">Sync Drive Now</button>
-                </div>
-                <div id="drive-sync-status" class="output-area hidden"></div>
+            <div class="section-actions" id="drive-actions-connect">
+              <button class="linkbtn" id="btn-connect-drive">Connect</button>
             </div>
+            <div class="section-actions hidden" id="drive-actions-connected">
+              <button class="linkbtn" id="btn-add-drive-folder">Add folder</button>
+              <button class="linkbtn" id="btn-sync-drive">Sync</button>
+            </div>
+          </div>
+
+          <!-- Drive: Not connected state -->
+          <div id="drive-not-connected" class="folder-group">
+            <div class="empty-hint">Connect to sync from Google Drive</div>
+          </div>
+
+          <!-- Drive: Connected state -->
+          <div id="drive-connected" class="folder-group hidden">
+            <div id="drive-folder-list">
+              <!-- Drive folders will be rendered here -->
+            </div>
+          </div>
+
+          <div id="drive-sync-status" class="sync-status hidden"></div>
         </div>
+      </div>
+    </aside>
 
-        <!-- Local Sync Section -->
-        <div class="panel">
-            <h2>Local Files</h2>
-            <div id="local-not-selected">
-                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
-                    Select a folder from your computer to sync documents.
-                </p>
-                <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
-                <button id="btn-select-folder" class="btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;margin-right:4px">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    Select local folder
-                </button>
-            </div>
-            <div id="local-selected" class="hidden">
-                <div id="local-folder-info" class="folder-item" style="margin-bottom: 1rem;">
-                    <div>
-                        <span id="local-folder-name" class="folder-path" style="font-weight: 500;"></span>
-                        <span id="local-file-count" style="color: var(--text-muted); margin-left: 0.5rem;"></span>
-                    </div>
-                    <button id="btn-clear-folder" class="btn btn-icon btn-small" title="Clear selection">✕</button>
-                </div>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-                    Files are processed only when you click sync.
-                </p>
-                <div class="panel-row">
-                    <button id="btn-select-different" class="btn btn-secondary btn-small">Select different folder</button>
-                    <button id="btn-sync-local" class="btn btn-small">Sync</button>
-                </div>
-            </div>
-            <div id="sync-status" class="output-area hidden"></div>
+  </div>
+
+  <script type="module">
+    // =================================================================
+    // ESM Import of Supabase
+    // =================================================================
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    // =================================================================
+    // Configuration
+    // =================================================================
+    let supabase = null;
+    let publicConfig = null;
+    const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.rtf'];
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config/frontend');
+        publicConfig = await response.json();
+        supabase = createClient(publicConfig.supabase_url, publicConfig.supabase_anon_key);
+        return true;
+      } catch (err) {
+        console.error('Failed to load config:', err);
+        return false;
+      }
+    }
+
+    // =================================================================
+    // Auth Helpers
+    // =================================================================
+    async function getAccessToken() {
+      if (!supabase) return null;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    }
+
+    async function updateUserUI() {
+      if (!supabase) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        userEmail.textContent = session.user.email || 'Unknown';
+        userBar.classList.remove('hidden');
+      } else {
+        userBar.classList.add('hidden');
+      }
+    }
+
+    async function logout() {
+      if (!supabase) return;
+      try {
+        await supabase.auth.signOut();
+        // Clear local state
+        currentConversationId = null;
+        localStorage.removeItem('oku_conversations');
+        // Reload page to reset state
+        window.location.reload();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
+    }
+
+    async function apiFetch(path, options = {}) {
+      const token = await getAccessToken();
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(path, {
+        ...options,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || 'Request failed');
+      }
+      return response.json();
+    }
+
+    // =================================================================
+    // DOM Elements
+    // =================================================================
+    // Query input
+    const queryInput = document.getElementById('query-input');
+
+    // Document search
+    const docSearch = document.getElementById('doc-search');
+
+    // Local folder elements
+    const folderPicker = document.getElementById('folder-picker');
+    const btnSelectFolder = document.getElementById('btn-select-folder');
+    const btnSelectDifferent = document.getElementById('btn-select-different');
+    const btnClearFolder = document.getElementById('btn-clear-folder');
+    const btnSyncLocal = document.getElementById('btn-sync-local');
+    const localNotSelected = document.getElementById('local-not-selected');
+    const localSelected = document.getElementById('local-selected');
+    const localFolderName = document.getElementById('local-folder-name');
+    const localFileCount = document.getElementById('local-file-count');
+    const localBadge = document.getElementById('local-badge');
+    const localSyncStatus = document.getElementById('local-sync-status');
+
+    // Google Drive elements
+    const btnConnectDrive = document.getElementById('btn-connect-drive');
+    const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+    const btnSyncDrive = document.getElementById('btn-sync-drive');
+    const driveNotConnected = document.getElementById('drive-not-connected');
+    const driveConnected = document.getElementById('drive-connected');
+    const driveFolderList = document.getElementById('drive-folder-list');
+    const driveBadge = document.getElementById('drive-badge');
+    const driveActionsConnect = document.getElementById('drive-actions-connect');
+    const driveActionsConnected = document.getElementById('drive-actions-connected');
+    const driveSyncStatus = document.getElementById('drive-sync-status');
+
+    // User bar elements
+    const userBar = document.getElementById('user-bar');
+    const userEmail = document.getElementById('user-email');
+    const btnLogout = document.getElementById('btn-logout');
+
+    // =================================================================
+    // State
+    // =================================================================
+    let selectedFiles = [];
+    let selectedFolderName = '';
+    let driveFolders = [];
+    let driveConnectedState = false;
+    let allDocuments = [];
+    let pickerApiLoaded = false;
+
+    // Conversation state
+    let currentConversationId = null;
+    let isSubmitting = false;
+
+    // =================================================================
+    // Conversation DOM Elements
+    // =================================================================
+    const convSearch = document.getElementById('conv-search');
+    const convCount = document.getElementById('conv-count');
+    const btnNewConversation = document.getElementById('btn-new-conversation');
+    const convList = document.getElementById('conv-list');
+    const emptyState = document.getElementById('empty-state');
+    const chatScroll = document.getElementById('chat-scroll');
+    const chatMessages = document.getElementById('chat-messages');
+    const stickyComposer = document.getElementById('sticky-composer');
+    const queryInputSticky = document.getElementById('query-input-sticky');
+    const askBtn = document.getElementById('ask-btn');
+    const askBtnSticky = document.getElementById('ask-btn-sticky');
+
+    // =================================================================
+    // ConversationStore - localStorage persistence
+    // =================================================================
+    const STORAGE_KEY = 'oku_conversations';
+
+    const ConversationStore = {
+      getAll() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch {
+          return [];
+        }
+      },
+
+      save(conversations) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      },
+
+      create(firstQuery) {
+        const conversations = this.getAll();
+        const now = new Date().toISOString();
+        const conv = {
+          id: 'conv_' + Date.now(),
+          title: firstQuery.slice(0, 50) + (firstQuery.length > 50 ? '...' : ''),
+          snippet: '',
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        };
+        conversations.unshift(conv);
+        this.save(conversations);
+        return conv;
+      },
+
+      update(id, updates) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          conversations[idx] = { ...conversations[idx], ...updates, updatedAt: new Date().toISOString() };
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      addMessage(convId, message) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === convId);
+        if (idx !== -1) {
+          conversations[idx].messages.push(message);
+          conversations[idx].updatedAt = new Date().toISOString();
+          // Update snippet from first assistant response
+          if (message.role === 'assistant' && !conversations[idx].snippet) {
+            conversations[idx].snippet = message.content.slice(0, 80) + (message.content.length > 80 ? '...' : '');
+          }
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      get(id) {
+        return this.getAll().find(c => c.id === id) || null;
+      },
+
+      delete(id) {
+        const conversations = this.getAll().filter(c => c.id !== id);
+        this.save(conversations);
+      },
+    };
+
+    // =================================================================
+    // Conversation UI
+    // =================================================================
+    function formatRelativeDate(isoString) {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
+
+    function renderConversationList(filter = '') {
+      let conversations = ConversationStore.getAll();
+      convCount.textContent = conversations.length;
+
+      // Apply filter
+      if (filter) {
+        const term = filter.toLowerCase();
+        conversations = conversations.filter(c =>
+          c.title.toLowerCase().includes(term) ||
+          c.snippet.toLowerCase().includes(term) ||
+          c.messages.some(m => m.content.toLowerCase().includes(term))
+        );
+      }
+
+      if (conversations.length === 0) {
+        convList.innerHTML = `<div class="conv-empty">${filter ? 'No matches' : 'No conversations yet'}</div>`;
+        return;
+      }
+
+      convList.innerHTML = conversations.map(c => `
+        <div class="conv-item${c.id === currentConversationId ? ' active' : ''}" data-conv-id="${c.id}">
+          <div class="conv-item-content">
+            <div class="conv-title">${escapeHtml(c.title)}</div>
+            ${c.snippet ? `<div class="conv-snippet">${escapeHtml(c.snippet)}</div>` : ''}
+            <div class="conv-meta">${formatRelativeDate(c.updatedAt)}</div>
+          </div>
+          <button class="conv-delete" data-conv-id="${c.id}" title="Delete conversation">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
+      `).join('');
 
-        <!-- State Section -->
-        <div class="panel">
-            <h2>Connector State</h2>
-            <div class="state-buttons">
-                <button id="btn-state-local" class="btn btn-secondary btn-small">Refresh Local State</button>
-                <button id="btn-state-drive" class="btn btn-secondary btn-small">Refresh Drive State</button>
+      // Attach click handlers for loading conversations
+      convList.querySelectorAll('.conv-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          // Don't load if clicking delete button
+          if (e.target.closest('.conv-delete')) return;
+          const id = item.dataset.convId;
+          loadConversation(id);
+        });
+      });
+
+      // Attach click handlers for delete buttons
+      convList.querySelectorAll('.conv-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.convId;
+          deleteConversation(id);
+        });
+      });
+    }
+
+    function deleteConversation(id) {
+      ConversationStore.delete(id);
+
+      // If deleting current conversation, start new one
+      if (id === currentConversationId) {
+        startNewConversation();
+      } else {
+        renderConversationList();
+      }
+    }
+
+    function loadConversation(id) {
+      const conv = ConversationStore.get(id);
+      if (!conv) return;
+
+      currentConversationId = id;
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Render messages
+      renderMessages(conv.messages);
+
+      // Update sidebar
+      renderConversationList();
+
+      // Scroll to bottom
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+
+    function renderMessages(messages) {
+      chatMessages.innerHTML = messages.map(m => {
+        let html = `
+          <div class="chat-message ${m.role}">
+            <div class="role">
+              <span class="role-dot"></span>
+              ${m.role === 'user' ? 'You' : 'Oku'}
             </div>
-            <div id="state-output" class="output-area hidden"></div>
-        </div>
+            <div class="content">${escapeHtml(m.content)}</div>
+        `;
 
-        <footer>
-            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600;">Oku</span> powered by <a href="https://qdrant.tech" target="_blank">Qdrant</a> + <a href="https://openai.com" target="_blank">OpenAI</a>
-        </footer>
-    </div>
-
-    <!-- Sync Modal Overlay -->
-    <div id="syncModal" class="sync-modal-overlay">
-        <div class="sync-modal-box">
-            <h3>Syncing…</h3>
-            <p>Oku is indexing your files. Please wait.</p>
-            <div class="sync-spinner"></div>
-        </div>
-    </div>
-
-    <!-- ================================================================
-         SINGLE <script type="module"> BLOCK
-         ESM import - NO window.supabase, NO unpkg CDN script tag
-         ================================================================ -->
-    <script type="module">
-        // =================================================================
-        // ESM Import of Supabase - createClient imported directly
-        // =================================================================
-        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-        // =================================================================
-        // Supabase Configuration - fetched from backend
-        // =================================================================
-        let supabase = null;
-        let supabaseConfigLoaded = false;
-
-        async function loadSupabaseConfig() {
-            try {
-                const response = await fetch('/config/frontend');
-                if (!response.ok) {
-                    throw new Error('Failed to load configuration');
-                }
-                const config = await response.json();
-
-                if (!config.supabase_url || !config.supabase_anon_key) {
-                    console.warn('Supabase not configured. Authentication features disabled.');
-                    return false;
-                }
-
-                supabase = createClient(config.supabase_url, config.supabase_anon_key);
-                supabaseConfigLoaded = true;
-                return true;
-            } catch (err) {
-                console.error('Failed to load Supabase config:', err);
-                return false;
-            }
+        // Add sources for assistant messages
+        if (m.role === 'assistant' && m.sources && m.sources.length > 0) {
+          html += `
+            <div class="chat-sources">
+              <button class="sources-toggle" onclick="this.nextElementSibling.classList.toggle('visible')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 12h6M12 9v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                ${m.sources.length} source${m.sources.length !== 1 ? 's' : ''}
+              </button>
+              <div class="sources-list">
+                ${m.sources.map(s => `
+                  <div class="source-item">
+                    <div class="source-title">${escapeHtml(s.doc_id || s.title || 'Source')}</div>
+                    ${s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
         }
 
-        // =================================================================
-        // DOM Elements
-        // =================================================================
-        const authView = document.getElementById('authView');
-        const appView = document.getElementById('appView');
-        const authStatus = document.getElementById('auth-status');
-        const userEmailSpan = document.getElementById('user-email');
-        const emailInput = document.getElementById('auth-email');
-        const passwordInput = document.getElementById('auth-password');
-        const btnSignup = document.getElementById('btn-signup');
-        const btnLogin = document.getElementById('btn-login');
-        const btnLogout = document.getElementById('btn-logout');
-        const btnGoogle = document.getElementById('btn-google');
+        // Add suggestions for assistant messages
+        if (m.role === 'assistant' && m.suggestions) {
+          const { topics, doc_titles, scope_hint } = m.suggestions;
+          let suggestionsContent = '';
 
-        // Local folder picker elements
-        const folderPicker = document.getElementById('folder-picker');
-        const btnSelectFolder = document.getElementById('btn-select-folder');
-        const btnSelectDifferent = document.getElementById('btn-select-different');
-        const btnClearFolder = document.getElementById('btn-clear-folder');
-        const localNotSelected = document.getElementById('local-not-selected');
-        const localSelected = document.getElementById('local-selected');
-        const localFolderName = document.getElementById('local-folder-name');
-        const localFileCount = document.getElementById('local-file-count');
-        const btnSyncLocal = document.getElementById('btn-sync-local');
-        const syncStatus = document.getElementById('sync-status');
+          if (scope_hint) {
+            suggestionsContent += `<div class="suggestion-hint">${escapeHtml(scope_hint)}</div>`;
+          }
+          if (topics && topics.length > 0) {
+            suggestionsContent += `
+              <div class="suggestion-topics">
+                ${topics.map(t => `<span class="suggestion-chip" data-query="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            `;
+          }
+          if (doc_titles && doc_titles.length > 0) {
+            suggestionsContent += `<div class="suggestion-docs">Related: ${doc_titles.map(d => escapeHtml(d)).join(', ')}</div>`;
+          }
 
-        const btnStateLocal = document.getElementById('btn-state-local');
-        const btnStateDrive = document.getElementById('btn-state-drive');
-        const stateOutput = document.getElementById('state-output');
-
-        const queryInput = document.getElementById('query');
-        const submitBtn = document.getElementById('submit');
-        const resultsDiv = document.getElementById('results');
-        const folderSelector = document.getElementById('folder-selector');
-        const docSelector = document.getElementById('doc-selector');
-        const docClearBtn = document.getElementById('doc-clear-btn');
-        const scopeIndicator = document.getElementById('scope-indicator');
-        const scopeText = document.getElementById('scope-text');
-        const pttBtn = document.getElementById('ptt-btn');
-        const pttHint = document.getElementById('ptt-hint');
-        const newConversationBtn = document.getElementById('new-conversation-btn');
-
-        // LocalStorage keys for active scope persistence
-        const ACTIVE_FOLDER_KEY = 'oku_active_folder_id';
-        const ACTIVE_DOC_KEY = 'oku_active_doc_id';
-
-        // Cache for all documents (used when filtering by folder)
-        let allDocuments = [];
-
-        // Conversation history for follow-up questions
-        let conversationHistory = [];
-
-        // Google Drive elements
-        const driveNotConnected = document.getElementById('drive-not-connected');
-        const driveConnected = document.getElementById('drive-connected');
-        const btnConnectDrive = document.getElementById('btn-connect-drive');
-        const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
-        const btnSyncDrive = document.getElementById('btn-sync-drive');
-        const driveFolderListEl = document.getElementById('drive-folder-list');
-        const driveSyncStatus = document.getElementById('drive-sync-status');
-
-        // =================================================================
-        // State
-        // =================================================================
-        let driveFolders = [];
-        let driveConnectedState = false;
-        let publicConfig = null;
-        let isSyncing = false;
-
-        // Sync modal element
-        const syncModal = document.getElementById('syncModal');
-
-        // =================================================================
-        // Sync Modal Helpers
-        // =================================================================
-        function setSyncing(syncing) {
-            isSyncing = syncing;
-            if (syncing) {
-                syncModal.classList.add('visible');
-                // Disable Q&A
-                queryInput.disabled = true;
-                submitBtn.disabled = true;
-                // Disable sync/connect buttons
-                btnSyncLocal.disabled = true;
-                btnSyncDrive.disabled = true;
-                btnConnectDrive.disabled = true;
-                btnSelectFolder.disabled = true;
-                btnSelectDifferent.disabled = true;
-                btnAddDriveFolder.disabled = true;
-            } else {
-                syncModal.classList.remove('visible');
-                // Re-enable Q&A
-                queryInput.disabled = false;
-                submitBtn.disabled = false;
-                // Re-enable sync/connect buttons
-                btnSyncLocal.disabled = false;
-                btnSyncDrive.disabled = false;
-                btnConnectDrive.disabled = false;
-                btnSelectFolder.disabled = false;
-                btnSelectDifferent.disabled = false;
-                btnAddDriveFolder.disabled = false;
-            }
+          if (suggestionsContent) {
+            html += `
+              <div class="chat-suggestions">
+                <div class="suggestions-header">Try instead</div>
+                ${suggestionsContent}
+              </div>
+            `;
+          }
         }
 
-        // =================================================================
-        // Utilities
-        // =================================================================
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        html += '</div>';
+        return html;
+      }).join('');
 
-        // =================================================================
-        // View Toggle
-        // =================================================================
-        function showAuthView() {
-            authView.classList.remove('hidden');
-            appView.classList.add('hidden');
-        }
+      // Attach click handlers for suggestion chips
+      chatMessages.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const query = chip.dataset.query;
+          const input = stickyComposer.classList.contains('active') ? queryInputSticky : queryInput;
+          input.value = query;
+          input.focus();
+        });
+      });
+    }
 
-        function showAppView() {
-            authView.classList.add('hidden');
-            appView.classList.remove('hidden');
-        }
+    function startNewConversation() {
+      currentConversationId = null;
 
-        // =================================================================
-        // Auth Helpers
-        // =================================================================
-        async function getAccessToken() {
-            if (!supabaseConfigLoaded || !supabase) {
-                return null;
-            }
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                return session?.access_token || null;
-            } catch (err) {
-                console.error('getAccessToken error:', err);
-                return null;
-            }
-        }
+      // Show empty state
+      emptyState.classList.remove('hidden');
+      chatScroll.classList.remove('active');
+      stickyComposer.classList.remove('active');
 
-        async function isLoggedIn() {
-            if (!supabaseConfigLoaded) {
-                return false;
-            }
-            return !!(await getAccessToken());
-        }
+      // Clear chat messages
+      chatMessages.innerHTML = '';
 
-        // =================================================================
-        // apiFetch - Authenticated API calls
-        // =================================================================
-        async function apiFetch(path, options = {}) {
-            const token = await getAccessToken();
+      // Clear inputs
+      queryInput.value = '';
+      if (queryInputSticky) queryInputSticky.value = '';
 
-            if (!token) {
-                throw new Error('Not authenticated. Please log in first.');
-            }
+      // Update sidebar
+      renderConversationList();
+    }
 
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                ...(options.headers || {}),
-            };
+    // Conversation search
+    convSearch.addEventListener('input', (e) => {
+      renderConversationList(e.target.value.trim());
+    });
 
-            let body = options.body;
+    // New conversation button
+    btnNewConversation.addEventListener('click', startNewConversation);
 
-            // JSON-stringify body if it's an object
-            if (body && typeof body === 'object' && !(body instanceof FormData)) {
-                headers['Content-Type'] = 'application/json';
-                body = JSON.stringify(body);
-            }
+    // Logout button
+    btnLogout.addEventListener('click', logout);
 
-            const response = await fetch(path, {
-                method: options.method || 'GET',
-                headers,
-                body,
-            });
+    // =================================================================
+    // Push-to-Talk (PTT) Recording
+    // =================================================================
+    const micBtn = document.getElementById('mic-btn');
+    const micBtnSticky = document.getElementById('mic-btn-sticky');
 
-            if (!response.ok) {
-                let errorMsg = `Request failed (${response.status})`;
-                try {
-                    const errData = await response.json();
-                    errorMsg = errData.detail || errData.message || errorMsg;
-                } catch {}
-                if (response.status === 401) {
-                    errorMsg = 'Session expired or invalid. Please log in again.';
-                }
-                throw new Error(errorMsg);
-            }
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
 
-            return response.json();
-        }
+    const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
-        // =================================================================
-        // Auth UI
-        // =================================================================
-        function updateAuthUI(session) {
-            if (session?.user) {
-                userEmailSpan.textContent = session.user.email;
-                showAppView();
-                refreshDriveStatus();
-                loadFolders();    // Load folder list for scoped queries
-                loadDocuments();  // Load document list for scoped queries
-            } else {
-                userEmailSpan.textContent = '';
-                showAuthView();
-            }
-        }
+    if (!pttSupported) {
+      micBtn.style.display = 'none';
+      if (micBtnSticky) micBtnSticky.style.display = 'none';
+    }
 
-        // =================================================================
-        // Folder & Document Selector (for scoped queries)
-        // =================================================================
+    async function initMediaRecorder() {
+      if (mediaRecorder) return true;
 
-        // Update Clear button and scope indicator visibility
-        function updateScopeUI() {
-            const hasFolder = folderSelector.value !== '';
-            const hasDoc = docSelector.value !== '';
-
-            // Show clear button if any scope is set
-            if (hasFolder || hasDoc) {
-                docClearBtn.classList.remove('hidden');
-            } else {
-                docClearBtn.classList.add('hidden');
-            }
-
-            // Update scope indicator
-            if (hasFolder || hasDoc) {
-                scopeIndicator.classList.add('visible');
-                let text = 'Scoped to: ';
-                if (hasFolder) {
-                    const folderOption = folderSelector.options[folderSelector.selectedIndex];
-                    text += folderOption.textContent.split(' (')[0];
-                }
-                if (hasDoc) {
-                    if (hasFolder) text += ' → ';
-                    const docOption = docSelector.options[docSelector.selectedIndex];
-                    text += docOption.textContent.split(' (')[0];
-                }
-                scopeText.textContent = text;
-            } else {
-                scopeIndicator.classList.remove('visible');
-            }
-        }
-
-        // Save active folder to localStorage
-        function saveActiveFolder(folderId) {
-            if (folderId) {
-                localStorage.setItem(ACTIVE_FOLDER_KEY, folderId);
-            } else {
-                localStorage.removeItem(ACTIVE_FOLDER_KEY);
-            }
-            updateScopeUI();
-        }
-
-        // Save active document to localStorage
-        function saveActiveDoc(docId) {
-            if (docId) {
-                localStorage.setItem(ACTIVE_DOC_KEY, docId);
-            } else {
-                localStorage.removeItem(ACTIVE_DOC_KEY);
-            }
-            updateScopeUI();
-        }
-
-        // Restore active folder from localStorage
-        function restoreActiveFolder() {
-            const savedFolderId = localStorage.getItem(ACTIVE_FOLDER_KEY);
-            if (savedFolderId) {
-                const optionExists = Array.from(folderSelector.options).some(opt => opt.value === savedFolderId);
-                if (optionExists) {
-                    folderSelector.value = savedFolderId;
-                    // Filter documents by this folder
-                    filterDocumentsByFolder(savedFolderId);
-                } else {
-                    localStorage.removeItem(ACTIVE_FOLDER_KEY);
-                }
-            }
-        }
-
-        // Restore active document from localStorage
-        function restoreActiveDoc() {
-            const savedDocId = localStorage.getItem(ACTIVE_DOC_KEY);
-            if (savedDocId) {
-                const optionExists = Array.from(docSelector.options).some(opt => opt.value === savedDocId);
-                if (optionExists) {
-                    docSelector.value = savedDocId;
-                } else {
-                    localStorage.removeItem(ACTIVE_DOC_KEY);
-                }
-            }
-            updateScopeUI();
-        }
-
-        // Clear all scope
-        function clearScope() {
-            folderSelector.value = '';
-            docSelector.value = '';
-            localStorage.removeItem(ACTIVE_FOLDER_KEY);
-            localStorage.removeItem(ACTIVE_DOC_KEY);
-            // Restore full document list
-            populateDocumentSelector(allDocuments);
-            updateScopeUI();
-        }
-
-        // Filter documents by folder
-        function filterDocumentsByFolder(folderId) {
-            if (!folderId) {
-                populateDocumentSelector(allDocuments);
-            } else {
-                const filtered = allDocuments.filter(doc => doc.folder_id === folderId);
-                populateDocumentSelector(filtered);
-            }
-            // Clear doc selection when folder changes
-            docSelector.value = '';
-            localStorage.removeItem(ACTIVE_DOC_KEY);
-        }
-
-        // Populate document selector with given docs
-        function populateDocumentSelector(docs) {
-            docSelector.innerHTML = '<option value="">All documents</option>';
-            for (const doc of docs) {
-                const option = document.createElement('option');
-                option.value = doc.doc_id;
-                option.textContent = doc.title || doc.doc_id;
-                if (doc.chunk_count) {
-                    option.textContent += ` (${doc.chunk_count} chunks)`;
-                }
-                docSelector.appendChild(option);
-            }
-        }
-
-        // Load folders
-        async function loadFolders() {
-            try {
-                const folders = await apiFetch('/folders');
-
-                folderSelector.innerHTML = '<option value="">All folders</option>';
-
-                for (const folder of folders) {
-                    const option = document.createElement('option');
-                    option.value = folder.folder_id;
-                    option.textContent = folder.folder_name || folder.folder_id;
-                    if (folder.doc_count) {
-                        option.textContent += ` (${folder.doc_count} docs)`;
-                    }
-                    folderSelector.appendChild(option);
-                }
-            } catch (err) {
-                console.warn('Failed to load folder list:', err);
-            }
-        }
-
-        // Load documents
-        async function loadDocuments() {
-            try {
-                const docs = await apiFetch('/documents');
-                allDocuments = docs;
-
-                populateDocumentSelector(docs);
-
-                // Restore active folder first (will filter docs)
-                restoreActiveFolder();
-                // Then restore active doc
-                restoreActiveDoc();
-            } catch (err) {
-                console.warn('Failed to load document list:', err);
-                updateScopeUI();
-            }
-        }
-
-        // Event listeners for folder/document selectors
-        folderSelector.addEventListener('change', () => {
-            saveActiveFolder(folderSelector.value);
-            filterDocumentsByFolder(folderSelector.value);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
         });
 
-        docSelector.addEventListener('change', () => {
-            saveActiveDoc(docSelector.value);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          audioChunks = [];
+          await sendAudioForTranscription(audioBlob);
+        };
+
+        return true;
+      } catch (err) {
+        console.error('Failed to init MediaRecorder:', err);
+        return false;
+      }
+    }
+
+    async function startRecording(btn) {
+      if (isRecording) return;
+
+      const ready = await initMediaRecorder();
+      if (!ready) return;
+
+      audioChunks = [];
+      isRecording = true;
+      recordingStartTime = Date.now();
+
+      btn.style.background = '#ef4444';
+      btn.style.animation = 'pulse 1s infinite';
+      mediaRecorder.start();
+    }
+
+    function stopRecording(btn, targetInput) {
+      if (!isRecording || !mediaRecorder) return;
+
+      isRecording = false;
+      const duration = Date.now() - recordingStartTime;
+
+      btn.style.background = '';
+      btn.style.animation = '';
+
+      if (duration < 500) {
+        mediaRecorder.stop();
+        audioChunks = [];
+        return;
+      }
+
+      btn.style.opacity = '0.6';
+      // Store target input for transcription callback
+      window._pttTargetInput = targetInput;
+      mediaRecorder.stop();
+    }
+
+    async function sendAudioForTranscription(audioBlob) {
+      const targetInput = window._pttTargetInput || queryInput;
+      const btn = targetInput === queryInput ? micBtn : micBtnSticky;
+
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error('Not authenticated');
+
+        const formData = new FormData();
+        const extension = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
+        formData.append('audio', audioBlob, `recording.${extension}`);
+
+        const response = await fetch('/transcribe', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
         });
 
-        docClearBtn.addEventListener('click', () => {
-            clearScope();
-        });
-
-        function showAuthStatus(message, type) {
-            authStatus.textContent = message;
-            authStatus.className = 'auth-status' + (type ? ' ' + type : '');
+        if (!response.ok) {
+          let errorMsg = `Transcription failed (${response.status})`;
+          try {
+            const errData = await response.json();
+            errorMsg = errData.detail || errData.message || errorMsg;
+          } catch {}
+          throw new Error(errorMsg);
         }
 
-        async function initAuth() {
-            // First load Supabase configuration from backend
-            const configLoaded = await loadSupabaseConfig();
+        const data = await response.json();
 
-            if (!configLoaded) {
-                showAuthStatus('Authentication not configured. Contact admin.', 'warning');
-                showAuthView();
-                return;
-            }
+        if (data.text) {
+          const existingText = targetInput.value.trim();
+          targetInput.value = existingText ? existingText + ' ' + data.text : data.text;
+          targetInput.dispatchEvent(new Event('input'));
+          targetInput.focus();
+        }
 
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                updateAuthUI(session);
-                supabase.auth.onAuthStateChange((event, session) => {
-                    updateAuthUI(session);
+      } catch (err) {
+        console.error('Transcription error:', err);
+      } finally {
+        btn.style.opacity = '';
+      }
+    }
+
+    // PTT event handlers
+    function setupMicButton(btn, targetInput) {
+      btn.addEventListener('mousedown', () => startRecording(btn));
+      btn.addEventListener('mouseup', () => stopRecording(btn, targetInput));
+      btn.addEventListener('mouseleave', () => stopRecording(btn, targetInput));
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(btn); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(btn, targetInput); });
+    }
+
+    setupMicButton(micBtn, queryInput);
+    if (micBtnSticky && queryInputSticky) {
+      setupMicButton(micBtnSticky, queryInputSticky);
+    }
+
+    // =================================================================
+    // Query Input Auto-resize & Submit
+    // =================================================================
+    function setupQueryInput(input, isSticky = false) {
+      input.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+      });
+
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitQuery(this.value.trim(), isSticky);
+        }
+      });
+    }
+
+    setupQueryInput(queryInput, false);
+    if (queryInputSticky) setupQueryInput(queryInputSticky, true);
+
+    // Ask button handlers
+    askBtn.addEventListener('click', () => submitQuery(queryInput.value.trim(), false));
+    if (askBtnSticky) {
+      askBtnSticky.addEventListener('click', () => submitQuery(queryInputSticky.value.trim(), true));
+    }
+
+    // =================================================================
+    // Submit Query
+    // =================================================================
+    async function submitQuery(query, fromSticky = false) {
+      if (!query || isSubmitting) return;
+
+      isSubmitting = true;
+      const inputEl = fromSticky ? queryInputSticky : queryInput;
+      const btnEl = fromSticky ? askBtnSticky : askBtn;
+
+      // Get scope selectors
+      const folderSelector = fromSticky
+        ? document.getElementById('folder-selector-sticky')
+        : document.getElementById('folder-selector-empty');
+      const docSelector = fromSticky
+        ? document.getElementById('doc-selector-sticky')
+        : document.getElementById('doc-selector-empty');
+      const folderId = folderSelector?.value || '';
+      const docId = docSelector?.value || '';
+
+      // Create conversation if new
+      if (!currentConversationId) {
+        const conv = ConversationStore.create(query);
+        currentConversationId = conv.id;
+      }
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Add user message to store and UI
+      const userMessage = { role: 'user', content: query };
+      ConversationStore.addMessage(currentConversationId, userMessage);
+
+      // Clear input
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+
+      // Render current messages + loading
+      const conv = ConversationStore.get(currentConversationId);
+      renderMessages(conv.messages);
+
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'chat-loading';
+      loadingDiv.innerHTML = '<div class="spinner"></div><span>Thinking...</span>';
+      chatMessages.appendChild(loadingDiv);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      // Disable button
+      btnEl.disabled = true;
+
+      try {
+        // Build request body
+        const body = { query };
+        if (folderId) body.folder_id = folderId;
+        if (docId) body.doc_ids = [docId];
+
+        // Include conversation history for multi-turn context
+        const conv = ConversationStore.get(currentConversationId);
+        if (conv && conv.messages.length > 0) {
+          // Only include messages before the current one (exclude the just-added user message)
+          const history = conv.messages.slice(0, -1).map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
+          if (history.length > 0) {
+            body.conversation_history = history;
+          }
+        }
+
+        const result = await apiFetch('/ask', {
+          method: 'POST',
+          body,
+        });
+
+        // Remove loading indicator
+        loadingDiv.remove();
+
+        // Add assistant message
+        const assistantMessage = {
+          role: 'assistant',
+          content: result.answer || 'No answer returned.',
+          sources: result.sources || [],
+          suggestions: result.suggestions || null,
+        };
+        ConversationStore.addMessage(currentConversationId, assistantMessage);
+
+        // Re-render messages
+        const updatedConv = ConversationStore.get(currentConversationId);
+        renderMessages(updatedConv.messages);
+
+        // Update sidebar
+        renderConversationList();
+
+        // Scroll to bottom
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      } catch (err) {
+        loadingDiv.remove();
+
+        // Add error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chat-message assistant';
+        errorDiv.innerHTML = `
+          <div class="role"><span class="role-dot"></span> Oku</div>
+          <div class="content" style="color: #dc2626;">Error: ${escapeHtml(err.message)}</div>
+        `;
+        chatMessages.appendChild(errorDiv);
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+      } finally {
+        isSubmitting = false;
+        btnEl.disabled = false;
+      }
+    }
+
+    // =================================================================
+    // Document Search (Real-time filtering)
+    // =================================================================
+    let searchTimeout = null;
+    docSearch.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      clearTimeout(searchTimeout);
+
+      if (!term) {
+        // Show all - reset any filtering
+        console.log('Search cleared');
+        return;
+      }
+
+      // Phase 1: Client-side filename filter
+      const matches = allDocuments.filter(doc =>
+        (doc.title || doc.doc_id || '').toLowerCase().includes(term)
+      );
+      console.log('Client matches:', matches.length);
+
+      // Phase 2: Backend content search (debounced)
+      if (term.length >= 2) {
+        searchTimeout = setTimeout(async () => {
+          try {
+            // Backend search would go here
+            console.log('Would search backend for:', term);
+          } catch (err) {
+            console.error('Search error:', err);
+          }
+        }, 300);
+      }
+    });
+
+    // =================================================================
+    // Local Folder Management
+    // =================================================================
+    function updateLocalUI() {
+      if (selectedFiles.length > 0) {
+        localNotSelected.classList.add('hidden');
+        localSelected.classList.remove('hidden');
+        localFolderName.textContent = selectedFolderName;
+        localFileCount.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`;
+        localBadge.textContent = '1 folder';
+        btnSelectFolder.textContent = 'Change folder';
+      } else {
+        localNotSelected.classList.remove('hidden');
+        localSelected.classList.add('hidden');
+        localBadge.textContent = '0 folders';
+        btnSelectFolder.textContent = 'Select folder';
+      }
+    }
+
+    function clearFolderSelection() {
+      selectedFiles = [];
+      selectedFolderName = '';
+      folderPicker.value = '';
+      updateLocalUI();
+      localSyncStatus.classList.add('hidden');
+    }
+
+    btnSelectFolder.addEventListener('click', () => folderPicker.click());
+    btnSelectDifferent.addEventListener('click', () => folderPicker.click());
+    btnClearFolder.addEventListener('click', clearFolderSelection);
+
+    folderPicker.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      selectedFiles = files.filter(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        return SUPPORTED_EXTENSIONS.includes(ext);
+      });
+
+      if (files.length > 0 && files[0].webkitRelativePath) {
+        selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+      } else {
+        selectedFolderName = 'Selected folder';
+      }
+
+      updateLocalUI();
+
+      if (selectedFiles.length === 0 && files.length > 0) {
+        showLocalStatus('No supported files found in folder', 'warning');
+      }
+    });
+
+    function showLocalStatus(message, type = '') {
+      localSyncStatus.textContent = message;
+      localSyncStatus.className = 'sync-status ' + type;
+      localSyncStatus.classList.remove('hidden');
+    }
+
+    btnSyncLocal.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      btnSyncLocal.disabled = true;
+      showLocalStatus('Syncing...', '');
+
+      try {
+        const formData = new FormData();
+        formData.append('folder_name', selectedFolderName);
+        selectedFiles.forEach(file => formData.append('files', file));
+
+        const token = await getAccessToken();
+        const response = await fetch('/sync/upload', {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || 'Sync failed');
+        }
+
+        const result = await response.json();
+        showLocalStatus(`Synced ${result.documents_processed || 0} documents`, 'success');
+        await loadDocuments();
+      } catch (err) {
+        showLocalStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncLocal.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Google Drive Management
+    // =================================================================
+    function updateDriveUI() {
+      if (driveConnectedState) {
+        driveNotConnected.classList.add('hidden');
+        driveConnected.classList.remove('hidden');
+        driveActionsConnect.classList.add('hidden');
+        driveActionsConnected.classList.remove('hidden');
+        driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+        renderDriveFolders();
+      } else {
+        driveNotConnected.classList.remove('hidden');
+        driveConnected.classList.add('hidden');
+        driveActionsConnect.classList.remove('hidden');
+        driveActionsConnected.classList.add('hidden');
+        driveBadge.textContent = 'Not connected';
+      }
+    }
+
+    function renderDriveFolders() {
+      if (driveFolders.length === 0) {
+        driveFolderList.innerHTML = '<div class="empty-hint">No folders added yet</div>';
+        return;
+      }
+
+      driveFolderList.innerHTML = driveFolders.map(f => {
+        // Get documents in this folder (match by folder_name prefix for subfolders)
+        const folderName = f.folder_name || f.folder_id;
+        const folderDocs = allDocuments.filter(d =>
+          d.folder_id === f.folder_id ||
+          (d.folder_name && d.folder_name.startsWith(folderName))
+        );
+        const docCount = folderDocs.length;
+
+        return `
+          <div class="folder-expandable" data-folder-id="${escapeHtml(f.folder_id)}">
+            <div class="folder-row">
+              <button class="folder-toggle" title="Expand">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
+              <span class="folder-doc-count">${docCount}</span>
+              <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="folder-docs hidden">
+              ${folderDocs.length > 0 ? folderDocs.map(d => {
+                // Get file extension from source_file or try to infer from title
+                const fileName = d.source_file || d.title || d.doc_id;
+                const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
+                const displayName = d.title || d.doc_id;
+                return `<div class="folder-doc-item">
+                  <span class="doc-name">${escapeHtml(displayName)}</span>
+                  ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
+                </div>`;
+              }).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach toggle handlers
+      driveFolderList.querySelectorAll('.folder-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const expandable = btn.closest('.folder-expandable');
+          const docs = expandable.querySelector('.folder-docs');
+          const chevron = btn.querySelector('.chevron');
+          docs.classList.toggle('hidden');
+          chevron.classList.toggle('expanded');
+        });
+      });
+
+      // Attach delete handlers
+      driveFolderList.querySelectorAll('.folder-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const folderId = btn.dataset.folderId;
+          btn.disabled = true;
+          try {
+            const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' });
+            driveFolders = data.folders || [];
+            renderDriveFolders();
+            driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+          } catch (err) {
+            showDriveStatus('Failed to remove folder', 'error');
+          }
+        });
+      });
+    }
+
+    function showDriveStatus(message, type = '') {
+      driveSyncStatus.textContent = message;
+      driveSyncStatus.className = 'sync-status ' + type;
+      driveSyncStatus.classList.remove('hidden');
+      setTimeout(() => driveSyncStatus.classList.add('hidden'), 3000);
+    }
+
+    async function refreshDriveStatus() {
+      try {
+        const data = await apiFetch('/sources/drive/status');
+        driveConnectedState = data.connected;
+        driveFolders = data.folders || [];
+        updateDriveUI();
+      } catch (err) {
+        console.error('Failed to refresh drive status:', err);
+      }
+    }
+
+    btnConnectDrive.addEventListener('click', async () => {
+      btnConnectDrive.disabled = true;
+      try {
+        const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
+        const authUrl = data.auth_url;
+
+        const width = 600, height = 700;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        const popup = window.open(authUrl, 'drive_oauth', `width=${width},height=${height},left=${left},top=${top}`);
+
+        const messageHandler = async (event) => {
+          if (event.data?.type === 'drive_oauth_success') {
+            window.removeEventListener('message', messageHandler);
+            await refreshDriveStatus();
+            showDriveStatus('Google Drive connected!', 'success');
+          } else if (event.data?.type === 'drive_oauth_error') {
+            window.removeEventListener('message', messageHandler);
+            showDriveStatus('Connection failed', 'error');
+          }
+        };
+        window.addEventListener('message', messageHandler);
+      } catch (err) {
+        showDriveStatus('Failed to connect: ' + err.message, 'error');
+      } finally {
+        btnConnectDrive.disabled = false;
+      }
+    });
+
+    btnSyncDrive.addEventListener('click', async () => {
+      btnSyncDrive.disabled = true;
+      showDriveStatus('Syncing...', '');
+      try {
+        const result = await apiFetch('/sync/drive', { method: 'POST' });
+        showDriveStatus(`Synced ${result.documents_processed || 0} documents`, 'success');
+        await loadDocuments();
+      } catch (err) {
+        showDriveStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncDrive.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Google Picker API
+    // =================================================================
+    async function loadPickerApi() {
+      if (pickerApiLoaded) return true;
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => {
+          gapi.load('picker', () => {
+            pickerApiLoaded = true;
+            resolve(true);
+          });
+        };
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    }
+
+    // Add Drive folder via Google Picker
+    btnAddDriveFolder.addEventListener('click', async () => {
+      // Load Picker API if not loaded
+      if (!pickerApiLoaded) {
+        showDriveStatus('Loading Google Picker...', '');
+        const loaded = await loadPickerApi();
+        if (!loaded) {
+          showDriveStatus('Failed to load Google Picker', 'error');
+          return;
+        }
+      }
+
+      btnAddDriveFolder.disabled = true;
+      try {
+        // Get access token for Picker
+        const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+        const accessToken = tokenData.access_token;
+
+        if (!publicConfig?.google_picker_api_key) {
+          showDriveStatus('Google Picker API key not configured', 'error');
+          btnAddDriveFolder.disabled = false;
+          return;
+        }
+
+        // Create folder-only view
+        const view = new google.picker.DocsView()
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(true)
+          .setMimeTypes('application/vnd.google-apps.folder');
+
+        // Build and show Picker
+        const picker = new google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(accessToken)
+          .setDeveloperKey(publicConfig.google_picker_api_key)
+          .setCallback(async (data) => {
+            if (data.action === google.picker.Action.PICKED) {
+              const folder = data.docs[0];
+              try {
+                const result = await apiFetch('/sources/drive/folders', {
+                  method: 'POST',
+                  body: {
+                    folder_id: folder.id,
+                    folder_name: folder.name,
+                  },
                 });
-            } catch (err) {
-                console.error('initAuth error:', err);
-                showAuthStatus('Auth initialization failed.', 'error');
-                showAuthView();
-            }
-        }
-
-        // Google OAuth handler
-        btnGoogle.addEventListener('click', async () => {
-            if (!supabaseConfigLoaded || !supabase) {
-                showAuthStatus('Authentication not configured', 'error');
-                return;
-            }
-            btnGoogle.disabled = true;
-            showAuthStatus('Redirecting to Google...', '');
-            try {
-                const { error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: { redirectTo: 'https://ravelous.cloud' }
-                });
-                if (error) {
-                    showAuthStatus(error.message, 'error');
-                    btnGoogle.disabled = false;
-                }
-            } catch (err) {
-                showAuthStatus('Google sign-in failed: ' + err.message, 'error');
-                btnGoogle.disabled = false;
-            }
-        });
-
-        // Auth button handlers
-        btnSignup.addEventListener('click', async () => {
-            if (!supabaseConfigLoaded || !supabase) {
-                showAuthStatus('Authentication not configured', 'error');
-                return;
-            }
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-            if (!email || !password) {
-                showAuthStatus('Please enter email and password', 'error');
-                return;
-            }
-            btnSignup.disabled = true;
-            showAuthStatus('Signing up...', '');
-            try {
-                const { data, error } = await supabase.auth.signUp({ email, password });
-                if (error) {
-                    showAuthStatus(error.message, 'error');
-                } else if (data.user && !data.session) {
-                    showAuthStatus('Check your email to confirm your account', 'success');
-                } else {
-                    showAuthStatus('Signed up successfully!', 'success');
-                }
-            } catch (err) {
-                showAuthStatus('Signup failed: ' + err.message, 'error');
-            } finally {
-                btnSignup.disabled = false;
-            }
-        });
-
-        btnLogin.addEventListener('click', async () => {
-            if (!supabaseConfigLoaded || !supabase) {
-                showAuthStatus('Authentication not configured', 'error');
-                return;
-            }
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-            if (!email || !password) {
-                showAuthStatus('Please enter email and password', 'error');
-                return;
-            }
-            btnLogin.disabled = true;
-            showAuthStatus('Logging in...', '');
-            try {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) {
-                    showAuthStatus(error.message, 'error');
-                } else {
-                    showAuthStatus('Logged in!', 'success');
-                    passwordInput.value = '';
-                }
-            } catch (err) {
-                showAuthStatus('Login failed: ' + err.message, 'error');
-            } finally {
-                btnLogin.disabled = false;
-            }
-        });
-
-        btnLogout.addEventListener('click', async () => {
-            if (!supabaseConfigLoaded || !supabase) {
-                return;
-            }
-            btnLogout.disabled = true;
-            try {
-                await supabase.auth.signOut();
-                showAuthView();
-            } catch (err) {
-                console.error('Logout failed:', err);
-            } finally {
-                btnLogout.disabled = false;
-            }
-        });
-
-        // =================================================================
-        // Local Folder Picker
-        // =================================================================
-        const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.rtf'];
-        let selectedFiles = [];
-        let selectedFolderName = '';
-
-        function updateLocalUI() {
-            if (selectedFiles.length > 0) {
-                localNotSelected.classList.add('hidden');
-                localSelected.classList.remove('hidden');
-                localFolderName.textContent = selectedFolderName;
-                localFileCount.textContent = `(${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''})`;
-            } else {
-                localNotSelected.classList.remove('hidden');
-                localSelected.classList.add('hidden');
-            }
-        }
-
-        function clearFolderSelection() {
-            selectedFiles = [];
-            selectedFolderName = '';
-            folderPicker.value = '';
-            updateLocalUI();
-            syncStatus.classList.add('hidden');
-        }
-
-        // Trigger folder picker
-        btnSelectFolder.addEventListener('click', () => folderPicker.click());
-        btnSelectDifferent.addEventListener('click', () => folderPicker.click());
-        btnClearFolder.addEventListener('click', clearFolderSelection);
-
-        // Handle folder selection
-        folderPicker.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) return;
-
-            // Filter to supported file types
-            selectedFiles = files.filter(f => {
-                const ext = '.' + f.name.split('.').pop().toLowerCase();
-                return SUPPORTED_EXTENSIONS.includes(ext);
-            });
-
-            // Extract folder name from webkitRelativePath (first part before /)
-            if (files.length > 0 && files[0].webkitRelativePath) {
-                selectedFolderName = files[0].webkitRelativePath.split('/')[0];
-            } else {
-                selectedFolderName = 'Selected folder';
-            }
-
-            updateLocalUI();
-
-            if (selectedFiles.length === 0 && files.length > 0) {
-                showSyncStatus('No supported files found. Supported: PDF, Word, Excel, Text, Markdown.', 'warning');
-            }
-        });
-
-        // =================================================================
-        // Local Sync (upload files)
-        // =================================================================
-        function showSyncStatus(msg, type = '') {
-            syncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
-            if (type) syncStatus.classList.add(type + '-text');
-            syncStatus.textContent = msg;
-        }
-
-        btnSyncLocal.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showSyncStatus('Please log in first.', 'error');
-                return;
-            }
-            if (selectedFiles.length === 0) {
-                showSyncStatus('No files selected. Select a folder first.', 'warning');
-                return;
-            }
-
-            setSyncing(true);
-            showSyncStatus(`Uploading ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}...`);
-
-            try {
-                const token = await getAccessToken();
-                if (!token) {
-                    throw new Error('Not authenticated');
-                }
-
-                // Build FormData with files
-                const formData = new FormData();
-                for (const file of selectedFiles) {
-                    formData.append('files', file);
-                }
-                formData.append('folder_name', selectedFolderName);
-
-                // Upload files
-                const response = await fetch('/sync/upload', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    let errorMsg = `Upload failed (${response.status})`;
-                    try {
-                        const errData = await response.json();
-                        errorMsg = errData.detail || errData.message || errorMsg;
-                    } catch {}
-                    throw new Error(errorMsg);
-                }
-
-                const data = await response.json();
-
-                let summary = `Sync completed in ${data.duration_seconds.toFixed(1)}s\n`;
-                summary += `Folder: ${data.folder_name}\n`;
-                summary += `Documents found: ${data.documents_found}\n`;
-                summary += `Documents processed: ${data.documents_processed}\n`;
-                summary += `Chunks created: ${data.chunks_created}`;
-                if (data.errors?.length > 0) {
-                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
-                }
-                showSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
-
-            } catch (err) {
-                showSyncStatus('Sync failed: ' + err.message, 'error');
-            } finally {
-                setSyncing(false);
-            }
-        });
-
-        // =================================================================
-        // State Display
-        // =================================================================
-        function showStateOutput(msg, type = '') {
-            stateOutput.classList.remove('hidden', 'error-text', 'success-text');
-            if (type) stateOutput.classList.add(type + '-text');
-            stateOutput.textContent = msg;
-        }
-
-        btnStateLocal.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showStateOutput('Not authenticated. Please log in first.', 'error');
-                return;
-            }
-            btnStateLocal.disabled = true;
-            showStateOutput('Loading local state...');
-            try {
-                const data = await apiFetch('/state/local');
-                let out = JSON.stringify(data, null, 2);
-                if (data.last_sync_at) {
-                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
-                }
-                showStateOutput(out);
-            } catch (err) {
-                showStateOutput(err.message, 'error');
-            } finally {
-                btnStateLocal.disabled = false;
-            }
-        });
-
-        btnStateDrive.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showStateOutput('Not authenticated. Please log in first.', 'error');
-                return;
-            }
-            btnStateDrive.disabled = true;
-            showStateOutput('Loading Google Drive state...');
-            try {
-                const data = await apiFetch('/state/google-drive');
-                let out = JSON.stringify(data, null, 2);
-                if (data.last_sync_at) {
-                    out = `Last sync: ${new Date(data.last_sync_at).toLocaleString()}\n\n${out}`;
-                }
-                showStateOutput(out);
-            } catch (err) {
-                showStateOutput(err.message, 'error');
-            } finally {
-                btnStateDrive.disabled = false;
-            }
-        });
-
-        // =================================================================
-        // Google Drive Integration
-        // =================================================================
-        let pickerApiLoaded = false;
-
-        async function loadPublicConfig() {
-            try {
-                const response = await fetch('/config/public');
-                if (response.ok) {
-                    publicConfig = await response.json();
-                }
-            } catch (err) {
-                console.error('Failed to load public config:', err);
-            }
-        }
-
-        async function loadPickerApi() {
-            if (pickerApiLoaded) return true;
-            return new Promise((resolve) => {
-                const script = document.createElement('script');
-                script.src = 'https://apis.google.com/js/api.js';
-                script.onload = () => {
-                    gapi.load('picker', () => {
-                        pickerApiLoaded = true;
-                        resolve(true);
-                    });
-                };
-                script.onerror = () => resolve(false);
-                document.head.appendChild(script);
-            });
-        }
-
-        function showDriveSyncStatus(msg, type = '') {
-            driveSyncStatus.classList.remove('hidden', 'error-text', 'success-text', 'warning-text');
-            if (type) driveSyncStatus.classList.add(type + '-text');
-            driveSyncStatus.textContent = msg;
-        }
-
-        function renderDriveFolders() {
-            if (driveFolders.length === 0) {
-                driveFolderListEl.innerHTML = '<div class="folder-empty">No folders selected yet</div>';
-                return;
-            }
-            driveFolderListEl.innerHTML = driveFolders.map((f) => `
-                <div class="folder-item">
-                    <span class="folder-path">${escapeHtml(f.folder_name || f.folder_id)}</span>
-                    <button class="btn btn-icon btn-small" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">✕</button>
-                </div>
-            `).join('');
-
-            driveFolderListEl.querySelectorAll('button[data-folder-id]').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const folderId = e.target.dataset.folderId;
-                    btn.disabled = true;
-                    try {
-                        const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, {
-                            method: 'DELETE',
-                        });
-                        driveFolders = data.folders || [];
-                        renderDriveFolders();
-                    } catch (err) {
-                        showDriveSyncStatus('Failed to remove folder: ' + err.message, 'error');
-                        btn.disabled = false;
-                    }
-                });
-            });
-        }
-
-        function updateDriveUI() {
-            if (driveConnectedState) {
-                driveNotConnected.classList.add('hidden');
-                driveConnected.classList.remove('hidden');
+                driveFolders = result.folders || [];
                 renderDriveFolders();
-            } else {
-                driveNotConnected.classList.remove('hidden');
-                driveConnected.classList.add('hidden');
+                driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+                showDriveStatus(`Added folder: ${folder.name}`, 'success');
+              } catch (err) {
+                showDriveStatus('Failed to add folder: ' + err.message, 'error');
+              }
             }
+            btnAddDriveFolder.disabled = false;
+          })
+          .setTitle('Select a folder to sync')
+          .build();
+
+        picker.setVisible(true);
+
+      } catch (err) {
+        showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
+        btnAddDriveFolder.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Load Documents
+    // =================================================================
+    async function loadDocuments() {
+      try {
+        const docs = await apiFetch('/documents');
+        allDocuments = docs;
+        console.log('Loaded', docs.length, 'documents');
+        populateSelectors();
+      } catch (err) {
+        console.warn('Failed to load documents:', err);
+      }
+    }
+
+    let allFolders = [];
+
+    async function loadFolders() {
+      try {
+        allFolders = await apiFetch('/folders');
+        console.log('Loaded', allFolders.length, 'folders');
+      } catch (err) {
+        console.warn('Failed to load folders:', err);
+        allFolders = [];
+      }
+    }
+
+    function populateSelectors() {
+      // Folder selectors - use allFolders which has folder_name
+      const folderEmpty = document.getElementById('folder-selector-empty');
+      const folderSticky = document.getElementById('folder-selector-sticky');
+
+      const folderOptions = '<option value="">All folders</option>' +
+        allFolders.map(f => {
+          const name = f.folder_name || f.folder_id;
+          return `<option value="${escapeHtml(f.folder_id)}">${escapeHtml(name)}</option>`;
+        }).join('');
+
+      if (folderEmpty) folderEmpty.innerHTML = folderOptions;
+      if (folderSticky) folderSticky.innerHTML = folderOptions;
+
+      // Document selectors
+      const docEmpty = document.getElementById('doc-selector-empty');
+      const docSticky = document.getElementById('doc-selector-sticky');
+
+      const docOptions = '<option value="">All documents</option>' +
+        allDocuments.map(d => {
+          const title = d.title || d.doc_id || 'Untitled';
+          return `<option value="${escapeHtml(d.doc_id)}">${escapeHtml(title)}</option>`;
+        }).join('');
+
+      if (docEmpty) docEmpty.innerHTML = docOptions;
+      if (docSticky) docSticky.innerHTML = docOptions;
+
+      // Sync selectors when one changes
+      function syncSelectors(source, target) {
+        if (source && target) {
+          source.addEventListener('change', () => target.value = source.value);
+          target.addEventListener('change', () => source.value = target.value);
         }
-
-        async function refreshDriveStatus() {
-            try {
-                const data = await apiFetch('/sources/drive/status');
-                driveConnectedState = data.connected;
-                driveFolders = data.folders || [];
-                updateDriveUI();
-            } catch (err) {
-                console.error('Failed to refresh Drive status:', err);
-            }
-        }
-
-        // Connect Drive button
-        btnConnectDrive.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showDriveSyncStatus('Please log in first.', 'error');
-                return;
-            }
-            btnConnectDrive.disabled = true;
-            try {
-                const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
-                const authUrl = data.auth_url;
-
-                // Open popup
-                const width = 600;
-                const height = 700;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
-                const popup = window.open(
-                    authUrl,
-                    'drive_oauth',
-                    `width=${width},height=${height},left=${left},top=${top}`
-                );
-
-                // Listen for postMessage from popup
-                const messageHandler = async (event) => {
-                    if (event.data?.type === 'drive_oauth_success') {
-                        window.removeEventListener('message', messageHandler);
-                        await refreshDriveStatus();
-                        showDriveSyncStatus('Google Drive connected successfully!', 'success');
-                    } else if (event.data?.type === 'drive_oauth_error') {
-                        window.removeEventListener('message', messageHandler);
-                        showDriveSyncStatus('Connection failed: ' + (event.data.error || 'Unknown error'), 'error');
-                    }
-                };
-                window.addEventListener('message', messageHandler);
-
-            } catch (err) {
-                showDriveSyncStatus('Failed to start connection: ' + err.message, 'error');
-            } finally {
-                btnConnectDrive.disabled = false;
-            }
-        });
-
-        // Add Drive folder button
-        btnAddDriveFolder.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showDriveSyncStatus('Please log in first.', 'error');
-                return;
-            }
-
-            // Load Picker API if not loaded
-            if (!pickerApiLoaded) {
-                showDriveSyncStatus('Loading Google Picker...', '');
-                const loaded = await loadPickerApi();
-                if (!loaded) {
-                    showDriveSyncStatus('Failed to load Google Picker', 'error');
-                    return;
-                }
-            }
-
-            // Get access token for Picker
-            btnAddDriveFolder.disabled = true;
-            try {
-                const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
-                const accessToken = tokenData.access_token;
-
-                if (!publicConfig?.google_picker_api_key) {
-                    showDriveSyncStatus('Google Picker API key not configured', 'error');
-                    btnAddDriveFolder.disabled = false;
-                    return;
-                }
-
-                // Create and show Picker for folder selection
-                const view = new google.picker.DocsView()
-                    .setIncludeFolders(true)
-                    .setSelectFolderEnabled(true)
-                    .setMimeTypes('application/vnd.google-apps.folder');
-
-                const picker = new google.picker.PickerBuilder()
-                    .addView(view)
-                    .setOAuthToken(accessToken)
-                    .setDeveloperKey(publicConfig.google_picker_api_key)
-                    .setCallback(async (data) => {
-                        if (data.action === google.picker.Action.PICKED) {
-                            const folder = data.docs[0];
-                            try {
-                                const result = await apiFetch('/sources/drive/folders', {
-                                    method: 'POST',
-                                    body: {
-                                        folder_id: folder.id,
-                                        folder_name: folder.name,
-                                    },
-                                });
-                                driveFolders = result.folders || [];
-                                renderDriveFolders();
-                                showDriveSyncStatus(`Added folder: ${folder.name}`, 'success');
-                            } catch (err) {
-                                showDriveSyncStatus('Failed to add folder: ' + err.message, 'error');
-                            }
-                        }
-                        btnAddDriveFolder.disabled = false;
-                    })
-                    .setTitle('Select a folder to sync')
-                    .build();
-
-                picker.setVisible(true);
-
-            } catch (err) {
-                showDriveSyncStatus('Failed to open folder picker: ' + err.message, 'error');
-                btnAddDriveFolder.disabled = false;
-            }
-        });
-
-        // Sync Drive button
-        btnSyncDrive.addEventListener('click', async () => {
-            if (!(await isLoggedIn())) {
-                showDriveSyncStatus('Please log in first.', 'error');
-                return;
-            }
-            if (driveFolders.length === 0) {
-                showDriveSyncStatus('No folders to sync. Add at least one folder first.', 'warning');
-                return;
-            }
-
-            setSyncing(true);
-            showDriveSyncStatus('Syncing Drive folders...');
-
-            try {
-                const data = await apiFetch('/sync/drive', { method: 'POST' });
-                let summary = `Sync completed in ${data.duration_seconds}s\n`;
-                summary += `Folders: ${data.folders_synced}\n`;
-                summary += `Documents found: ${data.documents_found}\n`;
-                summary += `Documents processed: ${data.documents_processed}\n`;
-                summary += `Chunks created: ${data.chunks_created}`;
-                if (data.errors?.length > 0) {
-                    summary += `\n\nErrors:\n${data.errors.join('\n')}`;
-                }
-                showDriveSyncStatus(summary, data.errors?.length > 0 ? 'warning' : 'success');
-            } catch (err) {
-                showDriveSyncStatus('Sync failed: ' + err.message, 'error');
-            } finally {
-                setSyncing(false);
-            }
-        });
-
-        // =================================================================
-        // Q&A with Conversation History
-        // =================================================================
-        queryInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
-        });
-
-        queryInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submitQuery();
-            }
-        });
-
-        submitBtn.addEventListener('click', submitQuery);
-
-        // New conversation button handler
-        newConversationBtn.addEventListener('click', () => {
-            conversationHistory = [];
-            resultsDiv.innerHTML = '';
-            newConversationBtn.classList.add('hidden');
-            queryInput.focus();
-        });
-
-        async function submitQuery() {
-            const query = queryInput.value.trim();
-            if (!query) return;
-
-            submitBtn.disabled = true;
-
-            // Build request body with optional folder_id and doc_ids for scoped queries
-            const selectedFolderId = folderSelector.value;
-            const selectedDocId = docSelector.value;
-            const requestBody = {
-                query,
-                conversation_history: conversationHistory.map(turn => ({
-                    role: turn.role,
-                    content: turn.content,
-                })),
-            };
-            if (selectedFolderId) {
-                requestBody.folder_id = selectedFolderId;
-            }
-            if (selectedDocId) {
-                requestBody.doc_ids = [selectedDocId];
-            }
-
-            // Add user message to UI immediately
-            addUserMessageToUI(query);
-            queryInput.value = '';
-            queryInput.style.height = 'auto';
-
-            // Show loading indicator
-            const loadingId = addLoadingToUI();
-
-            try {
-                const data = await apiFetch('/ask', {
-                    method: 'POST',
-                    body: requestBody,
-                });
-
-                // Remove loading indicator
-                removeLoadingFromUI(loadingId);
-
-                // Add to conversation history
-                conversationHistory.push({ role: 'user', content: query });
-                conversationHistory.push({ role: 'assistant', content: data.answer });
-
-                // Display assistant response
-                addAssistantMessageToUI(data);
-
-                // Show new conversation button
-                newConversationBtn.classList.remove('hidden');
-
-            } catch (err) {
-                removeLoadingFromUI(loadingId);
-                addErrorToUI(err.message);
-            } finally {
-                submitBtn.disabled = false;
-            }
-        }
-
-        function addUserMessageToUI(query) {
-            // Ensure chat container exists
-            let chatContainer = resultsDiv.querySelector('.chat-container');
-            if (!chatContainer) {
-                resultsDiv.innerHTML = '<div class="chat-container"></div>';
-                chatContainer = resultsDiv.querySelector('.chat-container');
-            }
-
-            const messageHtml = `
-                <div class="chat-message user">
-                    <div class="user-label">You</div>
-                    <div class="user-text">${escapeHtml(query)}</div>
-                </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', messageHtml);
-            resultsDiv.scrollTop = resultsDiv.scrollHeight;
-        }
-
-        function addLoadingToUI() {
-            const chatContainer = resultsDiv.querySelector('.chat-container');
-            if (!chatContainer) return null;
-
-            const loadingId = 'loading-' + Date.now();
-            const loadingHtml = `
-                <div id="${loadingId}" class="chat-message assistant">
-                    <div class="loading" style="justify-content: flex-start; padding: 1rem 0;">
-                        <div class="spinner"></div>
-                        <span>Thinking...</span>
-                    </div>
-                </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
-            resultsDiv.scrollTop = resultsDiv.scrollHeight;
-            return loadingId;
-        }
-
-        function removeLoadingFromUI(loadingId) {
-            if (!loadingId) return;
-            const loadingEl = document.getElementById(loadingId);
-            if (loadingEl) loadingEl.remove();
-        }
-
-        function addAssistantMessageToUI(data) {
-            const chatContainer = resultsDiv.querySelector('.chat-container');
-            if (!chatContainer) return;
-
-            let sourcesHtml = '';
-            if (data.sources?.length) {
-                const sourceItems = data.sources.map(s => `
-                    <div class="source-item">
-                        <div class="source-meta">
-                            <span class="source-id">${escapeHtml(s.doc_id)}</span>
-                            ${s.title ? `<span class="source-title">${escapeHtml(s.title)}</span>` : ''}
-                        </div>
-                        <div class="source-snippet">${escapeHtml(s.snippet)}</div>
-                    </div>
-                `).join('');
-
-                sourcesHtml = `
-                    <div class="sources-section">
-                        <button class="sources-toggle" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('visible');">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                            ${data.sources.length} source${data.sources.length > 1 ? 's' : ''}
-                        </button>
-                        <div class="sources-list">
-                            ${sourceItems}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Build suggestions HTML if available
-            let suggestionsHtml = '';
-            if (data.suggestions) {
-                const { topics, doc_titles, has_scope, scope_hint } = data.suggestions;
-
-                let suggestionsContent = '';
-
-                // Scope hint (clickable to clear scope)
-                if (scope_hint) {
-                    suggestionsContent += `
-                        <div class="suggestions-hint" onclick="document.getElementById('doc-clear-btn').click();">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 6 6 18"></path>
-                                <path d="m6 6 12 12"></path>
-                            </svg>
-                            ${escapeHtml(scope_hint)}
-                        </div>
-                    `;
-                }
-
-                // Topic suggestions (clickable to search)
-                if (topics && topics.length > 0) {
-                    const topicChips = topics.map(t => `
-                        <span class="suggestion-topic" onclick="document.getElementById('query').value = '${escapeHtml(t)}'; document.getElementById('query').focus();">
-                            ${escapeHtml(t)}
-                        </span>
-                    `).join('');
-                    suggestionsContent += `
-                        <div class="suggestions-topics">${topicChips}</div>
-                    `;
-                }
-
-                // Document titles that were searched
-                if (doc_titles && doc_titles.length > 0) {
-                    suggestionsContent += `
-                        <div class="suggestions-docs">
-                            Documents searched: <span>${doc_titles.map(t => escapeHtml(t)).join(', ')}</span>
-                        </div>
-                    `;
-                }
-
-                if (suggestionsContent) {
-                    suggestionsHtml = `
-                        <div class="suggestions-box">
-                            <div class="suggestions-header">Try instead</div>
-                            ${suggestionsContent}
-                        </div>
-                    `;
-                }
-            }
-
-            const messageHtml = `
-                <div class="chat-message assistant">
-                    <div class="answer-card">
-                        <div class="answer-header">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                            Oku
-                        </div>
-                        <div class="answer-text">${escapeHtml(data.answer)}</div>
-                        ${suggestionsHtml}
-                        ${sourcesHtml}
-                    </div>
-                </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', messageHtml);
-            resultsDiv.scrollTop = resultsDiv.scrollHeight;
-        }
-
-        function addErrorToUI(message) {
-            const chatContainer = resultsDiv.querySelector('.chat-container');
-            if (!chatContainer) return;
-
-            const errorHtml = `
-                <div class="chat-message assistant">
-                    <div class="error-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" x2="12" y1="8" y2="12"></line>
-                            <line x1="12" x2="12.01" y1="16" y2="16"></line>
-                        </svg>
-                        <span>${escapeHtml(message)}</span>
-                    </div>
-                </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', errorHtml);
-            resultsDiv.scrollTop = resultsDiv.scrollHeight;
-        }
-
-        // =================================================================
-        // Push-to-Talk (PTT) Recording
-        // =================================================================
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let recordingStartTime = null;
-
-        // Check if browser supports audio recording
-        const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
-        if (!pttSupported) {
-            pttBtn.style.display = 'none';
-        }
-
-        // Initialize MediaRecorder when needed
-        async function initMediaRecorder() {
-            if (mediaRecorder) return true;
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-                });
-
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) {
-                        audioChunks.push(e.data);
-                    }
-                };
-
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-                    audioChunks = [];
-                    await sendAudioForTranscription(audioBlob);
-                };
-
-                return true;
-            } catch (err) {
-                console.error('Failed to init MediaRecorder:', err);
-                pttHint.textContent = ' Microphone access denied';
-                pttHint.classList.add('recording');
-                setTimeout(() => {
-                    pttHint.textContent = '';
-                    pttHint.classList.remove('recording');
-                }, 3000);
-                return false;
-            }
-        }
-
-        // Start recording
-        async function startRecording() {
-            if (isRecording) return;
-
-            const ready = await initMediaRecorder();
-            if (!ready) return;
-
-            audioChunks = [];
-            isRecording = true;
-            recordingStartTime = Date.now();
-
-            pttBtn.classList.add('recording');
-            pttHint.textContent = ' Recording...';
-            pttHint.classList.add('recording');
-
-            mediaRecorder.start();
-        }
-
-        // Stop recording
-        function stopRecording() {
-            if (!isRecording || !mediaRecorder) return;
-
-            isRecording = false;
-            const duration = Date.now() - recordingStartTime;
-
-            pttBtn.classList.remove('recording');
-            pttHint.classList.remove('recording');
-
-            // Only transcribe if recording was at least 0.5 seconds
-            if (duration < 500) {
-                pttHint.textContent = ' Too short';
-                setTimeout(() => { pttHint.textContent = ''; }, 1500);
-                mediaRecorder.stop();
-                audioChunks = [];
-                return;
-            }
-
-            pttBtn.classList.add('transcribing');
-            pttHint.textContent = ' Transcribing...';
-
-            mediaRecorder.stop();
-        }
-
-        // Send audio to /transcribe endpoint
-        async function sendAudioForTranscription(audioBlob) {
-            try {
-                const token = await getAccessToken();
-                if (!token) {
-                    throw new Error('Not authenticated');
-                }
-
-                const formData = new FormData();
-                const extension = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
-                formData.append('audio', audioBlob, `recording.${extension}`);
-
-                const response = await fetch('/transcribe', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    let errorMsg = `Transcription failed (${response.status})`;
-                    try {
-                        const errData = await response.json();
-                        errorMsg = errData.detail || errData.message || errorMsg;
-                    } catch {}
-                    throw new Error(errorMsg);
-                }
-
-                const data = await response.json();
-
-                // Populate query input with transcribed text
-                if (data.text) {
-                    // Append to existing text if any, otherwise replace
-                    const existingText = queryInput.value.trim();
-                    if (existingText) {
-                        queryInput.value = existingText + ' ' + data.text;
-                    } else {
-                        queryInput.value = data.text;
-                    }
-                    // Trigger resize
-                    queryInput.dispatchEvent(new Event('input'));
-                    queryInput.focus();
-                }
-
-                pttHint.textContent = '';
-
-            } catch (err) {
-                console.error('Transcription error:', err);
-                pttHint.textContent = ' ' + err.message;
-                pttHint.classList.add('recording');
-                setTimeout(() => {
-                    pttHint.textContent = '';
-                    pttHint.classList.remove('recording');
-                }, 3000);
-            } finally {
-                pttBtn.classList.remove('transcribing');
-            }
-        }
-
-        // PTT button event handlers - hold to record, release to stop
-
-        pttBtn.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return; // Only left click
-            e.preventDefault();
-            startRecording();
-        });
-
-        pttBtn.addEventListener('mouseup', (e) => {
-            if (e.button !== 0) return;
-            e.preventDefault();
-            stopRecording();
-        });
-
-        pttBtn.addEventListener('mouseleave', () => {
-            // Stop if mouse leaves while recording
-            if (isRecording) {
-                stopRecording();
-            }
-        });
-
-        // Touch support for mobile
-        pttBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            startRecording();
-        });
-
-        pttBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            stopRecording();
-        });
-
-        // Keyboard shortcut: hold Space to record (when not typing in input)
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && document.activeElement !== queryInput && !isRecording) {
-                e.preventDefault();
-                startRecording();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.code === 'Space' && isRecording && document.activeElement !== queryInput) {
-                e.preventDefault();
-                stopRecording();
-            }
-        });
-
-        // =================================================================
-        // Initialize
-        // =================================================================
-        loadPublicConfig();
-        initAuth();
-
-    </script>
+      }
+      syncSelectors(folderEmpty, folderSticky);
+      syncSelectors(docEmpty, docSticky);
+    }
+
+    // =================================================================
+    // Utilities
+    // =================================================================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // =================================================================
+    // Initialize
+    // =================================================================
+    async function init() {
+      await loadConfig();
+      await updateUserUI();
+      await refreshDriveStatus();
+      await loadFolders();
+      await loadDocuments();
+      updateLocalUI();
+
+      // Re-render drive folders now that documents are loaded
+      if (driveConnectedState) {
+        renderDriveFolders();
+      }
+
+      // Load conversations
+      renderConversationList();
+    }
+
+    init();
+  </script>
 </body>
 </html>
