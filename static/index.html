@@ -896,6 +896,36 @@
       color: #d97706;
     }
 
+    /* Sync loading bar */
+    .sync-loading-bar {
+      height: 3px;
+      background: var(--divider);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .sync-loading-bar.hidden {
+      display: none;
+    }
+    .sync-loading-bar .progress {
+      height: 100%;
+      width: 30%;
+      background: var(--ink);
+      border-radius: 2px;
+      animation: sync-progress 1.5s ease-in-out infinite;
+    }
+    @keyframes sync-progress {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(200%); }
+      100% { transform: translateX(-100%); }
+    }
+
+    /* Disabled composer state */
+    .composer-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
     /* User bar */
     .user-bar {
       display: flex;
@@ -1781,6 +1811,9 @@
           </div>
 
           <div id="drive-sync-status" class="sync-status hidden"></div>
+          <div id="sync-loading-bar" class="sync-loading-bar hidden">
+            <div class="progress"></div>
+          </div>
         </div>
       </div>
     </aside>
@@ -2040,6 +2073,7 @@
     const driveActionsConnect = document.getElementById('drive-actions-connect');
     const driveActionsConnected = document.getElementById('drive-actions-connected');
     const driveSyncStatus = document.getElementById('drive-sync-status');
+    const syncLoadingBar = document.getElementById('sync-loading-bar');
 
     // User bar elements
     const userBar = document.getElementById('user-bar');
@@ -2059,6 +2093,7 @@
     // Conversation state
     let currentConversationId = null;
     let isSubmitting = false;
+    let isSyncing = false;
 
     // =================================================================
     // Conversation DOM Elements
@@ -2925,7 +2960,43 @@
       driveSyncStatus.textContent = message;
       driveSyncStatus.className = 'sync-status ' + type;
       driveSyncStatus.classList.remove('hidden');
-      setTimeout(() => driveSyncStatus.classList.add('hidden'), 3000);
+      // Don't auto-hide while syncing
+      if (!isSyncing) {
+        setTimeout(() => driveSyncStatus.classList.add('hidden'), 3000);
+      }
+    }
+
+    // Disable/enable composer during sync
+    function setSyncingState(syncing) {
+      isSyncing = syncing;
+      const composerElements = [
+        queryInput,
+        queryInputSticky,
+        askBtn,
+        askBtnSticky
+      ].filter(Boolean);
+
+      composerElements.forEach(el => {
+        el.disabled = syncing;
+      });
+
+      // Add/remove visual disabled state
+      const composerWrappers = document.querySelectorAll('.composer-center, .query-box');
+      composerWrappers.forEach(el => {
+        if (syncing) {
+          el.classList.add('composer-disabled');
+        } else {
+          el.classList.remove('composer-disabled');
+        }
+      });
+
+      // Show/hide loading bar
+      if (syncing) {
+        syncLoadingBar.classList.remove('hidden');
+      } else {
+        syncLoadingBar.classList.add('hidden');
+        driveSyncStatus.classList.add('hidden');
+      }
     }
 
     async function refreshDriveStatus() {
@@ -2970,6 +3041,7 @@
 
     btnSyncDrive.addEventListener('click', async () => {
       btnSyncDrive.disabled = true;
+      setSyncingState(true);
       showDriveStatus('Syncing...', '');
       try {
         const result = await apiFetch('/sync/drive', { method: 'POST' });
@@ -2979,6 +3051,7 @@
         showDriveStatus('Sync failed: ' + err.message, 'error');
       } finally {
         btnSyncDrive.disabled = false;
+        setSyncingState(false);
       }
     });
 
