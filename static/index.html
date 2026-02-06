@@ -369,7 +369,7 @@
     .chat-messages {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 16px;
     }
 
     .chat-message {
@@ -2660,8 +2660,14 @@
         // Update sidebar
         renderConversationList();
 
-        // Scroll to bottom
-        chatScroll.scrollTop = chatScroll.scrollHeight;
+        // Scroll behavior: on mobile scroll to show user question, on desktop scroll to bottom
+        if (isMobileView()) {
+          // On mobile, scroll to top so user sees their question + answer
+          chatScroll.scrollTop = 0;
+        } else {
+          // On desktop, scroll to bottom (more content visible)
+          chatScroll.scrollTop = chatScroll.scrollHeight;
+        }
 
       } catch (err) {
         loadingDiv.remove();
