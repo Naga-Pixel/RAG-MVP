@@ -1120,6 +1120,31 @@
       gap: 12px;
     }
 
+    /* Mobile composer expand button - hidden by default on all screen sizes.
+       Only shown when .composer.collapsed is active on mobile via media query. */
+    .composer-expand-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .composer-expand-btn:hover {
+      color: var(--ink);
+    }
+    .composer-expand-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
     /* ========================================
        RESPONSIVE - MOBILE
        ======================================== */
@@ -1234,7 +1259,7 @@
         padding: 10px 20px;
       }
 
-      /* Collapsible composer on mobile */
+      /* Collapsible composer on mobile only */
       .composer.collapsed .query-box {
         padding: 8px 12px;
       }
@@ -1247,28 +1272,6 @@
       }
       .composer.collapsed .composer-expand-btn {
         display: flex;
-      }
-      .composer-expand-btn {
-        display: none;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        width: 100%;
-        padding: 12px;
-        background: none;
-        border: none;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--muted);
-        cursor: pointer;
-        font-family: inherit;
-      }
-      .composer-expand-btn:hover {
-        color: var(--ink);
-      }
-      .composer-expand-btn svg {
-        width: 18px;
-        height: 18px;
       }
     }
 
