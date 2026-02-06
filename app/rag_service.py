@@ -25,26 +25,56 @@ def normalize_query(query: str) -> str:
     """
     Normalize query for better retrieval matching.
 
-    Fixes issues like "What's GDPR?" where the question mark is attached
-    to the last word, causing FTS to search for "GDPR?" instead of "GDPR".
+    Fixes issues like:
+    - "What's GDPR?" -> "What's GDPR ?" (punctuation separation)
+    - "what's gdpr?" -> "what's GDPR ?" (acronym uppercasing)
 
     Transformations:
-    - Add space before terminal punctuation attached to words (? ! . ,)
-    - Collapse multiple spaces
+    1. Uppercase likely acronyms (2-5 letter all-lowercase words)
+    2. Add space before terminal punctuation attached to words
+    3. Collapse multiple spaces
 
     Examples:
-        "What's GDPR?" -> "What's GDPR ?"
-        "Hello, world!" -> "Hello , world !"
-        "test?test" -> "test?test" (no change - punctuation in middle of word)
+        "what's gdpr?" -> "what's GDPR ?"
+        "tell me about the eu" -> "tell me about the EU"
+        "What is api?" -> "What is API ?"
     """
     if not query:
         return query
 
-    # Add space before terminal punctuation that's attached to a word character
-    # Match: word char followed by punctuation at end of string or before space
-    normalized = re.sub(r'(\w)([?!.,])(\s|$)', r'\1 \2\3', query)
+    # Common acronyms to always uppercase (extend as needed)
+    known_acronyms = {
+        'gdpr', 'api', 'apis', 'eu', 'uk', 'us', 'usa', 'pdf', 'html', 'css',
+        'sql', 'json', 'xml', 'http', 'https', 'url', 'uri', 'id', 'ids',
+        'ai', 'ml', 'nlp', 'llm', 'rag', 'faq', 'roi', 'kpi', 'sla', 'nda',
+        'ceo', 'cfo', 'cto', 'coo', 'hr', 'it', 'qa', 'ui', 'ux', 'pr',
+        'b2b', 'b2c', 'saas', 'paas', 'iaas', 'aws', 'gcp', 'llc', 'inc',
+    }
 
-    # Collapse multiple spaces
+    def uppercase_acronyms(text: str) -> str:
+        """Uppercase known acronyms and likely acronyms (2-5 letter words)."""
+        words = text.split()
+        result = []
+        for word in words:
+            # Strip punctuation for checking
+            clean = word.strip('.,?!:;\'\"()[]{}')
+            # Check if it's a known acronym or looks like one (2-4 uppercase letters when uppercased)
+            if clean.lower() in known_acronyms:
+                # Preserve punctuation around the word
+                prefix = word[:len(word) - len(word.lstrip('.,?!:;\'\"()[]{}'))]
+                suffix = word[len(word.rstrip('.,?!:;\'\"()[]{}')):]
+                result.append(prefix + clean.upper() + suffix)
+            else:
+                result.append(word)
+        return ' '.join(result)
+
+    # Step 1: Uppercase acronyms
+    normalized = uppercase_acronyms(query)
+
+    # Step 2: Add space before terminal punctuation that's attached to a word character
+    normalized = re.sub(r'(\w)([?!.,])(\s|$)', r'\1 \2\3', normalized)
+
+    # Step 3: Collapse multiple spaces
     normalized = re.sub(r' +', ' ', normalized)
 
     return normalized.strip()

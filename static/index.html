@@ -408,6 +408,7 @@
     /* User messages: right-aligned light grey speech bubble */
     .chat-message.user {
       align-items: flex-end;
+      margin-bottom: 8px;
     }
 
     .chat-message.user .role {
@@ -415,11 +416,16 @@
     }
 
     .chat-message.user .content {
-      background: rgba(0, 0, 0, 0.04);
+      background: rgba(0, 0, 0, 0.05);
       padding: 12px 16px;
       border-radius: 18px 18px 4px 18px;
       max-width: 85%;
       color: var(--ink);
+    }
+
+    /* Assistant messages */
+    .chat-message.assistant {
+      margin-top: 4px;
     }
 
     .chat-message.assistant .content {
