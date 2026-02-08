@@ -8,7 +8,7 @@
   <!-- Fonts: Inter + Bricolage Grotesque -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     /* ========================================
@@ -817,6 +817,72 @@
       color: var(--muted);
     }
 
+    /* Autocomplete dropdown */
+    .search-box-autocomplete {
+      position: relative;
+    }
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-height: 240px;
+      overflow-y: auto;
+      z-index: 100;
+      margin-top: 4px;
+    }
+    .autocomplete-dropdown.hidden {
+      display: none;
+    }
+    .autocomplete-item {
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--divider);
+    }
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.selected {
+      background: rgba(0,0,0,0.04);
+    }
+    .autocomplete-item .doc-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .autocomplete-item .doc-type {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    .autocomplete-empty {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Document highlight when found */
+    .folder-doc-item.highlighted {
+      background: rgba(114,228,173,0.2);
+      border-radius: 4px;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
     .section-actions {
       display: flex;
       gap: 12px;
@@ -1009,6 +1075,9 @@
     }
     .folder-toggle:hover {
       color: var(--ink);
+    }
+    .folder-toggle:focus {
+      outline: none;
     }
 
     .folder-toggle .chevron {
@@ -1727,13 +1796,14 @@
       </div>
 
       <div class="col-scroll">
-        <!-- Document Search -->
-        <div class="search-box">
+        <!-- Document Search with Autocomplete -->
+        <div class="search-box search-box-autocomplete">
           <svg class="search-icon" viewBox="0 0 24 24" fill="none">
             <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
             <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <input type="text" id="doc-search" class="search-input" placeholder="Search documents...">
+          <input type="text" id="doc-search" class="search-input" placeholder="Search documents..." autocomplete="off">
+          <div id="doc-search-autocomplete" class="autocomplete-dropdown hidden"></div>
         </div>
 
         <!-- Local Section -->
@@ -2736,35 +2806,156 @@
     }
 
     // =================================================================
-    // Document Search (Real-time filtering)
+    // Document Search with Autocomplete
     // =================================================================
-    let searchTimeout = null;
+    const docSearchAutocomplete = document.getElementById('doc-search-autocomplete');
+    let autocompleteIndex = -1;
+    let autocompleteMatches = [];
+
+    function showAutocomplete(matches) {
+      autocompleteMatches = matches;
+      autocompleteIndex = -1;
+
+      if (matches.length === 0) {
+        docSearchAutocomplete.innerHTML = '<div class="autocomplete-empty">No documents found</div>';
+      } else {
+        docSearchAutocomplete.innerHTML = matches.slice(0, 10).map((doc, i) => {
+          const title = doc.title || doc.doc_id || 'Untitled';
+          const ext = (doc.file_type || '').toUpperCase();
+          return `
+            <div class="autocomplete-item" data-doc-id="${escapeHtml(doc.doc_id)}" data-folder-id="${escapeHtml(doc.folder_id || '')}">
+              <span class="doc-title">${escapeHtml(title)}</span>
+              ${ext ? `<span class="doc-type">${ext}</span>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+      docSearchAutocomplete.classList.remove('hidden');
+
+      // Attach click handlers
+      docSearchAutocomplete.querySelectorAll('.autocomplete-item').forEach((item, i) => {
+        item.addEventListener('click', () => selectAutocompleteItem(i));
+      });
+    }
+
+    function hideAutocomplete() {
+      docSearchAutocomplete.classList.add('hidden');
+      autocompleteIndex = -1;
+      autocompleteMatches = [];
+    }
+
+    function updateAutocompleteSelection() {
+      const items = docSearchAutocomplete.querySelectorAll('.autocomplete-item');
+      items.forEach((item, i) => {
+        item.classList.toggle('selected', i === autocompleteIndex);
+      });
+    }
+
+    function selectAutocompleteItem(index) {
+      if (index < 0 || index >= autocompleteMatches.length) return;
+
+      const doc = autocompleteMatches[index];
+      const docId = doc.doc_id;
+      const folderId = doc.folder_id;
+
+      // Hide autocomplete
+      hideAutocomplete();
+      docSearch.value = doc.title || doc.doc_id || '';
+
+      // Expand the folder containing this document and highlight it
+      highlightDocumentInList(docId, folderId);
+    }
+
+    function highlightDocumentInList(docId, folderId) {
+      // Remove any existing highlights
+      document.querySelectorAll('.folder-doc-item.highlighted').forEach(el => {
+        el.classList.remove('highlighted');
+      });
+
+      // Find the folder expandable that contains this document
+      const folderExpandables = document.querySelectorAll('.folder-expandable');
+      let targetFolder = null;
+
+      folderExpandables.forEach(folder => {
+        const folderIdAttr = folder.dataset.folderId;
+        // Check if this folder contains the doc
+        const docItem = folder.querySelector(`.folder-doc-item[data-doc-id="${CSS.escape(docId)}"]`);
+        if (docItem) {
+          targetFolder = folder;
+        }
+      });
+
+      if (targetFolder) {
+        // Expand the folder
+        const docsContainer = targetFolder.querySelector('.folder-docs');
+        const chevron = targetFolder.querySelector('.chevron');
+        if (docsContainer && docsContainer.classList.contains('hidden')) {
+          docsContainer.classList.remove('hidden');
+          if (chevron) chevron.classList.add('expanded');
+        }
+
+        // Highlight the document
+        const docItem = targetFolder.querySelector(`.folder-doc-item[data-doc-id="${CSS.escape(docId)}"]`);
+        if (docItem) {
+          docItem.classList.add('highlighted');
+          // Scroll into view
+          docItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            docItem.classList.remove('highlighted');
+          }, 3000);
+        }
+      }
+    }
+
     docSearch.addEventListener('input', (e) => {
       const term = e.target.value.toLowerCase().trim();
-      clearTimeout(searchTimeout);
 
       if (!term) {
-        // Show all - reset any filtering
-        console.log('Search cleared');
+        hideAutocomplete();
         return;
       }
 
-      // Phase 1: Client-side filename filter
+      // Filter documents matching the search term
       const matches = allDocuments.filter(doc =>
         (doc.title || doc.doc_id || '').toLowerCase().includes(term)
       );
-      console.log('Client matches:', matches.length);
 
-      // Phase 2: Backend content search (debounced)
-      if (term.length >= 2) {
-        searchTimeout = setTimeout(async () => {
-          try {
-            // Backend search would go here
-            console.log('Would search backend for:', term);
-          } catch (err) {
-            console.error('Search error:', err);
-          }
-        }, 300);
+      showAutocomplete(matches);
+    });
+
+    docSearch.addEventListener('keydown', (e) => {
+      if (docSearchAutocomplete.classList.contains('hidden')) return;
+
+      const items = docSearchAutocomplete.querySelectorAll('.autocomplete-item');
+      const maxIndex = items.length - 1;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        autocompleteIndex = Math.min(autocompleteIndex + 1, maxIndex);
+        updateAutocompleteSelection();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        autocompleteIndex = Math.max(autocompleteIndex - 1, 0);
+        updateAutocompleteSelection();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (autocompleteIndex >= 0) {
+          selectAutocompleteItem(autocompleteIndex);
+        } else if (autocompleteMatches.length > 0) {
+          // Select first item if none selected
+          selectAutocompleteItem(0);
+        }
+      } else if (e.key === 'Escape') {
+        hideAutocomplete();
+      }
+    });
+
+    // Hide autocomplete when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!docSearch.contains(e.target) && !docSearchAutocomplete.contains(e.target)) {
+        hideAutocomplete();
       }
     });
 
@@ -2917,7 +3108,7 @@
                 const fileName = d.source_file || d.title || d.doc_id;
                 const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
                 const displayName = d.title || d.doc_id;
-                return `<div class="folder-doc-item">
+                return `<div class="folder-doc-item" data-doc-id="${escapeHtml(d.doc_id)}">
                   <span class="doc-name">${escapeHtml(displayName)}</span>
                   ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
                 </div>`;
