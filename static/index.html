@@ -1863,6 +1863,7 @@
             <div class="section-actions hidden" id="drive-actions-connected">
               <button class="linkbtn" id="btn-add-drive-folder">Add folder</button>
               <button class="linkbtn" id="btn-sync-drive">Sync</button>
+              <button class="linkbtn" id="btn-disconnect-drive" style="color: var(--muted);">Disconnect</button>
             </div>
           </div>
 
@@ -2134,6 +2135,7 @@
     const btnConnectDrive = document.getElementById('btn-connect-drive');
     const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
     const btnSyncDrive = document.getElementById('btn-sync-drive');
+    const btnDisconnectDrive = document.getElementById('btn-disconnect-drive');
     const driveNotConnected = document.getElementById('drive-not-connected');
     const driveConnected = document.getElementById('drive-connected');
     const driveFolderList = document.getElementById('drive-folder-list');
@@ -3241,6 +3243,25 @@
       } finally {
         btnSyncDrive.disabled = false;
         setSyncingState(false);
+      }
+    });
+
+    // Disconnect Google Drive
+    btnDisconnectDrive.addEventListener('click', async () => {
+      if (!confirm('Disconnect Google Drive? You will need to reconnect to sync again.')) {
+        return;
+      }
+      btnDisconnectDrive.disabled = true;
+      try {
+        await apiFetch('/sources/drive/disconnect', { method: 'DELETE' });
+        driveConnectedState = false;
+        driveFolders = [];
+        updateDriveUI();
+        showDriveStatus('Google Drive disconnected', 'success');
+      } catch (err) {
+        showDriveStatus('Failed to disconnect: ' + err.message, 'error');
+      } finally {
+        btnDisconnectDrive.disabled = false;
       }
     });
 

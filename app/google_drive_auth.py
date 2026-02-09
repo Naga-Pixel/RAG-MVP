@@ -556,6 +556,29 @@ async def get_drive_status(user: dict = Depends(verify_supabase_token)):
     return DriveStatusResponse(connected=connected, folders=folders)
 
 
+@router.delete("/sources/drive/disconnect")
+async def disconnect_drive(user: dict = Depends(verify_supabase_token)):
+    """Disconnect Google Drive - removes stored tokens and folders."""
+    user_id = user["user_id"]
+
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        # Delete tokens
+        cursor.execute("DELETE FROM google_drive_tokens WHERE user_id = %s", (user_id,))
+        # Delete folders
+        cursor.execute("DELETE FROM google_drive_folders WHERE user_id = %s", (user_id,))
+        conn.commit()
+        logger.info(f"Disconnected Google Drive for user {user_id[:8]}...")
+    except psycopg2.Error as e:
+        _handle_db_error(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+    return {"status": "disconnected"}
+
+
 @router.post("/sources/drive/folders", response_model=FoldersResponse)
 async def add_drive_folder(request: AddFolderRequest, user: dict = Depends(verify_supabase_token)):
     """Add a Drive folder to sync list."""
@@ -663,7 +686,26 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
             )
 
             if response.status_code != 200:
-                error_msg = response.json().get("error_description", "Token refresh failed")
+                error_data = response.json()
+                error_code = error_data.get("error", "")
+                error_msg = error_data.get("error_description", "Token refresh failed")
+
+                # If token is invalid/revoked, clear it and ask user to reconnect
+                if error_code == "invalid_grant" or "expired" in error_msg.lower() or "revoked" in error_msg.lower():
+                    logger.warning(f"Drive token invalid for user {user_id}, clearing stored token")
+                    conn = _get_db()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("DELETE FROM google_drive_tokens WHERE user_id = %s", (user_id,))
+                        conn.commit()
+                    finally:
+                        cursor.close()
+                        conn.close()
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Google Drive access expired. Please disconnect and reconnect Google Drive."
+                    )
+
                 raise HTTPException(status_code=400, detail=error_msg)
 
             tokens = response.json()
@@ -756,6 +798,26 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
             )
 
             if response.status_code != 200:
+                error_data = response.json()
+                error_code = error_data.get("error", "")
+                error_msg = error_data.get("error_description", "Token refresh failed")
+
+                # If token is invalid/revoked, clear it and ask user to reconnect
+                if error_code == "invalid_grant" or "expired" in error_msg.lower() or "revoked" in error_msg.lower():
+                    logger.warning(f"Drive token invalid for user {user_id}, clearing stored token")
+                    conn = _get_db()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("DELETE FROM google_drive_tokens WHERE user_id = %s", (user_id,))
+                        conn.commit()
+                    finally:
+                        cursor.close()
+                        conn.close()
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Google Drive access expired. Please disconnect and reconnect Google Drive."
+                    )
+
                 raise HTTPException(status_code=400, detail="Failed to refresh token")
 
             access_token = response.json()["access_token"]
