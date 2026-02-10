@@ -960,10 +960,17 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
 
                             extra_metadata = {}
                             if isinstance(result, tuple):
-                                text_content, sheet_metadata = result
-                                if sheet_metadata:
-                                    sheet_names = [s["sheet_name"] for s in sheet_metadata]
-                                    extra_metadata["sheet_name"] = ", ".join(sheet_names)
+                                text_content, file_metadata = result
+                                if file_metadata:
+                                    # xlsx returns list of sheet dicts, csv returns single dict
+                                    if isinstance(file_metadata, list):
+                                        # xlsx: [{"sheet_name": "Sheet1"}, ...]
+                                        sheet_names = [s["sheet_name"] for s in file_metadata if "sheet_name" in s]
+                                        if sheet_names:
+                                            extra_metadata["sheet_name"] = ", ".join(sheet_names)
+                                    elif isinstance(file_metadata, dict):
+                                        # csv: {"source_type": "csv", "row_count": N, ...}
+                                        extra_metadata.update(file_metadata)
                             else:
                                 text_content = result
 
