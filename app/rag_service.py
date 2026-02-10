@@ -80,6 +80,121 @@ def normalize_query(query: str) -> str:
     return normalized.strip()
 
 
+# =============================================================================
+# Query Rewriting for Conversation Context
+# =============================================================================
+
+# Patterns that suggest a query needs context from conversation history
+VAGUE_QUERY_PATTERNS = [
+    r"\b(again|more|else|another|also)\b",  # "tell me more", "again"
+    r"\b(it|that|this|these|those|the same)\b",  # pronouns/references
+    r"\b(what about|how about|and|but)\b",  # continuations
+    r"^(why|how|when|where|who)\??\s*$",  # bare question words
+]
+
+# Compile patterns for efficiency
+_VAGUE_PATTERNS_COMPILED = [re.compile(p, re.IGNORECASE) for p in VAGUE_QUERY_PATTERNS]
+
+
+def needs_query_rewrite(query: str, conversation_history: list[dict] | None) -> bool:
+    """
+    Detect if a query likely needs rewriting based on conversation context.
+
+    Returns True if:
+    - There's conversation history AND
+    - Query contains vague references (pronouns, "again", etc.) OR
+    - Query is very short (likely a follow-up)
+
+    Args:
+        query: The current user query
+        conversation_history: Previous conversation turns
+
+    Returns:
+        True if query should be rewritten with context
+    """
+    if not conversation_history:
+        return False
+
+    # Very short queries are likely follow-ups
+    word_count = len(query.split())
+    if word_count <= 4:
+        return True
+
+    # Check for vague patterns
+    for pattern in _VAGUE_PATTERNS_COMPILED:
+        if pattern.search(query):
+            return True
+
+    return False
+
+
+def rewrite_query_with_history(
+    query: str,
+    conversation_history: list[dict],
+    query_id: str = "",
+) -> str:
+    """
+    Rewrite a vague follow-up query into a standalone question using conversation history.
+
+    Uses a fast model (gpt-4o-mini) to reformulate queries like:
+    - "can you give me the breakdown again?" -> "what is the breakdown of stripe pricing?"
+    - "tell me more about that" -> "tell me more about the authentication flow"
+
+    Args:
+        query: The current (potentially vague) query
+        conversation_history: List of previous turns with 'role' and 'content'
+        query_id: Optional query ID for logging
+
+    Returns:
+        Rewritten standalone query, or original query if rewriting fails
+    """
+    # Build a minimal context from recent history (last 2-3 turns)
+    recent_history = conversation_history[-4:]  # Last 2 Q&A pairs max
+
+    history_text = ""
+    for turn in recent_history:
+        role = turn.get("role", "user")
+        content = turn.get("content", "")[:500]  # Truncate long responses
+        history_text += f"{role.upper()}: {content}\n"
+
+    prompt = f"""Rewrite the user's follow-up question as a standalone question that includes all necessary context from the conversation history.
+
+CONVERSATION HISTORY:
+{history_text}
+CURRENT QUESTION: {query}
+
+RULES:
+- If the question is already clear and standalone, return it unchanged
+- Replace pronouns (it, that, this) with specific references from the conversation
+- Include key terms/topics being discussed
+- Keep the rewritten question concise (under 20 words if possible)
+- Return ONLY the rewritten question, nothing else
+
+REWRITTEN QUESTION:"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Fast model for quick rewriting
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=100,
+            temperature=0,
+        )
+
+        rewritten = response.choices[0].message.content.strip()
+
+        # Sanity check: if rewritten is empty or too different, use original
+        if not rewritten or len(rewritten) > 200:
+            logger.debug(f"[{query_id}] query_rewrite skipped | reason=invalid_output")
+            return query
+
+        logger.info(f"[{query_id}] query_rewrite | original=\"{query}\" | rewritten=\"{rewritten}\"")
+        return rewritten
+
+    except Exception as e:
+        logger.warning(f"[{query_id}] query_rewrite failed | error={type(e).__name__}: {e}")
+        return query  # Fail-open: use original query
+
+
 # Regex for extracting citations from answer text
 # Matches: [doc_id], [doc_id:12], [doc_id#12]
 CITATION_PATTERN = re.compile(r"\[(?P<doc>[A-Za-z0-9_\-]+)(?:(?:#|:)(?P<chunk>\d+))?\]")
@@ -659,6 +774,12 @@ def answer_question(
     if query != original_query:
         logger.debug(f"[{query_id}] query_normalized | original=\"{original_query}\" | normalized=\"{query}\"")
 
+    # Rewrite vague follow-up queries using conversation history
+    # This expands queries like "tell me more" into standalone questions
+    retrieval_query = query  # Query used for retrieval (may be rewritten)
+    if needs_query_rewrite(query, conversation_history):
+        retrieval_query = rewrite_query_with_history(query, conversation_history, query_id)
+
     # Initialize scope metadata
     scope_source = "none"
     scope_confidence = 0.0
@@ -671,8 +792,8 @@ def answer_question(
         scope_confidence = 1.0
         scope_reason = "ui_explicit"
     else:
-        # Try to resolve scope from query text
-        resolved = resolve_scope_from_query(query, effective_tenant_id)
+        # Try to resolve scope from query text (use rewritten query for better scope detection)
+        resolved = resolve_scope_from_query(retrieval_query, effective_tenant_id)
 
         if resolved.confidence >= 0.65:
             # High enough confidence: auto-apply scope
@@ -721,7 +842,7 @@ def answer_question(
         # When rerank disabled, use retrieval_limit for backwards compatibility
         retrieve_count = settings.retrieval_limit
 
-    points = retrieve(query, top_k=retrieve_count, tenant_id=tenant_id, folder_id=folder_id, doc_ids=doc_ids)
+    points = retrieve(retrieval_query, top_k=retrieve_count, tenant_id=tenant_id, folder_id=folder_id, doc_ids=doc_ids)
 
     # Phase C: Hybrid fusion with RRF (when enabled)
     hybrid_applied = False
@@ -731,7 +852,7 @@ def answer_question(
         try:
             # Get keyword results (with folder/doc scope if specified)
             kw_results = keyword_retrieve(
-                query=query,
+                query=retrieval_query,
                 tenant_id=effective_tenant_id,
                 limit=settings.hybrid_kw_k,
                 folder_id=folder_id,
