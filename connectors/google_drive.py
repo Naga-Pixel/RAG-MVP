@@ -10,6 +10,7 @@ from typing import Any
 
 from connectors.base import BaseConnector, Document, SourceType
 from ingest.loaders import load_document as load_file_content
+from app.config import settings
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -27,27 +28,53 @@ except ImportError:
 class GoogleDriveConnector(BaseConnector):
     """
     Connector for Google Drive documents.
-    
+
     Requires:
     - google-api-python-client
     - google-auth
-    
+
     Setup:
     1. Create a service account in Google Cloud Console
     2. Download the JSON key file
     3. Share your Drive folder with the service account email
+
+    Images (.jpg, .png, etc.) supported when OCR_ENABLED=true.
     """
-    
-    SUPPORTED_MIME_TYPES = {
+
+    # Base MIME types always supported
+    BASE_MIME_TYPES = {
         "application/pdf": ".pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        "application/rtf": ".rtf",
         "text/plain": ".txt",
         "text/markdown": ".md",
+        "text/csv": ".csv",
         # Google Docs native formats - will be exported
         "application/vnd.google-apps.document": ".docx",
         "application/vnd.google-apps.spreadsheet": ".xlsx",
     }
+
+    # Image MIME types (only supported when OCR is enabled)
+    IMAGE_MIME_TYPES = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/tiff": ".tiff",
+        "image/bmp": ".bmp",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+    }
+
+    @classmethod
+    def get_supported_mime_types(cls) -> dict[str, str]:
+        """Get supported MIME types based on current settings."""
+        mime_types = cls.BASE_MIME_TYPES.copy()
+        if settings.ocr_enabled:
+            mime_types.update(cls.IMAGE_MIME_TYPES)
+        return mime_types
+
+    # Legacy class variable for backward compatibility
+    SUPPORTED_MIME_TYPES = BASE_MIME_TYPES
     
     EXPORT_MIME_TYPES = {
         "application/vnd.google-apps.document": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -119,12 +146,13 @@ class GoogleDriveConnector(BaseConnector):
         """List all supported documents in the configured folder."""
         if not self._service:
             return []
-        
+
         documents = []
-        
+
         try:
-            # Build query for supported file types
-            mime_queries = [f"mimeType='{mime}'" for mime in self.SUPPORTED_MIME_TYPES.keys()]
+            # Build query for supported file types (dynamic based on OCR settings)
+            supported_mimes = self.get_supported_mime_types()
+            mime_queries = [f"mimeType='{mime}'" for mime in supported_mimes.keys()]
             mime_filter = " or ".join(mime_queries)
             
             query = f"({mime_filter}) and trashed=false"
@@ -167,14 +195,15 @@ class GoogleDriveConnector(BaseConnector):
             file_name = file_meta["name"]
             
             # Determine extension and download method
+            supported_mimes = self.get_supported_mime_types()
             if mime_type in self.EXPORT_MIME_TYPES:
                 # Google native format - need to export
                 export_mime = self.EXPORT_MIME_TYPES[mime_type]
-                extension = self.SUPPORTED_MIME_TYPES[mime_type]
+                extension = supported_mimes[mime_type]
                 content = self._export_file(source_id, export_mime)
             else:
                 # Regular file - direct download
-                extension = self.SUPPORTED_MIME_TYPES.get(mime_type, ".txt")
+                extension = supported_mimes.get(mime_type, ".txt")
                 content = self._download_file(source_id)
             
             if not content:

@@ -624,7 +624,19 @@ class UploadSyncResponse(BaseModel):
     duration_seconds: float | None
 
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".rtf"}
+# Base document extensions (always supported)
+BASE_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".rtf", ".csv"}
+
+# Image extensions (only supported when OCR is enabled)
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".gif", ".webp"}
+
+
+def get_supported_extensions() -> set[str]:
+    """Get supported extensions based on current settings."""
+    extensions = BASE_EXTENSIONS.copy()
+    if settings.ocr_enabled:
+        extensions |= IMAGE_EXTENSIONS
+    return extensions
 
 
 @app.post("/sync/upload", response_model=UploadSyncResponse)
@@ -658,11 +670,21 @@ async def sync_upload(
     # Generate a stable folder_id from tenant + folder_name
     folder_id = hashlib.sha256(f"{tenant_id}:{folder_name}".encode()).hexdigest()[:16]
 
-    # Filter to supported files only
-    supported_files = [
-        f for f in files
-        if Path(f.filename).suffix.lower() in SUPPORTED_EXTENSIONS
-    ]
+    # Get supported extensions based on current settings
+    supported_extensions = get_supported_extensions()
+
+    # Filter to supported files and track skipped ones
+    supported_files = []
+    for f in files:
+        ext = Path(f.filename).suffix.lower()
+        if ext in supported_extensions:
+            supported_files.append(f)
+        elif ext in IMAGE_EXTENSIONS:
+            # Image file but OCR is disabled
+            errors.append(f"Skipped {f.filename}: Image files require OCR_ENABLED=true")
+        elif ext:
+            # Unknown extension
+            errors.append(f"Skipped {f.filename}: Unsupported file type ({ext})")
 
     for upload_file in supported_files:
         try:
@@ -706,7 +728,8 @@ async def sync_upload(
             documents.append(doc)
 
         except ValueError as e:
-            errors.append(f"Unsupported file: {filename}")
+            # Preserve the actual error message (e.g., "Image files require OCR...")
+            errors.append(f"{filename}: {str(e)}")
         except Exception as e:
             errors.append(f"Error processing {filename}: {str(e)}")
 
@@ -741,7 +764,7 @@ async def sync_upload(
     return UploadSyncResponse(
         status="completed",
         folder_name=folder_name,
-        documents_found=len(supported_files),
+        documents_found=len(files),  # Total files uploaded (including unsupported)
         documents_processed=len(documents),
         chunks_created=chunks_created,
         errors=errors,

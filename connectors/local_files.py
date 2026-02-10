@@ -8,7 +8,8 @@ from pathlib import Path
 from datetime import datetime
 
 from connectors.base import BaseConnector, Document, SourceType
-from ingest.loaders import load_document as load_file_content
+from ingest.loaders import load_document as load_file_content, IMAGE_EXTENSIONS
+from app.config import settings
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -17,11 +18,23 @@ logger = get_logger(__name__)
 class LocalFilesConnector(BaseConnector):
     """
     Connector for local file system documents.
-    
-    Supports: .md, .txt, .pdf, .docx, .xlsx
+
+    Supports: .md, .txt, .pdf, .docx, .xlsx, .rtf, .csv
+    Images (.jpg, .png, etc.) supported when OCR_ENABLED=true.
     """
-    
-    SUPPORTED_EXTENSIONS = (".md", ".txt", ".pdf", ".docx", ".xlsx")
+
+    # Base extensions always supported
+    BASE_EXTENSIONS = (".md", ".txt", ".pdf", ".docx", ".xlsx", ".rtf", ".csv")
+
+    @classmethod
+    def get_supported_extensions(cls) -> tuple[str, ...]:
+        """Get supported extensions based on current settings."""
+        if settings.ocr_enabled:
+            return cls.BASE_EXTENSIONS + tuple(IMAGE_EXTENSIONS)
+        return cls.BASE_EXTENSIONS
+
+    # Legacy class variable for backward compatibility
+    SUPPORTED_EXTENSIONS = BASE_EXTENSIONS
     
     def __init__(
         self,
@@ -31,7 +44,8 @@ class LocalFilesConnector(BaseConnector):
     ):
         super().__init__(tenant_id)
         self.directory = Path(directory).resolve()
-        self.extensions = extensions or self.SUPPORTED_EXTENSIONS
+        # Use dynamic extensions based on OCR settings if not explicitly provided
+        self.extensions = extensions or self.get_supported_extensions()
         self._connected = False
     
     @property
