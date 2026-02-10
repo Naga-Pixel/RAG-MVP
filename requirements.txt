@@ -27,3 +27,7 @@ PyJWT
 slowapi
 # RTF parsing
 striprtf
+
+# OCR support (optional - only needed when OCR_ENABLED=true)
+# google-cloud-vision  # Google Vision API for OCR
+# pdf2image  # Convert PDFs to images for OCR (also requires poppler)

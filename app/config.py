@@ -141,6 +141,30 @@ class Settings(BaseSettings):
         alias="DOCUMENT_SUMMARY_ENABLED",
         description="Enable document-level derived summary generation at ingest time",
     )
+
+    # OCR settings (ingest-time only)
+    # NOTE: OCR is an ingest concern ONLY. By the time chunking starts, everything is plain text.
+    # When disabled, scanned PDFs and images are skipped. No multimodal retrieval.
+    ocr_enabled: bool = Field(
+        default=False,
+        alias="OCR_ENABLED",
+        description="Enable OCR for scanned PDFs and images at ingest time",
+    )
+    ocr_provider: str = Field(
+        default="google_vision",
+        alias="OCR_PROVIDER",
+        description="OCR provider to use (currently only 'google_vision' supported)",
+    )
+    ocr_min_text_length: int = Field(
+        default=300,
+        alias="OCR_MIN_TEXT_LENGTH",
+        description="PDFs with less extracted text than this are treated as scanned and sent to OCR",
+    )
+    ocr_google_credentials_path: str | None = Field(
+        default=None,
+        alias="OCR_GOOGLE_CREDENTIALS_PATH",
+        description="Path to Google Cloud service account JSON for Vision API (or use GOOGLE_APPLICATION_CREDENTIALS)",
+    )
     document_summary_model: str | None = Field(
         default=None,
         alias="DOCUMENT_SUMMARY_MODEL",
