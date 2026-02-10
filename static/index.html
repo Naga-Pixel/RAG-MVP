@@ -3185,12 +3185,15 @@
     }
 
     function showDriveStatus(message, type = '') {
+      console.log('showDriveStatus called:', message, type);  // Debug
+      console.log('driveSyncStatus element:', driveSyncStatus);  // Debug
       driveSyncStatus.innerHTML = `
         <span class="sync-message">${escapeHtml(message)}</span>
         <button class="sync-dismiss" title="Dismiss">&times;</button>
       `;
       driveSyncStatus.className = 'sync-status ' + type;
       driveSyncStatus.classList.remove('hidden');
+      console.log('driveSyncStatus after update:', driveSyncStatus.className, driveSyncStatus.innerHTML);  // Debug
       driveSyncStatus.querySelector('.sync-dismiss').onclick = () => {
         driveSyncStatus.classList.add('hidden');
       };
