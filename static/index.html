@@ -3277,23 +3277,35 @@
         const result = await apiFetch('/sync/drive', { method: 'POST' });
         const found = result.documents_found || 0;
         const processed = result.documents_processed || 0;
+        const unchanged = result.documents_skipped || 0;  // Incremental sync: unchanged files
         const errors = result.errors || [];
-        const skipped = found - processed;
+        const errorSkipped = found - processed - unchanged;  // Files skipped due to errors
 
-        if (skipped > 0) {
-          // Partial success - some files were skipped
+        // Build status message based on sync results
+        if (processed === 0 && found === 0) {
+          showDriveStatus('No documents found in folders', 'warning');
+        } else if (unchanged > 0 && processed === 0 && errorSkipped === 0) {
+          // All files unchanged - incremental sync did nothing
+          showDriveStatus(`All ${found} documents up to date`, 'success');
+        } else if (unchanged > 0) {
+          // Some files synced, some unchanged
+          let statusMsg = `Synced ${processed} documents (${unchanged} unchanged)`;
+          if (errorSkipped > 0) {
+            statusMsg = `Synced ${processed} of ${found} documents (${unchanged} unchanged, ${errorSkipped} skipped)`;
+          }
+          showDriveStatus(statusMsg, errors.length > 0 ? 'warning' : 'success');
+        } else if (errorSkipped > 0) {
+          // Some files skipped due to errors (no unchanged)
           showDriveStatus(
-            `Synced ${processed} of ${found} documents (${skipped} skipped)`,
+            `Synced ${processed} of ${found} documents (${errorSkipped} skipped)`,
             errors.length > 0 ? 'warning' : 'success'
           );
-          // Log errors to console for debugging
-          if (errors.length > 0) {
-            console.warn('Sync errors:', errors);
-          }
-        } else if (processed === 0 && found === 0) {
-          showDriveStatus('No documents found in folders', 'warning');
         } else {
           showDriveStatus(`Synced ${processed} documents`, 'success');
+        }
+        // Log errors to console for debugging
+        if (errors.length > 0) {
+          console.warn('Sync errors:', errors);
         }
         await loadDocuments();
       } catch (err) {

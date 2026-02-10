@@ -311,6 +311,7 @@ class DriveSyncResponse(BaseModel):
     folders_synced: int
     documents_found: int
     documents_processed: int
+    documents_skipped: int = 0  # Unchanged files (incremental sync)
     chunks_created: int
     errors: list[str]
     duration_seconds: float
@@ -691,6 +692,99 @@ async def get_public_config():
     }
 
 
+# ============== Incremental Sync Helpers ==============
+
+def _get_synced_files(user_id: str) -> dict[str, str]:
+    """
+    Get all synced file modification times for a user.
+
+    Returns:
+        Dict mapping file_id -> modified_at (ISO string)
+    """
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT file_id, modified_at FROM google_drive_synced_files WHERE user_id = %s",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        # Convert to dict: file_id -> modified_at ISO string
+        return {
+            row["file_id"]: row["modified_at"].isoformat() if row["modified_at"] else ""
+            for row in rows
+        }
+    except psycopg2.Error as e:
+        # Table might not exist yet - return empty dict (full sync)
+        logger.warning(f"Could not fetch synced files: {e}")
+        return {}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _record_synced_file(
+    user_id: str,
+    file_id: str,
+    folder_id: str,
+    file_name: str,
+    modified_at: str,
+) -> None:
+    """
+    Record a successfully synced file for incremental sync tracking.
+
+    Args:
+        user_id: User identifier
+        file_id: Google Drive file ID
+        folder_id: Parent folder ID
+        file_name: File name for logging
+        modified_at: ISO timestamp from Drive API
+    """
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO google_drive_synced_files (user_id, file_id, folder_id, file_name, modified_at, synced_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (user_id, file_id) DO UPDATE SET
+                folder_id = EXCLUDED.folder_id,
+                file_name = EXCLUDED.file_name,
+                modified_at = EXCLUDED.modified_at,
+                synced_at = NOW()
+        """, (user_id, file_id, folder_id, file_name, modified_at))
+        conn.commit()
+    except psycopg2.Error as e:
+        # Fail-open: log but don't interrupt sync
+        logger.warning(f"Could not record synced file {file_name}: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str]) -> bool:
+    """
+    Check if a file needs to be synced based on modification time.
+
+    Args:
+        file_id: Google Drive file ID
+        modified_at: Current modification time from Drive API
+        synced_files: Dict of previously synced file_id -> modified_at
+
+    Returns:
+        True if file needs sync (new or modified), False if unchanged
+    """
+    if file_id not in synced_files:
+        return True  # New file
+
+    # Compare modification times
+    previous_modified = synced_files[file_id]
+    if not previous_modified:
+        return True
+
+    # Normalize for comparison (both should be ISO format)
+    return modified_at != previous_modified
+
+
 # ============== Sync Endpoint ==============
 
 @router.post("/sync/drive", response_model=DriveSyncResponse)
@@ -739,6 +833,10 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
             status_code=400,
             detail="No folders selected. Add at least one folder."
         )
+
+    # Load previously synced files for incremental sync
+    synced_files = _get_synced_files(user_id)
+    logger.info(f"Loaded {len(synced_files)} previously synced files for incremental sync")
 
     # Decrypt refresh token and get access token
     refresh_token = _decrypt_token(token_row["refresh_token_enc"])
@@ -827,6 +925,7 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
 
     total_found = 0
     total_processed = 0
+    total_skipped = 0  # Unchanged files (incremental sync)
     total_chunks = 0
     errors = []
 
@@ -923,6 +1022,12 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                             # Skip unsupported MIME types (shouldn't happen but just in case)
                             if mime_type not in SUPPORTED_MIME_TYPES and mime_type not in EXPORT_MIME_TYPES:
                                 errors.append(f"Skipped {file_name}: Unsupported file type ({mime_type})")
+                                continue
+
+                            # Incremental sync: skip unchanged files
+                            if not _file_needs_sync(file_id, modified_at, synced_files):
+                                total_skipped += 1
+                                logger.debug(f"Skipping unchanged file: {file_name}")
                                 continue
 
                             # Download or export file
@@ -1058,6 +1163,9 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                             ingest_id = uuid4().hex[:12]
                             upsert_points(points, tenant_id, doc_id_fallback=doc.doc_id, ingest_id=ingest_id)
 
+                            # Record successful sync for incremental sync tracking
+                            _record_synced_file(user_id, file_id, current_id, file_name, modified_at)
+
                             total_processed += 1
                             total_chunks += len(chunks)
 
@@ -1086,6 +1194,7 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
         folders_synced=len(folders),
         documents_found=total_found,
         documents_processed=total_processed,
+        documents_skipped=total_skipped,
         chunks_created=total_chunks,
         errors=errors,
         duration_seconds=round(duration, 2),
