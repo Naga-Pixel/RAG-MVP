@@ -3062,12 +3062,10 @@
         }
 
         const result = await response.json();
-        console.log('Sync response:', result);  // Debug logging
         const found = result.documents_found || 0;
         const processed = result.documents_processed || 0;
         const errors = result.errors || [];
         const skipped = found - processed;
-        console.log(`Sync: found=${found}, processed=${processed}, skipped=${skipped}, errors=`, errors);  // Debug
 
         if (skipped > 0) {
           showLocalStatus(
@@ -3187,15 +3185,12 @@
     }
 
     function showDriveStatus(message, type = '') {
-      console.log('showDriveStatus called:', message, type);  // Debug
-      console.log('driveSyncStatus element:', driveSyncStatus);  // Debug
       driveSyncStatus.innerHTML = `
         <span class="sync-message">${escapeHtml(message)}</span>
         <button class="sync-dismiss" title="Dismiss">&times;</button>
       `;
       driveSyncStatus.className = 'sync-status ' + type;
       driveSyncStatus.classList.remove('hidden');
-      console.log('driveSyncStatus after update:', driveSyncStatus.className, driveSyncStatus.innerHTML);  // Debug
       driveSyncStatus.querySelector('.sync-dismiss').onclick = () => {
         driveSyncStatus.classList.add('hidden');
       };
@@ -3225,12 +3220,12 @@
         }
       });
 
-      // Show/hide loading bar
+      // Show/hide loading bar (but don't hide sync status - it has its own dismiss button)
       if (syncing) {
         syncLoadingBar.classList.remove('hidden');
       } else {
         syncLoadingBar.classList.add('hidden');
-        driveSyncStatus.classList.add('hidden');
+        // Don't hide driveSyncStatus here - let user dismiss it manually
       }
     }
 
@@ -3280,12 +3275,10 @@
       showDriveStatus('Syncing...', '');
       try {
         const result = await apiFetch('/sync/drive', { method: 'POST' });
-        console.log('Drive sync response:', result);  // Debug logging
         const found = result.documents_found || 0;
         const processed = result.documents_processed || 0;
         const errors = result.errors || [];
         const skipped = found - processed;
-        console.log(`Drive sync: found=${found}, processed=${processed}, skipped=${skipped}, errors=`, errors);  // Debug
 
         if (skipped > 0) {
           // Partial success - some files were skipped
