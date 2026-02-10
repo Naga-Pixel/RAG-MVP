@@ -1944,7 +1944,7 @@
     // =================================================================
     let supabase = null;
     let publicConfig = null;
-    const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.rtf'];
+    // File filtering moved to backend - it returns detailed skip reasons
 
     async function loadConfig() {
       try {
@@ -3012,10 +3012,8 @@
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
 
-      selectedFiles = files.filter(f => {
-        const ext = '.' + f.name.split('.').pop().toLowerCase();
-        return SUPPORTED_EXTENSIONS.includes(ext);
-      });
+      // Send ALL files to backend - let server handle filtering and report skipped files
+      selectedFiles = files;
 
       if (files.length > 0 && files[0].webkitRelativePath) {
         selectedFolderName = files[0].webkitRelativePath.split('/')[0];
@@ -3024,10 +3022,6 @@
       }
 
       updateLocalUI();
-
-      if (selectedFiles.length === 0 && files.length > 0) {
-        showLocalStatus('No supported files found in folder', 'warning');
-      }
     });
 
     function showLocalStatus(message, type = '') {
