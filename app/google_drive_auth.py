@@ -789,16 +789,36 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
     # Use user_id as tenant_id for isolation
     tenant_id = user_id
 
-    # MIME types we support
-    SUPPORTED_MIME_TYPES = {
+    # Base MIME types always supported
+    BASE_MIME_TYPES = {
         "application/pdf": ".pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        "application/rtf": ".rtf",
         "text/plain": ".txt",
         "text/markdown": ".md",
+        "text/csv": ".csv",
         "application/vnd.google-apps.document": ".docx",
         "application/vnd.google-apps.spreadsheet": ".xlsx",
     }
+
+    # Image MIME types (only supported when OCR is enabled)
+    IMAGE_MIME_TYPES = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/tiff": ".tiff",
+        "image/bmp": ".bmp",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+    }
+
+    # Build supported MIME types based on OCR settings
+    SUPPORTED_MIME_TYPES = BASE_MIME_TYPES.copy()
+    if settings.ocr_enabled:
+        SUPPORTED_MIME_TYPES.update(IMAGE_MIME_TYPES)
+
+    # Always query for images to report them as skipped if OCR disabled
+    QUERY_MIME_TYPES = {**BASE_MIME_TYPES, **IMAGE_MIME_TYPES}
 
     EXPORT_MIME_TYPES = {
         "application/vnd.google-apps.document": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -850,8 +870,8 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                 current_name = current_folder["name"]
 
                 try:
-                    # Build query for supported file types
-                    mime_queries = [f"mimeType='{mime}'" for mime in SUPPORTED_MIME_TYPES.keys()]
+                    # Build query for all queryable file types (including images to report as skipped)
+                    mime_queries = [f"mimeType='{mime}'" for mime in QUERY_MIME_TYPES.keys()]
                     mime_filter = " or ".join(mime_queries)
                     query = f"({mime_filter}) and '{current_id}' in parents and trashed=false"
                     logger.info(f"Drive query for {current_name}")
@@ -894,6 +914,16 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                             file_name = file["name"]
                             mime_type = file["mimeType"]
                             modified_at = file.get("modifiedTime", "")
+
+                            # Check if this is an image file and OCR is disabled
+                            if mime_type in IMAGE_MIME_TYPES and not settings.ocr_enabled:
+                                errors.append(f"Skipped {file_name}: Image files require OCR_ENABLED=true")
+                                continue
+
+                            # Skip unsupported MIME types (shouldn't happen but just in case)
+                            if mime_type not in SUPPORTED_MIME_TYPES and mime_type not in EXPORT_MIME_TYPES:
+                                errors.append(f"Skipped {file_name}: Unsupported file type ({mime_type})")
+                                continue
 
                             # Download or export file
                             if mime_type in EXPORT_MIME_TYPES:
