@@ -3060,10 +3060,12 @@
         }
 
         const result = await response.json();
+        console.log('Sync response:', result);  // Debug logging
         const found = result.documents_found || 0;
         const processed = result.documents_processed || 0;
         const errors = result.errors || [];
         const skipped = found - processed;
+        console.log(`Sync: found=${found}, processed=${processed}, skipped=${skipped}, errors=`, errors);  // Debug
 
         if (skipped > 0) {
           showLocalStatus(
