@@ -120,6 +120,7 @@ def _ocr_google_vision(image_bytes: bytes, filename: str) -> str:
         return ""
 
     try:
+        logger.info(f"[ocr] Calling Vision API | file={filename} | image_size={len(image_bytes)} bytes")
         image = vision.Image(content=image_bytes)
 
         # Use document_text_detection for better results on documents
@@ -129,13 +130,22 @@ def _ocr_google_vision(image_bytes: bytes, filename: str) -> str:
             logger.error(f"[ocr] Google Vision API error | file={filename} | error={response.error.message}")
             return ""
 
+        # Log response details for debugging
+        text_annotations_count = len(response.text_annotations) if response.text_annotations else 0
+        logger.info(f"[ocr] Vision response | file={filename} | text_annotations={text_annotations_count} | has_full_text={bool(response.full_text_annotation)}")
+
         # Extract full text annotation
         if response.full_text_annotation:
             text = response.full_text_annotation.text
             logger.info(f"[ocr] Success | file={filename} | chars={len(text)}")
             return text
+        elif response.text_annotations:
+            # Fallback: use first text annotation (contains all text)
+            text = response.text_annotations[0].description
+            logger.info(f"[ocr] Success (fallback) | file={filename} | chars={len(text)}")
+            return text
         else:
-            logger.warning(f"[ocr] No text found | file={filename}")
+            logger.warning(f"[ocr] No text found in image | file={filename}")
             return ""
 
     except Exception as e:
