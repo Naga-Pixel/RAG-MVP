@@ -761,6 +761,36 @@ def _record_synced_file(
         conn.close()
 
 
+def _normalize_timestamp(ts: str) -> str:
+    """
+    Normalize timestamp to comparable format.
+
+    Handles differences between:
+    - Drive API: "2024-01-15T10:30:00.000Z"
+    - DB isoformat: "2024-01-15T10:30:00+00:00"
+
+    Returns timestamp truncated to seconds in UTC format.
+    """
+    if not ts:
+        return ""
+    # Remove milliseconds and normalize Z to +00:00
+    ts = ts.replace("Z", "+00:00")
+    # Remove milliseconds (everything between . and + or end)
+    if "." in ts:
+        parts = ts.split(".")
+        # Find where timezone starts (+ or -)
+        tz_start = -1
+        for i, c in enumerate(parts[1]):
+            if c in "+-":
+                tz_start = i
+                break
+        if tz_start > 0:
+            ts = parts[0] + parts[1][tz_start:]
+        else:
+            ts = parts[0]
+    return ts
+
+
 def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str]) -> bool:
     """
     Check if a file needs to be synced based on modification time.
@@ -776,13 +806,16 @@ def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str
     if file_id not in synced_files:
         return True  # New file
 
-    # Compare modification times
+    # Compare modification times (normalize to handle format differences)
     previous_modified = synced_files[file_id]
     if not previous_modified:
         return True
 
-    # Normalize for comparison (both should be ISO format)
-    return modified_at != previous_modified
+    # Normalize both timestamps for comparison
+    current_normalized = _normalize_timestamp(modified_at)
+    previous_normalized = _normalize_timestamp(previous_modified)
+
+    return current_normalized != previous_normalized
 
 
 # ============== Sync Endpoint ==============
