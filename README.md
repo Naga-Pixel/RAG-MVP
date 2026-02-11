@@ -1,4 +1,4 @@
-# b_rag
+# Oku
 
 A modular RAG (Retrieval-Augmented Generation) system with multi-source document ingestion, hybrid retrieval, and OCR support.
 
