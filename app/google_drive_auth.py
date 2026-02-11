@@ -865,7 +865,7 @@ def _delete_removed_files(
         Tuple of (deleted_count, error_messages)
     """
     from app.qdrant_client import delete_by_external_id, get_all_external_ids
-    from app.fts_shadow import delete_chunks_by_doc_id
+    from app.fts_shadow import delete_chunks_by_external_id
     from app.config import settings
 
     # Find files in tracking table but not in Drive
@@ -891,18 +891,16 @@ def _delete_removed_files(
 
     for file_id in all_removed_ids:
         try:
-            # Get file info for logging and FTS deletion (if in tracking table)
+            # Get file info for logging (if in tracking table)
             file_info = synced_files.get(file_id, {})
             file_name = file_info.get("file_name", "")
-            # doc_id in FTS is the file name stem (without extension)
-            doc_id = Path(file_name).stem if file_name else file_id
 
             # Delete from Qdrant (uses external_id = file_id)
             delete_by_external_id(user_id, file_id)
 
-            # Delete from FTS shadow table (uses doc_id = file name stem)
+            # Delete from FTS shadow table (uses external_id = file_id for consistency)
             if settings.fts_shadow_enabled:
-                delete_chunks_by_doc_id(user_id, doc_id)
+                delete_chunks_by_external_id(user_id, file_id)
 
             # Delete from tracking table (if present)
             if file_id in synced_files:

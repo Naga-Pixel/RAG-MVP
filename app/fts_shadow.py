@@ -52,6 +52,7 @@ def upsert_chunks_to_fts(
     folder_id: str | None = None,
     folder_name: str | None = None,
     source_file: str | None = None,
+    external_id: str | None = None,
 ) -> bool:
     """
     Upsert chunks to Postgres FTS shadow table (doc-scoped).
@@ -68,6 +69,9 @@ def upsert_chunks_to_fts(
         ingest_id: Unique identifier for this ingest operation
         folder_id: Optional folder identifier
         folder_name: Optional folder name
+        source_file: Optional source filename
+        external_id: Optional source file ID (e.g., Google Drive file ID)
+                     Used for consistent deletion across storage systems.
 
     Returns:
         True if successful, False on failure.
@@ -99,7 +103,7 @@ def upsert_chunks_to_fts(
 
         cursor = conn.cursor()
 
-        # Prepare all values: (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name, source_file)
+        # Prepare all values including external_id
         values = []
         for chunk in chunks:
             values.append((
@@ -111,12 +115,13 @@ def upsert_chunks_to_fts(
                 folder_id,
                 folder_name,
                 source_file,
+                external_id,
             ))
 
         # Build upsert SQL with fully-qualified table name
-        # Note: folder_id, folder_name, source_file columns must exist in the table
+        # Note: external_id column added in migration 006
         upsert_sql = f"""
-            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name, source_file)
+            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name, source_file, external_id)
             VALUES %s
             ON CONFLICT (tenant_id, chunk_id) DO UPDATE SET
                 doc_id = EXCLUDED.doc_id,
@@ -124,7 +129,8 @@ def upsert_chunks_to_fts(
                 text = EXCLUDED.text,
                 folder_id = EXCLUDED.folder_id,
                 folder_name = EXCLUDED.folder_name,
-                source_file = EXCLUDED.source_file
+                source_file = EXCLUDED.source_file,
+                external_id = EXCLUDED.external_id
         """
 
         # Upsert in internal batches (no per-batch logging)
@@ -137,7 +143,7 @@ def upsert_chunks_to_fts(
 
         logger.info(
             f"fts_shadow_upsert ok | table={fqtn} | tenant={tenant_id} | doc_id={doc_id} | "
-            f"folder={folder_id} | chunks={chunk_count} | ms={elapsed_ms} | ingest_id={ingest_id}"
+            f"external_id={external_id} | folder={folder_id} | chunks={chunk_count} | ms={elapsed_ms} | ingest_id={ingest_id}"
         )
         return True
 
@@ -161,15 +167,80 @@ def upsert_chunks_to_fts(
                 pass
 
 
+def delete_chunks_by_external_id(tenant_id: str, external_id: str) -> int:
+    """
+    Delete all chunks for a specific external_id from FTS shadow table.
+
+    This is the preferred deletion method as external_id is consistent
+    across all storage systems (Qdrant, FTS, tracking table).
+
+    Args:
+        tenant_id: Tenant identifier
+        external_id: Source file ID (e.g., Google Drive file ID)
+
+    Returns:
+        Number of rows deleted
+
+    Fail-open semantics: logs and returns 0 on failure.
+    """
+    if not settings.fts_shadow_enabled:
+        return 0
+
+    conn = None
+    fqtn = _get_fts_table_fqtn()
+
+    try:
+        conn = _get_fts_connection()
+        if conn is None:
+            logger.warning(
+                f"fts_shadow_delete failed | table={fqtn} | tenant={tenant_id} | "
+                f"external_id={external_id} | err=DATABASE_URL not configured"
+            )
+            return 0
+
+        cursor = conn.cursor()
+        cursor.execute(
+            f"DELETE FROM {fqtn} WHERE tenant_id = %s AND external_id = %s",
+            (tenant_id, external_id)
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+
+        logger.info(
+            f"fts_shadow_delete ok | table={fqtn} | tenant={tenant_id} | "
+            f"external_id={external_id} | rows_deleted={deleted_count}"
+        )
+        return deleted_count
+
+    except Exception as e:
+        err_name = type(e).__name__
+        err_msg = str(e).replace("\n", " ")[:200]
+
+        logger.warning(
+            f"fts_shadow_delete failed | table={fqtn} | tenant={tenant_id} | "
+            f"external_id={external_id} | err={err_name}: {err_msg}"
+        )
+        sentry_sdk.capture_exception(e)
+        return 0
+
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def delete_chunks_by_doc_id(tenant_id: str, doc_id: str) -> int:
     """
     Delete all chunks for a specific document from FTS shadow table.
 
-    Used for cleaning up FTS entries when source files are deleted.
+    DEPRECATED: Use delete_chunks_by_external_id instead for consistent deletion.
+    Kept for backwards compatibility with rows that don't have external_id set.
 
     Args:
         tenant_id: Tenant identifier
-        doc_id: Document identifier (external_id for Drive files)
+        doc_id: Document identifier (file name stem)
 
     Returns:
         Number of rows deleted

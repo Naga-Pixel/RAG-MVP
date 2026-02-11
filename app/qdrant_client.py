@@ -125,12 +125,13 @@ def upsert_points(
                 # doc_id remains as fallback
             # else: no doc_id in payloads, doc_id remains as fallback
 
-            # Extract title and folder info from first point (all chunks share same doc metadata)
+            # Extract title, folder info, and external_id from first point (all chunks share same doc metadata)
             first_payload = (points[0].payload or {}) if points else {}
             title = first_payload.get("title")
             folder_id = first_payload.get("folder_id")
             folder_name = first_payload.get("folder_name")
             source_file = first_payload.get("source_file")
+            external_id = first_payload.get("external_id")
 
             fts_chunks = []
             for pt in points:
@@ -150,6 +151,7 @@ def upsert_points(
                 folder_id=folder_id,
                 folder_name=folder_name,
                 source_file=source_file,
+                external_id=external_id,
             )
 
         except Exception as e:
