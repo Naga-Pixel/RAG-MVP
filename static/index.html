@@ -663,15 +663,15 @@
       color: var(--muted);
     }
 
-    /* Bottom row: hint + buttons */
+    /* Bottom row: toggle + buttons */
     .query-bottom {
       display: flex;
       align-items: center;
       gap: 12px;
     }
 
-    .query-hint {
-      display: none;  /* Hidden - cleaner look */
+    .query-bottom .advanced-search-toggle {
+      flex: 1;  /* Push buttons to the right */
     }
 
     .mic-btn {
@@ -1248,7 +1248,8 @@
     }
     .advanced-search-content {
       display: none;
-      margin-top: 8px;
+      margin-top: 12px;
+      padding: 0 4px;
     }
     .advanced-search-content.visible {
       display: flex;
@@ -1667,24 +1668,6 @@
           <!-- Query box inline in empty state -->
           <div class="composer-inline">
             <div class="query-box">
-              <button class="advanced-search-toggle" id="advanced-toggle-empty" type="button">
-                <svg class="chevron" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Advanced search
-              </button>
-              <div class="advanced-search-content" id="advanced-content-empty">
-                <span class="query-label">Search in:</span>
-                <select class="query-select" id="folder-selector-empty">
-                  <option value="">All folders</option>
-                </select>
-                <select class="query-select" id="doc-selector-empty">
-                  <option value="">All documents</option>
-                </select>
-              </div>
-
-              <div class="query-divider"></div>
-
               <textarea
                 class="query-textarea"
                 id="query-input"
@@ -1692,10 +1675,13 @@
                 rows="1"
               ></textarea>
 
-              <div class="query-divider"></div>
-
               <div class="query-bottom">
-                <span class="query-hint">Press Enter to ask</span>
+                <button class="advanced-search-toggle" id="advanced-toggle-empty" type="button">
+                  Advanced search
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
 
                 <button class="mic-btn" id="mic-btn" type="button" title="Voice input">
                   <svg class="icon" viewBox="0 0 24 24" fill="none">
@@ -1713,6 +1699,14 @@
                   Ask
                 </button>
               </div>
+            </div>
+            <div class="advanced-search-content" id="advanced-content-empty">
+              <select class="query-select" id="folder-selector-empty">
+                <option value="">All folders</option>
+              </select>
+              <select class="query-select" id="doc-selector-empty">
+                <option value="">All documents</option>
+              </select>
             </div>
           </div>
         </div>
@@ -1737,24 +1731,6 @@
                 Tap to ask a question
               </button>
 
-              <button class="advanced-search-toggle" id="advanced-toggle-sticky" type="button">
-                <svg class="chevron" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Advanced search
-              </button>
-              <div class="advanced-search-content" id="advanced-content-sticky">
-                <span class="query-label">Search in:</span>
-                <select class="query-select" id="folder-selector-sticky">
-                  <option value="">All folders</option>
-                </select>
-                <select class="query-select" id="doc-selector-sticky">
-                  <option value="">All documents</option>
-                </select>
-              </div>
-
-              <div class="query-divider"></div>
-
               <textarea
                 class="query-textarea"
                 id="query-input-sticky"
@@ -1762,10 +1738,13 @@
                 rows="1"
               ></textarea>
 
-              <div class="query-divider"></div>
-
               <div class="query-bottom">
-                <span class="query-hint">Press Enter to ask</span>
+                <button class="advanced-search-toggle" id="advanced-toggle-sticky" type="button">
+                  Advanced search
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
 
                 <button class="mic-btn" id="mic-btn-sticky" type="button" title="Voice input">
                   <svg class="icon" viewBox="0 0 24 24" fill="none">
@@ -1784,6 +1763,14 @@
                 </button>
               </div>
 
+            </div>
+            <div class="advanced-search-content" id="advanced-content-sticky">
+              <select class="query-select" id="folder-selector-sticky">
+                <option value="">All folders</option>
+              </select>
+              <select class="query-select" id="doc-selector-sticky">
+                <option value="">All documents</option>
+              </select>
             </div>
           </div>
         </div>
