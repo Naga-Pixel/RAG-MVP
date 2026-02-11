@@ -6,10 +6,10 @@
   <title>Oku - Close the Loop</title>
   <meta name="description" content="Get answers instantly from your local and Google Drive documents with the source attached.">
 
-  <!-- Fonts: Inter + Bricolage Grotesque -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     /* ========================================
@@ -17,35 +17,43 @@
        ======================================== */
     :root {
       --bg: #ffffff;
-      --bg-alt: #f8f8f8;
-      --ink: #0b0b0b;
-      --muted: #6b6f76;
-      --divider: rgba(0,0,0,0.08);
+      --bg-alt: #f5f5f5;
+      --ink: #0a0a0a;
+      --muted: #666666;
+      --light: #999999;
       --accent: #72e4ad;
-      --accent-glow: rgba(114,228,173,0.18);
+      --divider: rgba(0,0,0,0.06);
 
-      --font-body: "Inter", system-ui, -apple-system, sans-serif;
-      --font-brand: "Bricolage Grotesque", system-ui, sans-serif;
-
-      --max-width: 1200px;
-      --section-pad: 120px;
+      --font: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      --max-width: 1400px;
     }
 
     /* ========================================
        RESET & BASE
        ======================================== */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     html {
       scroll-behavior: smooth;
+      font-size: 16px;
     }
 
     body {
-      font-family: var(--font-body);
+      font-family: var(--font);
       background: var(--bg);
       color: var(--ink);
-      line-height: 1.6;
-      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--ink);
     }
 
     a {
@@ -53,139 +61,195 @@
       text-decoration: none;
     }
 
-    img {
-      max-width: 100%;
-      height: auto;
+    /* ========================================
+       ANIMATIONS
+       ======================================== */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(40px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate {
+      opacity: 0;
+    }
+
+    .animate.visible {
+      animation: fadeInUp 0.8s ease-out forwards;
+    }
+
+    .animate.delay-1 { animation-delay: 0.1s; }
+    .animate.delay-2 { animation-delay: 0.2s; }
+    .animate.delay-3 { animation-delay: 0.3s; }
+    .animate.delay-4 { animation-delay: 0.4s; }
+
+    /* ========================================
+       LAYOUT
+       ======================================== */
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 48px;
+    }
+
+    section {
+      padding: 160px 0;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 24px;
+      }
+      section {
+        padding: 100px 0;
+      }
     }
 
     /* ========================================
-       HEADER / NAV
+       HEADER
        ======================================== */
     .header {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      z-index: 100;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--divider);
+      z-index: 1000;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     .header-inner {
-      max-width: var(--max-width);
-      margin: 0 auto;
-      padding: 16px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 24px 48px;
+      max-width: var(--max-width);
+      margin: 0 auto;
     }
 
     .logo {
-      font-family: var(--font-brand);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
-      color: var(--ink);
+      letter-spacing: -0.02em;
     }
 
     .nav {
       display: flex;
       align-items: center;
-      gap: 32px;
+      gap: 48px;
     }
 
     .nav a {
       font-size: 14px;
       font-weight: 500;
       color: var(--muted);
-      transition: color 0.15s;
+      transition: color 0.2s;
     }
 
     .nav a:hover {
       color: var(--ink);
     }
 
-    /* ========================================
-       BUTTONS
-       ======================================== */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 14px 32px;
-      font-size: 15px;
-      font-weight: 600;
-      font-family: inherit;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-    }
-
-    .btn-primary {
-      background: var(--ink);
-      color: var(--bg);
-    }
-
-    .btn-primary:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-
-    /* ========================================
-       SECTIONS
-       ======================================== */
-    section {
-      padding: var(--section-pad) 24px;
-    }
-
-    .section-inner {
-      max-width: var(--max-width);
-      margin: 0 auto;
+    @media (max-width: 768px) {
+      .header-inner {
+        padding: 20px 24px;
+      }
+      .nav {
+        display: none;
+      }
     }
 
     /* ========================================
        HERO
        ======================================== */
     .hero {
-      padding-top: 180px;
-      padding-bottom: var(--section-pad);
-      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 100px;
+    }
+
+    .hero-content {
+      max-width: 900px;
     }
 
     .hero h1 {
-      font-family: var(--font-brand);
-      font-size: clamp(42px, 6vw, 64px);
+      font-size: clamp(48px, 8vw, 96px);
       font-weight: 600;
-      line-height: 1.1;
-      margin-bottom: 24px;
+      letter-spacing: -0.03em;
+      line-height: 1.0;
+      margin-bottom: 48px;
     }
 
     .hero-subtitle {
-      font-size: 18px;
+      font-size: clamp(18px, 2.5vw, 24px);
+      font-weight: 400;
       color: var(--ink);
-      max-width: 600px;
-      margin: 0 auto 16px;
+      max-width: 700px;
+      line-height: 1.5;
+      margin-bottom: 24px;
     }
 
     .hero-description {
-      font-size: 14px;
+      font-size: 16px;
       color: var(--muted);
-      max-width: 500px;
-      margin: 0 auto 32px;
+      max-width: 600px;
       line-height: 1.7;
+      margin-bottom: 56px;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 18px 36px;
+      background: var(--ink);
+      color: var(--bg);
+      border-radius: 100px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .hero-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 48px;
+      left: 48px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 768px) {
+      .scroll-indicator {
+        display: none;
+      }
     }
 
     /* ========================================
-       FEATURE SECTIONS
+       FEATURES
        ======================================== */
+    .feature-section {
+      border-top: 1px solid var(--divider);
+    }
+
     .feature {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 80px;
+      gap: 120px;
       align-items: center;
     }
 
@@ -197,115 +261,177 @@
       direction: ltr;
     }
 
-    .feature-text h2 {
-      font-family: var(--font-brand);
-      font-size: 32px;
+    .feature-label {
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 16px;
+      color: var(--light);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
     }
 
-    .feature-text p {
-      font-size: 15px;
+    .feature-title {
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 32px;
+    }
+
+    .feature-text {
+      font-size: 17px;
       color: var(--muted);
       line-height: 1.7;
+      max-width: 500px;
     }
 
     .feature-text .highlight {
       display: block;
-      margin-top: 16px;
+      margin-top: 24px;
       font-weight: 600;
       color: var(--ink);
+      font-size: 18px;
     }
 
-    .feature-image {
+    .feature-visual {
       position: relative;
     }
 
-    .feature-image .placeholder {
+    .feature-visual .placeholder {
       background: var(--bg-alt);
-      border: 1px solid var(--divider);
-      border-radius: 16px;
+      border-radius: 20px;
       aspect-ratio: 4/3;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--muted);
       font-size: 14px;
+      color: var(--light);
+      border: 1px solid var(--divider);
     }
 
-    .feature-image .accent-circle {
+    .feature-visual .accent {
       position: absolute;
-      width: 120px;
-      height: 120px;
+      width: 140px;
+      height: 140px;
       background: var(--accent);
       border-radius: 50%;
       z-index: -1;
     }
 
-    .feature-image .accent-circle.bottom-right {
-      bottom: -30px;
-      right: -30px;
+    .feature-visual .accent.br {
+      bottom: -40px;
+      right: -40px;
     }
 
-    .feature-image .accent-circle.bottom-left {
-      bottom: -30px;
-      left: -30px;
+    .feature-visual .accent.bl {
+      bottom: -40px;
+      left: -40px;
     }
 
-    /* Phone mockup style */
-    .phone-mockup {
-      max-width: 280px;
+    .phone-frame {
+      max-width: 300px;
       margin: 0 auto;
     }
 
-    .phone-mockup .placeholder {
-      aspect-ratio: 9/16;
-      border-radius: 32px;
-      border-width: 8px;
+    .phone-frame .placeholder {
+      aspect-ratio: 9/19;
+      border-radius: 40px;
+      border: 8px solid var(--bg-alt);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+    }
+
+    @media (max-width: 900px) {
+      .feature {
+        grid-template-columns: 1fr;
+        gap: 64px;
+      }
+      .feature.reverse {
+        direction: ltr;
+      }
+      .feature-content {
+        text-align: center;
+      }
+      .feature-text {
+        margin: 0 auto;
+      }
     }
 
     /* ========================================
-       STEPS SECTION
+       STEPS
        ======================================== */
     .steps-section {
+      background: var(--bg);
       text-align: center;
     }
 
-    .steps-section h2 {
-      font-family: var(--font-brand);
-      font-size: 36px;
+    .steps-title {
+      font-size: clamp(36px, 5vw, 56px);
       font-weight: 600;
-      margin-bottom: 48px;
+      letter-spacing: -0.02em;
+      margin-bottom: 80px;
     }
 
     .steps {
       display: flex;
       justify-content: center;
-      gap: 24px;
-      margin-bottom: 48px;
+      gap: 32px;
+      margin-bottom: 80px;
     }
 
     .step {
       background: var(--bg);
       border: 1px solid var(--divider);
-      border-radius: 16px;
-      padding: 32px 40px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      border-radius: 20px;
+      padding: 48px;
+      min-width: 200px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .step:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.06);
     }
 
     .step-number {
-      font-family: var(--font-brand);
-      font-size: 32px;
+      font-size: 48px;
       font-weight: 600;
-      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
     }
 
     .step-text {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 500;
-      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .steps-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 18px 36px;
+      background: var(--ink);
+      color: var(--bg);
+      border-radius: 100px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .steps-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    @media (max-width: 768px) {
+      .steps {
+        flex-direction: column;
+        align-items: center;
+      }
+      .step {
+        width: 100%;
+        max-width: 280px;
+      }
     }
 
     /* ========================================
@@ -315,116 +441,98 @@
       background: var(--bg-alt);
     }
 
-    .why-section h2 {
-      font-family: var(--font-brand);
-      font-size: 36px;
+    .why-header {
+      margin-bottom: 100px;
+    }
+
+    .why-title {
+      font-size: clamp(36px, 5vw, 56px);
       font-weight: 600;
-      margin-bottom: 48px;
+      letter-spacing: -0.02em;
     }
 
     .why-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 48px 80px;
+      gap: 80px 120px;
     }
 
     .why-item {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      max-width: 400px;
     }
 
     .why-number {
-      width: 48px;
-      height: 48px;
+      width: 56px;
+      height: 56px;
       background: var(--accent);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: var(--font-brand);
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
-      color: var(--ink);
+      margin-bottom: 28px;
     }
 
     .why-item h3 {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 600;
-      margin-top: 8px;
+      letter-spacing: -0.01em;
+      margin-bottom: 16px;
     }
 
     .why-item p {
-      font-size: 14px;
+      font-size: 16px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 768px) {
+      .why-grid {
+        grid-template-columns: 1fr;
+        gap: 56px;
+      }
     }
 
     /* ========================================
        FOOTER
        ======================================== */
     .footer {
-      padding: 32px 24px;
-      text-align: center;
-      font-size: 13px;
+      padding: 48px 0;
+      border-top: 1px solid var(--divider);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-copy {
+      font-size: 14px;
       color: var(--muted);
     }
 
-    /* ========================================
-       RESPONSIVE
-       ======================================== */
-    @media (max-width: 900px) {
-      :root {
-        --section-pad: 80px;
-      }
-
-      .nav {
-        display: none;
-      }
-
-      .feature {
-        grid-template-columns: 1fr;
-        gap: 48px;
-        text-align: center;
-      }
-
-      .feature.reverse {
-        direction: ltr;
-      }
-
-      .feature-text h2 {
-        font-size: 28px;
-      }
-
-      .steps {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .step {
-        width: 100%;
-        max-width: 300px;
-        justify-content: center;
-      }
-
-      .why-grid {
-        grid-template-columns: 1fr;
-        gap: 40px;
-      }
+    .footer-links {
+      display: flex;
+      gap: 32px;
     }
 
-    @media (max-width: 600px) {
-      .hero h1 {
-        font-size: 36px;
-      }
+    .footer-links a {
+      font-size: 14px;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
 
-      .hero-subtitle {
-        font-size: 16px;
-      }
+    .footer-links a:hover {
+      color: var(--ink);
+    }
 
-      .steps-section h2,
-      .why-section h2 {
-        font-size: 28px;
+    @media (max-width: 768px) {
+      .footer-inner {
+        flex-direction: column;
+        gap: 24px;
+        text-align: center;
       }
     }
   </style>
@@ -436,7 +544,7 @@
     <div class="header-inner">
       <a href="/" class="logo">Oku</a>
       <nav class="nav">
-        <a href="#how-it-works">How it works</a>
+        <a href="#features">How it works</a>
         <a href="#setup">Set up</a>
         <a href="#why">Why Oku</a>
       </nav>
@@ -445,73 +553,79 @@
 
   <!-- Hero -->
   <section class="hero">
-    <div class="section-inner">
-      <h1>Close the Loop.</h1>
-      <p class="hero-subtitle">
-        Get answers instantly from your local and Google Drive documents with the source attached.
-      </p>
-      <p class="hero-description">
-        No more "let me check and get back to you", dig through contracts and spreadsheets,
-        or hunt down past notes and transcripts. Developed with Recruiters and Estate Agents in mind.
-      </p>
-      <a href="/signup" class="btn btn-primary">Try it now</a>
+    <div class="container">
+      <div class="hero-content">
+        <h1 class="animate">Close the Loop.</h1>
+        <p class="hero-subtitle animate delay-1">
+          Get answers instantly from your local and Google Drive documents with the source attached.
+        </p>
+        <p class="hero-description animate delay-2">
+          No more "let me check and get back to you", dig through contracts and spreadsheets,
+          or hunt down past notes and transcripts. Developed with Recruiters and Estate Agents in mind.
+        </p>
+        <a href="/signup" class="hero-cta animate delay-3">Try it now</a>
+      </div>
+      <div class="scroll-indicator">(Scroll)</div>
     </div>
   </section>
 
-  <!-- Feature 1: Answers With Proof -->
-  <section id="how-it-works">
-    <div class="section-inner">
+  <!-- Feature 1 -->
+  <section id="features" class="feature-section">
+    <div class="container">
       <div class="feature">
-        <div class="feature-text">
-          <h2>Answers With Proof</h2>
-          <p>
+        <div class="feature-content">
+          <div class="feature-label animate">01</div>
+          <h2 class="feature-title animate delay-1">Answers With Proof</h2>
+          <p class="feature-text animate delay-2">
             Oku not only gives you answers, but it also tells you where it got them from,
             so you can verify quickly and respond confidently.
           </p>
         </div>
-        <div class="feature-image">
+        <div class="feature-visual animate delay-2">
           <div class="placeholder">[App Screenshot]</div>
-          <div class="accent-circle bottom-right"></div>
+          <div class="accent br"></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Feature 2: No Costly Follow Ups -->
-  <section>
-    <div class="section-inner">
+  <!-- Feature 2 -->
+  <section class="feature-section">
+    <div class="container">
       <div class="feature reverse">
-        <div class="feature-text">
-          <h2>No Costly Follow Ups</h2>
-          <p>
+        <div class="feature-content">
+          <div class="feature-label animate">02</div>
+          <h2 class="feature-title animate delay-1">No Costly Follow Ups</h2>
+          <p class="feature-text animate delay-2">
             Close the loop while it still matters.<br>
             From "I'll check and get back to you."
+            <span class="highlight">to "I'll tell you right away."</span>
           </p>
-          <span class="highlight">to "I'll tell you right away."</span>
         </div>
-        <div class="feature-image phone-mockup">
+        <div class="feature-visual phone-frame animate delay-2">
           <div class="placeholder">[Phone Screenshot]</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Feature 3: You are in control -->
-  <section>
-    <div class="section-inner">
+  <!-- Feature 3 -->
+  <section class="feature-section">
+    <div class="container">
       <div class="feature">
-        <div class="feature-text">
-          <h2>You are in control</h2>
-          <p>
+        <div class="feature-content">
+          <div class="feature-label animate">03</div>
+          <h2 class="feature-title animate delay-1">You are in control</h2>
+          <p class="feature-text animate delay-2">
             You decide what's in scope.<br>
             Connect your Google Drive or local folders.<br>
             Docx, PDF, xlsx, csv, txt, png, jpg...<br>
             You name it, Oku ingests it.
           </p>
         </div>
-        <div class="feature-image">
+        <div class="feature-visual animate delay-2">
           <div class="placeholder">[Folders Screenshot]</div>
-          <div class="accent-circle bottom-left"></div>
+          <div class="accent bl"></div>
         </div>
       </div>
     </div>
@@ -519,47 +633,49 @@
 
   <!-- Steps -->
   <section id="setup" class="steps-section">
-    <div class="section-inner">
-      <h2>Set up in minutes</h2>
+    <div class="container">
+      <h2 class="steps-title animate">Set up in minutes</h2>
       <div class="steps">
-        <div class="step">
-          <span class="step-number">1.</span>
-          <span class="step-text">Add your<br>folders</span>
+        <div class="step animate delay-1">
+          <div class="step-number">1.</div>
+          <div class="step-text">Add your<br>folders</div>
         </div>
-        <div class="step">
-          <span class="step-number">2.</span>
-          <span class="step-text">Sync</span>
+        <div class="step animate delay-2">
+          <div class="step-number">2.</div>
+          <div class="step-text">Sync</div>
         </div>
-        <div class="step">
-          <span class="step-number">3.</span>
-          <span class="step-text">Get<br>asking!</span>
+        <div class="step animate delay-3">
+          <div class="step-number">3.</div>
+          <div class="step-text">Get<br>asking!</div>
         </div>
       </div>
-      <a href="/signup" class="btn btn-primary">Try it now</a>
+      <a href="/signup" class="steps-cta animate delay-4">Try it now</a>
     </div>
   </section>
 
   <!-- Why Oku -->
   <section id="why" class="why-section">
-    <div class="section-inner">
-      <h2>Why Oku</h2>
+    <div class="container">
+      <div class="why-header">
+        <h2 class="why-title animate">Why Oku</h2>
+      </div>
       <div class="why-grid">
-        <div class="why-item">
+        <div class="why-item animate">
           <div class="why-number">1.</div>
           <h3>During live calls</h3>
           <p>Answer contract and client questions without having to say "I'll get back to you."</p>
         </div>
-        <div class="why-item">
+        <div class="why-item animate delay-1">
           <div class="why-number">2.</div>
           <h3>After Meetings</h3>
           <p>Confirm details from the documents without digging through notes or transcripts.</p>
         </div>
-        <div class="why-item">
+        <div class="why-item animate delay-2">
           <div class="why-number">3.</div>
           <h3>When you're on the move</h3>
           <p>Use Oku from your phone in between meetings using voice prompting.</p>
         </div>
-        <div class="why-item">
+        <div class="why-item animate delay-3">
           <div class="why-number">4.</div>
           <h3>Safety Net</h3>
           <p>Check what's actually in the document so you're not relying on memory.</p>
@@ -570,8 +686,39 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <p>&copy; 2026 Oku</p>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-copy">&copy; 2026 Oku</div>
+        <div class="footer-links">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+      </div>
+    </div>
   </footer>
+
+  <!-- Scroll Animation Script -->
+  <script>
+    // Intersection Observer for scroll animations
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    // Observe all animated elements
+    document.querySelectorAll('.animate').forEach(el => {
+      observer.observe(el);
+    });
+  </script>
 
 </body>
 </html>
