@@ -695,24 +695,27 @@ async def get_public_config():
 
 # ============== Incremental Sync Helpers ==============
 
-def _get_synced_files(user_id: str) -> dict[str, str]:
+def _get_synced_files(user_id: str) -> dict[str, dict]:
     """
-    Get all synced file modification times for a user.
+    Get all synced file info for a user.
 
     Returns:
-        Dict mapping file_id -> modified_at (ISO string)
+        Dict mapping file_id -> {modified_at, file_name}
     """
     conn = _get_db()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "SELECT file_id, modified_at FROM google_drive_synced_files WHERE user_id = %s",
+            "SELECT file_id, modified_at, file_name FROM google_drive_synced_files WHERE user_id = %s",
             (user_id,)
         )
         rows = cursor.fetchall()
-        # Convert to dict: file_id -> modified_at ISO string
+        # Convert to dict: file_id -> {modified_at, file_name}
         return {
-            row["file_id"]: row["modified_at"].isoformat() if row["modified_at"] else ""
+            row["file_id"]: {
+                "modified_at": row["modified_at"].isoformat() if row["modified_at"] else "",
+                "file_name": row["file_name"] or "",
+            }
             for row in rows
         }
     except psycopg2.Error as e:
@@ -792,14 +795,14 @@ def _normalize_timestamp(ts: str) -> str:
     return ts
 
 
-def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str]) -> bool:
+def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, dict]) -> bool:
     """
     Check if a file needs to be synced based on modification time.
 
     Args:
         file_id: Google Drive file ID
         modified_at: Current modification time from Drive API
-        synced_files: Dict of previously synced file_id -> modified_at
+        synced_files: Dict of previously synced file_id -> {modified_at, file_name}
 
     Returns:
         True if file needs sync (new or modified), False if unchanged
@@ -808,7 +811,7 @@ def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str
         return True  # New file
 
     # Compare modification times (normalize to handle format differences)
-    previous_modified = synced_files[file_id]
+    previous_modified = synced_files[file_id].get("modified_at", "")
     if not previous_modified:
         return True
 
@@ -845,7 +848,7 @@ def _delete_synced_file_record(user_id: str, file_id: str) -> None:
 def _delete_removed_files(
     user_id: str,
     current_file_ids: set[str],
-    synced_files: dict[str, str],
+    synced_files: dict[str, dict],
 ) -> tuple[int, list[str]]:
     """
     Delete vectors and tracking records for files removed from Drive.
@@ -853,7 +856,7 @@ def _delete_removed_files(
     Args:
         user_id: User identifier (tenant_id)
         current_file_ids: Set of file IDs currently in Drive
-        synced_files: Dict of previously synced file_id -> modified_at
+        synced_files: Dict of previously synced file_id -> {modified_at, file_name}
 
     Returns:
         Tuple of (deleted_count, error_messages)
@@ -875,18 +878,24 @@ def _delete_removed_files(
 
     for file_id in removed_file_ids:
         try:
-            # Delete from Qdrant
+            # Get file info for logging and FTS deletion
+            file_info = synced_files.get(file_id, {})
+            file_name = file_info.get("file_name", "")
+            # doc_id in FTS is the file name stem (without extension)
+            doc_id = Path(file_name).stem if file_name else file_id
+
+            # Delete from Qdrant (uses external_id = file_id)
             delete_by_external_id(user_id, file_id)
 
-            # Delete from FTS shadow table (if enabled)
+            # Delete from FTS shadow table (uses doc_id = file name stem)
             if settings.fts_shadow_enabled:
-                delete_chunks_by_doc_id(user_id, file_id)
+                delete_chunks_by_doc_id(user_id, doc_id)
 
             # Delete from tracking table
             _delete_synced_file_record(user_id, file_id)
 
             deleted_count += 1
-            logger.info(f"Cleaned up deleted file: {file_id}")
+            logger.info(f"Cleaned up deleted file: {file_name or file_id}")
 
         except Exception as e:
             error_msg = f"Error cleaning up deleted file {file_id}: {str(e)}"
