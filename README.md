@@ -457,7 +457,6 @@ HYBRID_ENABLED=true
 
 ## Known Limitations
 
-- **No deleted file cleanup**: Files removed from source remain in Qdrant (manual cleanup required)
 - **Sync is synchronous**: Large syncs block the API; use CLI for bulk ingestion
 - **OCR costs**: Google Vision API charges per image processed
 
