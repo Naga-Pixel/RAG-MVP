@@ -159,3 +159,66 @@ def upsert_chunks_to_fts(
                 conn.close()
             except Exception:
                 pass
+
+
+def delete_chunks_by_doc_id(tenant_id: str, doc_id: str) -> int:
+    """
+    Delete all chunks for a specific document from FTS shadow table.
+
+    Used for cleaning up FTS entries when source files are deleted.
+
+    Args:
+        tenant_id: Tenant identifier
+        doc_id: Document identifier (external_id for Drive files)
+
+    Returns:
+        Number of rows deleted
+
+    Fail-open semantics: logs and returns 0 on failure.
+    """
+    if not settings.fts_shadow_enabled:
+        return 0
+
+    conn = None
+    fqtn = _get_fts_table_fqtn()
+
+    try:
+        conn = _get_fts_connection()
+        if conn is None:
+            logger.warning(
+                f"fts_shadow_delete failed | table={fqtn} | tenant={tenant_id} | "
+                f"doc_id={doc_id} | err=DATABASE_URL not configured"
+            )
+            return 0
+
+        cursor = conn.cursor()
+        cursor.execute(
+            f"DELETE FROM {fqtn} WHERE tenant_id = %s AND doc_id = %s",
+            (tenant_id, doc_id)
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+
+        logger.info(
+            f"fts_shadow_delete ok | table={fqtn} | tenant={tenant_id} | "
+            f"doc_id={doc_id} | rows_deleted={deleted_count}"
+        )
+        return deleted_count
+
+    except Exception as e:
+        err_name = type(e).__name__
+        err_msg = str(e).replace("\n", " ")[:200]
+
+        logger.warning(
+            f"fts_shadow_delete failed | table={fqtn} | tenant={tenant_id} | "
+            f"doc_id={doc_id} | err={err_name}: {err_msg}"
+        )
+        sentry_sdk.capture_exception(e)
+        return 0
+
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass

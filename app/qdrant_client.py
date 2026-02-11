@@ -186,6 +186,58 @@ def retrieve_points_by_ids(point_ids: list[str]) -> list:
     )
 
 
+def delete_by_external_id(tenant_id: str, external_id: str) -> int:
+    """
+    Delete all points for a specific external_id (file) within a tenant.
+
+    Used for cleaning up vectors when source files are deleted.
+
+    Args:
+        tenant_id: Tenant identifier
+        external_id: External file ID (e.g., Google Drive file ID)
+
+    Returns:
+        Number of points deleted (estimated, may be 0 if none found)
+    """
+    from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+    try:
+        # Build filter for tenant + external_id
+        filter_conditions = Filter(
+            must=[
+                FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id)),
+                FieldCondition(key="external_id", match=MatchValue(value=external_id)),
+            ]
+        )
+
+        # Count before delete for logging (optional, can skip if performance concern)
+        count_result = client.count(
+            collection_name=settings.qdrant_collection,
+            count_filter=filter_conditions,
+            exact=False,
+        )
+        count_before = count_result.count
+
+        # Delete matching points
+        client.delete(
+            collection_name=settings.qdrant_collection,
+            points_selector=filter_conditions,
+        )
+
+        logger.info(
+            f"qdrant_delete ok | tenant={tenant_id} | external_id={external_id} | "
+            f"points_deleted={count_before}"
+        )
+        return count_before
+
+    except Exception as e:
+        logger.error(
+            f"qdrant_delete failed | tenant={tenant_id} | external_id={external_id} | "
+            f"err={type(e).__name__}: {e}"
+        )
+        raise
+
+
 def upsert_chunks(chunks: list[dict], vectors: list[list[float]]) -> None:
     """
     Upsert chunks with their embeddings into Qdrant.

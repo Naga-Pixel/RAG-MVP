@@ -312,6 +312,7 @@ class DriveSyncResponse(BaseModel):
     documents_found: int
     documents_processed: int
     documents_skipped: int = 0  # Unchanged files (incremental sync)
+    documents_deleted: int = 0  # Files removed from source and cleaned up
     chunks_created: int
     errors: list[str]
     duration_seconds: float
@@ -818,6 +819,84 @@ def _file_needs_sync(file_id: str, modified_at: str, synced_files: dict[str, str
     return current_normalized != previous_normalized
 
 
+def _delete_synced_file_record(user_id: str, file_id: str) -> None:
+    """
+    Delete a file record from the google_drive_synced_files tracking table.
+
+    Args:
+        user_id: User identifier
+        file_id: Google Drive file ID to remove
+    """
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM google_drive_synced_files WHERE user_id = %s AND file_id = %s",
+            (user_id, file_id)
+        )
+        conn.commit()
+    except psycopg2.Error as e:
+        logger.warning(f"Could not delete synced file record {file_id}: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _delete_removed_files(
+    user_id: str,
+    current_file_ids: set[str],
+    synced_files: dict[str, str],
+) -> tuple[int, list[str]]:
+    """
+    Delete vectors and tracking records for files removed from Drive.
+
+    Args:
+        user_id: User identifier (tenant_id)
+        current_file_ids: Set of file IDs currently in Drive
+        synced_files: Dict of previously synced file_id -> modified_at
+
+    Returns:
+        Tuple of (deleted_count, error_messages)
+    """
+    from app.qdrant_client import delete_by_external_id
+    from app.fts_shadow import delete_chunks_by_doc_id
+    from app.config import settings
+
+    # Find files that were previously synced but no longer exist
+    removed_file_ids = set(synced_files.keys()) - current_file_ids
+
+    if not removed_file_ids:
+        return 0, []
+
+    logger.info(f"Found {len(removed_file_ids)} files to clean up (deleted from Drive)")
+
+    deleted_count = 0
+    errors = []
+
+    for file_id in removed_file_ids:
+        try:
+            # Delete from Qdrant
+            delete_by_external_id(user_id, file_id)
+
+            # Delete from FTS shadow table (if enabled)
+            if settings.fts_shadow_enabled:
+                delete_chunks_by_doc_id(user_id, file_id)
+
+            # Delete from tracking table
+            _delete_synced_file_record(user_id, file_id)
+
+            deleted_count += 1
+            logger.info(f"Cleaned up deleted file: {file_id}")
+
+        except Exception as e:
+            error_msg = f"Error cleaning up deleted file {file_id}: {str(e)}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+            # Continue with other files (fail-open)
+
+    return deleted_count, errors
+
+
 # ============== Sync Endpoint ==============
 
 @router.post("/sync/drive", response_model=DriveSyncResponse)
@@ -959,8 +1038,10 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
     total_found = 0
     total_processed = 0
     total_skipped = 0  # Unchanged files (incremental sync)
+    total_deleted = 0  # Files removed from Drive and cleaned up
     total_chunks = 0
     errors = []
+    current_file_ids: set[str] = set()  # Track all files seen in this sync
 
     temp_dir = tempfile.mkdtemp()
 
@@ -1046,6 +1127,9 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
                             file_name = file["name"]
                             mime_type = file["mimeType"]
                             modified_at = file.get("modifiedTime", "")
+
+                            # Track this file as currently existing in Drive
+                            current_file_ids.add(file_id)
 
                             # Check if this is an image file and OCR is disabled
                             if mime_type in IMAGE_MIME_TYPES and not settings.ocr_enabled:
@@ -1220,6 +1304,14 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
         except Exception:
             pass
 
+    # Clean up files that were deleted from Drive
+    if synced_files:
+        deleted_count, delete_errors = _delete_removed_files(
+            user_id, current_file_ids, synced_files
+        )
+        total_deleted = deleted_count
+        errors.extend(delete_errors)
+
     duration = time.time() - start_time
 
     return DriveSyncResponse(
@@ -1228,6 +1320,7 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
         documents_found=total_found,
         documents_processed=total_processed,
         documents_skipped=total_skipped,
+        documents_deleted=total_deleted,
         chunks_created=total_chunks,
         errors=errors,
         duration_seconds=round(duration, 2),
