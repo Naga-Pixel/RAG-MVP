@@ -186,6 +186,59 @@ def retrieve_points_by_ids(point_ids: list[str]) -> list:
     )
 
 
+def get_all_external_ids(tenant_id: str) -> set[str]:
+    """
+    Get all unique external_ids stored in Qdrant for a tenant.
+
+    Used for finding orphaned documents that exist in Qdrant but
+    not in the source (e.g., deleted from Google Drive).
+
+    Args:
+        tenant_id: Tenant identifier
+
+    Returns:
+        Set of external_id values
+    """
+    from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+    external_ids = set()
+
+    try:
+        filter_conditions = Filter(
+            must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+        )
+
+        offset = None
+        while True:
+            result = client.scroll(
+                collection_name=settings.qdrant_collection,
+                scroll_filter=filter_conditions,
+                limit=100,
+                offset=offset,
+                with_payload=["external_id"],
+                with_vectors=False,
+            )
+
+            points, offset = result
+            if not points:
+                break
+
+            for p in points:
+                ext_id = (p.payload or {}).get("external_id")
+                if ext_id:
+                    external_ids.add(ext_id)
+
+            if offset is None:
+                break
+
+        logger.info(f"qdrant_get_external_ids | tenant={tenant_id} | count={len(external_ids)}")
+        return external_ids
+
+    except Exception as e:
+        logger.error(f"qdrant_get_external_ids failed | tenant={tenant_id} | err={type(e).__name__}: {e}")
+        return set()
+
+
 def delete_by_external_id(tenant_id: str, external_id: str) -> int:
     """
     Delete all points for a specific external_id (file) within a tenant.

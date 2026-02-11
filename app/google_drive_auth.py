@@ -853,6 +853,9 @@ def _delete_removed_files(
     """
     Delete vectors and tracking records for files removed from Drive.
 
+    Checks both tracking table AND Qdrant for orphaned files to handle
+    cases where files were synced before tracking was implemented.
+
     Args:
         user_id: User identifier (tenant_id)
         current_file_ids: Set of file IDs currently in Drive
@@ -861,24 +864,34 @@ def _delete_removed_files(
     Returns:
         Tuple of (deleted_count, error_messages)
     """
-    from app.qdrant_client import delete_by_external_id
+    from app.qdrant_client import delete_by_external_id, get_all_external_ids
     from app.fts_shadow import delete_chunks_by_doc_id
     from app.config import settings
 
-    # Find files that were previously synced but no longer exist
-    removed_file_ids = set(synced_files.keys()) - current_file_ids
+    # Find files in tracking table but not in Drive
+    removed_from_tracking = set(synced_files.keys()) - current_file_ids
 
-    if not removed_file_ids:
+    # Also find files in Qdrant but not in Drive (catches orphans not in tracking table)
+    qdrant_external_ids = get_all_external_ids(user_id)
+    orphaned_in_qdrant = qdrant_external_ids - current_file_ids
+
+    # Combine both sets (union)
+    all_removed_ids = removed_from_tracking | orphaned_in_qdrant
+
+    if not all_removed_ids:
         return 0, []
 
-    logger.info(f"Found {len(removed_file_ids)} files to clean up (deleted from Drive)")
+    logger.info(
+        f"Found {len(all_removed_ids)} files to clean up "
+        f"(tracking: {len(removed_from_tracking)}, qdrant orphans: {len(orphaned_in_qdrant - removed_from_tracking)})"
+    )
 
     deleted_count = 0
     errors = []
 
-    for file_id in removed_file_ids:
+    for file_id in all_removed_ids:
         try:
-            # Get file info for logging and FTS deletion
+            # Get file info for logging and FTS deletion (if in tracking table)
             file_info = synced_files.get(file_id, {})
             file_name = file_info.get("file_name", "")
             # doc_id in FTS is the file name stem (without extension)
@@ -891,8 +904,9 @@ def _delete_removed_files(
             if settings.fts_shadow_enabled:
                 delete_chunks_by_doc_id(user_id, doc_id)
 
-            # Delete from tracking table
-            _delete_synced_file_record(user_id, file_id)
+            # Delete from tracking table (if present)
+            if file_id in synced_files:
+                _delete_synced_file_record(user_id, file_id)
 
             deleted_count += 1
             logger.info(f"Cleaned up deleted file: {file_name or file_id}")
