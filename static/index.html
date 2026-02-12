@@ -3299,9 +3299,20 @@
 
           showDriveStatus(statusMsg, errors.length > 0 ? 'warning' : 'success');
         }
-        // Log errors to console for debugging
+        // Show skipped files info if any
         if (errors.length > 0) {
           console.warn('Sync errors:', errors);
+          // Show skipped files in a second status line or alert
+          const skippedFiles = errors.filter(e => e.startsWith('Skipped'));
+          if (skippedFiles.length > 0) {
+            const fileNames = skippedFiles.map(e => {
+              const match = e.match(/Skipped ([^:]+):/);
+              return match ? match[1] : e;
+            });
+            setTimeout(() => {
+              alert(`${skippedFiles.length} file(s) were skipped:\n\n${fileNames.join('\n')}\n\nCheck console for details.`);
+            }, 500);
+          }
         }
         await loadDocuments();
       } catch (err) {

@@ -1026,6 +1026,7 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
         "application/rtf": ".rtf",
+        "text/rtf": ".rtf",  # Alternative RTF MIME type
         "text/plain": ".txt",
         "text/markdown": ".md",
         "text/csv": ".csv",
