@@ -240,12 +240,30 @@ class ConnectorState(BaseModel):
 # ============== Endpoints ==============
 
 @app.get("/")
-def serve_frontend():
-    """Serve the main frontend page."""
+def serve_landing():
+    """Serve the landing page."""
     index_path = static_dir / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
     return {"message": "b_rag API is running. POST to /ask to query documents."}
+
+
+@app.get("/app")
+def serve_app():
+    """Serve the main app."""
+    app_path = static_dir / "app.html"
+    if app_path.exists():
+        return FileResponse(app_path)
+    raise HTTPException(status_code=404, detail="App not found")
+
+
+@app.get("/pricing")
+def serve_pricing():
+    """Serve the pricing page."""
+    pricing_path = static_dir / "pricing.html"
+    if pricing_path.exists():
+        return FileResponse(pricing_path)
+    raise HTTPException(status_code=404, detail="Pricing page not found")
 
 
 @app.get("/config/frontend")

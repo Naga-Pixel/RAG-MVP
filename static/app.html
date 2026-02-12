@@ -1,0 +1,3573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oku</title>
+
+  <!-- Fonts: Inter + Bricolage Grotesque -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================
+       CSS VARIABLES
+       ======================================== */
+    :root {
+      --bg: #ffffff;
+      --ink: #0b0b0b;
+      --muted: #6b6f76;
+      --divider: rgba(0,0,0,0.08);
+      --accent: #72e4ad;
+      --accent-glow: rgba(114,228,173,0.18);
+
+      --sideW: 320px;
+      --rightW: 360px;
+      --chatW: 750px;
+      --pad: 16px;
+
+      --font-body: "Inter", system-ui, -apple-system, sans-serif;
+      --font-brand: "Bricolage Grotesque", system-ui, sans-serif;
+    }
+
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       3-COLUMN LAYOUT
+       ======================================== */
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sideW) 1fr var(--rightW);
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .col + .col {
+      border-left: 1px solid var(--divider);
+    }
+
+    /* Column header */
+    .col-header {
+      padding: 20px var(--pad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    /* Single continuous line under all headers */
+    .app {
+      position: relative;
+    }
+    .app::after {
+      content: '';
+      position: absolute;
+      top: 61px; /* header height */
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--divider);
+      z-index: 1;
+    }
+
+    .col-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .col-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Scrollable content area */
+    .col-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px var(--pad) 16px;
+    }
+
+    /* ========================================
+       BRAND
+       ======================================== */
+    .brand {
+      font-family: var(--font-brand);
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1;
+    }
+
+    .brand-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    /* ========================================
+       LINK BUTTON
+       ======================================== */
+    .linkbtn {
+      border: none;
+      background: transparent;
+      color: rgba(0,0,0,0.78);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 6px 0;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 2px;
+    }
+    .linkbtn:hover { color: #000; }
+
+    /* ========================================
+       LEFT COLUMN: CONVERSATIONS
+       ======================================== */
+    .col-conversations .col-header {
+      padding: 20px var(--pad);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0 10px;
+    }
+
+    .section-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+    }
+
+    .badge {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Conversation list placeholder */
+    .conv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .conv-item {
+      padding: 10px 0;
+      cursor: pointer;
+      border-bottom: 1px solid var(--divider);
+    }
+    .conv-item:last-child { border-bottom: none; }
+
+    .conv-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .conv-snippet {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .conv-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: rgba(0,0,0,0.45);
+      font-weight: 500;
+    }
+
+    .conv-item:hover {
+      background: rgba(0,0,0,0.02);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
+
+    .conv-item.active {
+      background: var(--accent-glow);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+      border-bottom-color: transparent;
+    }
+
+    .conv-empty {
+      padding: 20px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .conv-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .conv-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .conv-delete {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .conv-item:hover .conv-delete {
+      opacity: 1;
+    }
+
+    .conv-delete:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    /* ========================================
+       MIDDLE COLUMN: CHAT
+       ======================================== */
+    .col-chat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px var(--pad);
+      text-align: center;
+    }
+
+    .empty-logo {
+      font-family: var(--font-brand);
+      font-weight: 600;
+      font-size: 140px;
+      letter-spacing: -2px;
+      color: var(--ink);
+      line-height: .8;
+    }
+
+    .empty-tagline {
+      margin-top: 16px;
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    /* In empty state, query box is part of centered content */
+    .empty-state .composer-inline {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    /* Chat scroll area (hidden in empty state) */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0 180px;
+      display: none;
+    }
+    .chat-scroll.active { display: block; }
+
+    /* Minimal scrollbar - just grey bar, no track */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .chat-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    /* Chat messages */
+    .chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chat-message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-message .role {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-message .role-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .chat-message.assistant .role-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .chat-message .content {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    /* User messages: right-aligned light grey speech bubble */
+    .chat-message.user {
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+
+    .chat-message.user .role {
+      display: none;
+    }
+
+    .chat-message.user .content {
+      background: rgba(0, 0, 0, 0.05);
+      padding: 12px 16px;
+      border-radius: 18px 18px 4px 18px;
+      max-width: 85%;
+      color: var(--ink);
+    }
+
+    /* Assistant messages */
+    .chat-message.assistant {
+      margin-top: 4px;
+    }
+
+    /* Spacing between user bubble and assistant response */
+    .chat-message.user + .chat-message.assistant {
+      margin-top: 16px;
+    }
+
+    .chat-message.assistant .content {
+      color: #1f2937;
+    }
+
+    /* Sources in chat */
+    .chat-sources {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--divider);
+    }
+
+    .sources-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1px solid var(--divider);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .sources-toggle:hover {
+      border-color: var(--accent);
+      color: var(--ink);
+    }
+
+    .sources-list {
+      display: none;
+      margin-top: 12px;
+      padding-left: 12px;
+      border-left: 2px solid var(--accent-glow);
+    }
+    .sources-list.visible {
+      display: block;
+    }
+
+    .source-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .source-item:last-child {
+      border-bottom: none;
+    }
+
+    .source-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .source-snippet {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    /* Suggestions */
+    .chat-suggestions {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(0,0,0,0.02);
+      border-radius: 8px;
+    }
+
+    .suggestions-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-chip {
+      padding: 6px 12px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 16px;
+      font-size: 12px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .suggestion-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .suggestion-docs {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Loading indicator */
+    .chat-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--divider);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    /* ========================================
+       COMPOSER (Query Box)
+       ======================================== */
+    /* Sticky composer at bottom (shown after conversation starts) */
+    .composer {
+      flex-shrink: 0;
+      background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 40%);
+      padding: 48px 0 32px;
+      display: none;
+      position: relative;
+      margin-top: -80px;
+      pointer-events: none;
+    }
+    .composer.active {
+      display: block;
+    }
+    .composer-center {
+      pointer-events: auto;
+    }
+
+    .composer-center {
+      max-width: var(--chatW);
+      margin: 0 auto;
+      padding: 0 var(--pad);
+    }
+
+    .query-box {
+      border: 1px solid var(--divider);
+      border-radius: 20px;
+      padding: 12px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* Top row: scope selectors */
+    .query-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .query-select {
+      flex: 1;
+      max-width: 200px;
+      border-radius: 20px;
+      padding: 8px 28px 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      border: 1px solid var(--divider);
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6f76' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .query-select:focus {
+      outline: none;
+    }
+
+    .query-divider {
+      display: none;  /* Hidden - cleaner look without divider lines */
+    }
+
+    /* Textarea */
+    .query-textarea {
+      width: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      background: transparent;
+      padding: 8px 4px;
+      min-height: 48px;
+      color: var(--ink);
+    }
+    .query-textarea::placeholder {
+      color: var(--muted);
+    }
+
+    /* Bottom row: toggle + buttons */
+    .query-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .query-bottom .advanced-search-toggle {
+      flex: 1;  /* Push buttons to the right */
+    }
+
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid var(--divider);
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+    .mic-btn:hover {
+      background: #5dd89a;
+    }
+
+    .ask-btn {
+      height: 44px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .ask-btn:hover {
+      background: #333;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ========================================
+       RIGHT COLUMN: DOCUMENTS
+       ======================================== */
+    .section {
+      padding: 10px 0;
+    }
+    .section + .section {
+      border-top: 1px solid var(--divider);
+    }
+
+    /* Folder list placeholder */
+    .folder-group {
+      margin-top: 8px;
+    }
+
+    .folder-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .folder-item:last-child { border-bottom: none; }
+
+    .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      cursor: pointer;
+    }
+
+    .folder-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .file-list {
+      margin-top: 8px;
+      padding-left: 12px;
+      border-left: 2px solid rgba(114,228,173,0.35);
+    }
+
+    .file-item {
+      padding: 4px 0;
+      font-size: 12px;
+      color: rgba(0,0,0,0.72);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .file-date {
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    /* ========================================
+       DOCUMENT SIDEBAR ENHANCEMENTS
+       ======================================== */
+    .search-box {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .search-box .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+    }
+    .search-box .search-input:focus {
+      border-color: var(--ink);
+    }
+    .search-box .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    /* Autocomplete dropdown */
+    .search-box-autocomplete {
+      position: relative;
+    }
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-height: 240px;
+      overflow-y: auto;
+      z-index: 100;
+      margin-top: 4px;
+    }
+    .autocomplete-dropdown.hidden {
+      display: none;
+    }
+    .autocomplete-item {
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--divider);
+    }
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.selected {
+      background: rgba(0,0,0,0.04);
+    }
+    .autocomplete-item .doc-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .autocomplete-item .doc-type {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    .autocomplete-empty {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Document highlight when found */
+    .folder-doc-item.highlighted {
+      background: rgba(114,228,173,0.2);
+      border-radius: 4px;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .section-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .empty-hint {
+      padding: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .folder-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .folder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .folder-item .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .folder-item .folder-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn-icon-small {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--divider);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .btn-icon-small:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .sync-status {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sync-status .sync-message {
+      flex: 1;
+    }
+    .sync-status .sync-dismiss {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 14px;
+      opacity: 0.6;
+      color: inherit;
+      line-height: 1;
+    }
+    .sync-status .sync-dismiss:hover {
+      opacity: 1;
+    }
+    .sync-status.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: #16a34a;
+    }
+    .sync-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+    .sync-status.warning {
+      background: rgba(245, 158, 11, 0.1);
+      color: #d97706;
+    }
+
+    /* Sync loading bar */
+    .sync-loading-bar {
+      height: 3px;
+      background: var(--divider);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .sync-loading-bar.hidden {
+      display: none;
+    }
+    .sync-loading-bar .progress {
+      height: 100%;
+      width: 30%;
+      background: var(--ink);
+      border-radius: 2px;
+      animation: sync-progress 1.5s ease-in-out infinite;
+    }
+    @keyframes sync-progress {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(200%); }
+      100% { transform: translateX(-100%); }
+    }
+
+    /* Disabled composer state */
+    .composer-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* User bar */
+    .user-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px var(--pad);
+      background: rgba(0,0,0,0.02);
+      border-bottom: 1px solid var(--divider);
+      gap: 12px;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .user-email {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .logout-btn:hover {
+      background: #333;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Drive folder list - expandable */
+    .folder-expandable {
+      border-bottom: 1px solid var(--divider);
+    }
+    .folder-expandable:last-child {
+      border-bottom: none;
+    }
+
+    .folder-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      gap: 8px;
+    }
+
+    .folder-toggle {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      padding: 0;
+    }
+    .folder-toggle:hover {
+      color: var(--ink);
+    }
+    .folder-toggle:focus {
+      outline: none;
+    }
+
+    .folder-toggle .chevron {
+      transition: transform 0.15s;
+    }
+    .folder-toggle .chevron.expanded {
+      transform: rotate(90deg);
+    }
+
+    .folder-row .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .folder-doc-count {
+      font-size: 11px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .folder-docs {
+      padding: 0 0 8px 32px;
+    }
+
+    .folder-doc-item {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .folder-doc-item .doc-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .folder-doc-item .doc-type {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(0,0,0,0.06);
+      padding: 2px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .folder-doc-empty {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    /* ========================================
+       MOBILE NAVIGATION
+       ======================================== */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--divider);
+      padding: 8px 0;
+      padding-bottom: env(safe-area-inset-bottom, 8px);
+      z-index: 100;
+    }
+
+    .mobile-nav-inner {
+      display: flex;
+      justify-content: space-around;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .mobile-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .mobile-nav-btn.active {
+      color: var(--ink);
+      background: var(--accent-glow);
+    }
+
+    .mobile-nav-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* ========================================
+       RESPONSIVE - TABLET
+       ======================================== */
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .col-conversations { order: 3; }
+      .col-chat { order: 1; }
+      .col-documents { order: 2; }
+      .col + .col {
+        border-left: none;
+        border-top: 1px solid var(--divider);
+      }
+    }
+
+    /* ========================================
+       ADVANCED SEARCH DROPDOWN
+       ======================================== */
+    .advanced-search-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      padding: 4px 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .advanced-search-toggle:hover {
+      color: var(--ink);
+    }
+    .advanced-search-toggle .chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.15s;
+    }
+    .advanced-search-toggle.expanded .chevron {
+      transform: rotate(180deg);
+    }
+    .advanced-search-content {
+      display: none;
+      margin-top: 12px;
+      padding: 0 4px;
+    }
+    .advanced-search-content.visible {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* New chat button in header - hidden on desktop (sidebar has "New" button) */
+    .btn-new-chat {
+      display: none;
+    }
+
+    /* Mobile composer expand button - hidden by default on all screen sizes.
+       Only shown when .composer.collapsed is active on mobile via media query. */
+    .composer-expand-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .composer-expand-btn:hover {
+      color: var(--ink);
+    }
+    .composer-expand-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ========================================
+       RESPONSIVE - MOBILE
+       ======================================== */
+    @media (max-width: 768px) {
+      .mobile-nav {
+        display: block;
+      }
+
+      .app {
+        height: calc(100vh - 70px);
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        position: relative;
+      }
+
+      .app::after {
+        display: none;
+      }
+
+      .col {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        background: var(--bg);
+      }
+
+      .col.mobile-active {
+        display: flex;
+      }
+
+      .col + .col {
+        border-top: none;
+        border-left: none;
+      }
+
+      .col-header {
+        padding: 16px var(--pad);
+      }
+
+      /* Show new chat button on mobile */
+      .btn-new-chat {
+        display: inline-block;
+      }
+
+      .brand {
+        font-size: 24px;
+      }
+
+      .empty-logo {
+        font-size: 72px;
+      }
+
+      .empty-tagline {
+        font-size: 14px;
+      }
+
+      .composer-inline {
+        padding: 0 8px;
+      }
+
+      .query-box {
+        border-radius: 16px;
+      }
+
+      .query-top {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .query-select {
+        flex: 1;
+        min-width: 120px;
+        max-width: none;
+      }
+
+      .query-textarea {
+        font-size: 16px;
+      }
+
+      .composer {
+        padding-bottom: 90px;
+      }
+
+      .chat-scroll {
+        padding-top: 16px;
+        padding-bottom: 220px;
+      }
+
+      .mic-btn {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        min-height: 48px;
+      }
+
+      .ask-btn {
+        min-height: 48px;
+      }
+
+      .ask-btn {
+        padding: 0 24px;
+      }
+
+      .conv-item {
+        padding: 12px 0;
+      }
+
+      .folder-row {
+        padding: 12px 0;
+      }
+
+      .linkbtn {
+        padding: 8px 4px;
+      }
+
+      .user-bar {
+        padding: 12px var(--pad);
+      }
+
+      .logout-btn {
+        padding: 10px 20px;
+      }
+
+      /* Collapsible composer on mobile only */
+      .composer.collapsed .query-box {
+        padding: 8px 12px;
+      }
+      .composer.collapsed .query-textarea,
+      .composer.collapsed .query-divider,
+      .composer.collapsed .query-bottom,
+      .composer.collapsed .advanced-search-toggle,
+      .composer.collapsed .advanced-search-content {
+        display: none;
+      }
+      .composer.collapsed .composer-expand-btn {
+        display: flex;
+      }
+    }
+
+    /* ========================================
+       AUTH VIEW
+       ======================================== */
+    .auth-view {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: var(--bg);
+    }
+
+    .auth-view.hidden {
+      display: none;
+    }
+
+    .auth-brand {
+      font-family: var(--font-brand);
+      font-weight: 600;
+      font-size: 64px;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .auth-tagline {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .auth-btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: all 0.15s;
+    }
+
+    .auth-btn-google {
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      color: var(--ink);
+    }
+    .auth-btn-google:hover {
+      border-color: var(--ink);
+    }
+    .auth-btn-google svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--divider);
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--ink);
+      margin-bottom: 12px;
+    }
+    .auth-input:focus {
+      outline: none;
+      border-color: var(--ink);
+    }
+
+    .auth-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .auth-btn-primary {
+      flex: 1;
+      background: var(--ink);
+      border: none;
+      color: var(--bg);
+    }
+    .auth-btn-primary:hover {
+      background: #333;
+    }
+
+    .auth-btn-secondary {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--divider);
+      color: var(--ink);
+    }
+    .auth-btn-secondary:hover {
+      border-color: var(--ink);
+    }
+
+    .auth-status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: center;
+    }
+    .auth-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+    .auth-status.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: #16a34a;
+    }
+    .auth-status:empty {
+      display: none;
+    }
+
+    .app.hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Auth View (shown when logged out) -->
+  <div class="auth-view" id="auth-view">
+    <div class="auth-brand">Oku</div>
+    <div class="auth-tagline">Ask questions about your documents</div>
+
+    <div class="auth-box">
+      <button class="auth-btn auth-btn-google" id="btn-google-login">
+        <svg viewBox="0 0 24 24">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="auth-divider">or</div>
+
+      <input type="email" class="auth-input" id="auth-email" placeholder="Email">
+      <input type="password" class="auth-input" id="auth-password" placeholder="Password">
+
+      <div class="auth-actions">
+        <button class="auth-btn auth-btn-primary" id="btn-login">Log in</button>
+        <button class="auth-btn auth-btn-secondary" id="btn-signup">Sign up</button>
+      </div>
+
+      <div class="auth-status" id="auth-status"></div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="app-view">
+
+    <!-- ==========================================
+         LEFT COLUMN: Past Conversations
+         ========================================== -->
+    <aside class="col col-conversations">
+      <div class="col-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          Oku
+        </div>
+      </div>
+
+      <div class="col-scroll">
+        <!-- Conversation Search -->
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="conv-search" class="search-input" placeholder="Search conversations...">
+        </div>
+
+        <div class="section-head">
+          <div class="section-name">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Past conversations
+            <span class="badge" id="conv-count">0</span>
+          </div>
+          <button class="linkbtn" id="btn-new-conversation">New</button>
+        </div>
+
+        <div class="conv-list" id="conv-list">
+          <!-- Conversations will be rendered here -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================
+         MIDDLE COLUMN: Chat
+         ========================================== -->
+    <main class="col col-chat">
+      <div class="col-header">
+        <div class="col-title">Chat</div>
+        <button class="linkbtn btn-new-chat" id="btn-new-chat">New chat</button>
+      </div>
+
+      <div class="chat-area">
+        <!-- Empty State (with inline query box) -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-logo">Oku</div>
+          <div class="empty-tagline">----Ask a question, Close the loop.</div>
+
+          <!-- Query box inline in empty state -->
+          <div class="composer-inline">
+            <div class="query-box">
+              <textarea
+                class="query-textarea"
+                id="query-input"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-bottom">
+                <button class="advanced-search-toggle" id="advanced-toggle-empty" type="button">
+                  Advanced search
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+
+                <button class="mic-btn" id="mic-btn" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+            </div>
+            <div class="advanced-search-content" id="advanced-content-empty">
+              <select class="query-select" id="folder-selector-empty">
+                <option value="">All folders</option>
+              </select>
+              <select class="query-select" id="doc-selector-empty">
+                <option value="">All documents</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Messages (hidden until conversation starts) -->
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-center" id="chat-messages">
+            <!-- Messages will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Sticky Composer at bottom (shown after conversation starts) -->
+        <div class="composer" id="sticky-composer">
+          <div class="composer-center">
+            <div class="query-box">
+
+              <!-- Mobile expand button (visible when collapsed) -->
+              <button class="composer-expand-btn" id="composer-expand-btn" type="button">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Tap to ask a question
+              </button>
+
+              <textarea
+                class="query-textarea"
+                id="query-input-sticky"
+                placeholder="What would you like to know?"
+                rows="1"
+              ></textarea>
+
+              <div class="query-bottom">
+                <button class="advanced-search-toggle" id="advanced-toggle-sticky" type="button">
+                  Advanced search
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+
+                <button class="mic-btn" id="mic-btn-sticky" type="button" title="Voice input">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 11a7 7 0 0 1-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+
+                <button class="ask-btn" id="ask-btn-sticky" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Ask
+                </button>
+              </div>
+
+            </div>
+            <div class="advanced-search-content" id="advanced-content-sticky">
+              <select class="query-select" id="folder-selector-sticky">
+                <option value="">All folders</option>
+              </select>
+              <select class="query-select" id="doc-selector-sticky">
+                <option value="">All documents</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==========================================
+         RIGHT COLUMN: Documents
+         ========================================== -->
+    <aside class="col col-documents">
+      <div class="col-header">
+        <div class="col-title">Documents</div>
+        <div class="col-meta">Your connectors</div>
+      </div>
+
+      <!-- User bar -->
+      <div class="user-bar" id="user-bar">
+        <div class="user-info">
+          <span class="user-label">Logged in as:</span>
+          <span class="user-email" id="user-email"></span>
+        </div>
+        <button class="logout-btn" id="btn-logout">Log Out</button>
+      </div>
+
+      <div class="col-scroll">
+        <!-- Document Search with Autocomplete -->
+        <div class="search-box search-box-autocomplete">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="doc-search" class="search-input" placeholder="Search documents..." autocomplete="off">
+          <div id="doc-search-autocomplete" class="autocomplete-dropdown hidden"></div>
+        </div>
+
+        <!-- Local Section -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Local
+              <span class="badge" id="local-badge">0 folders</span>
+            </div>
+            <div class="section-actions">
+              <button class="linkbtn" id="btn-select-folder">Select folder</button>
+            </div>
+          </div>
+
+          <!-- Hidden file picker -->
+          <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+
+          <!-- Local: Not selected state -->
+          <div id="local-not-selected" class="folder-group">
+            <div class="empty-hint">Select a folder to sync documents</div>
+          </div>
+
+          <!-- Local: Selected state -->
+          <div id="local-selected" class="folder-group hidden">
+            <div class="folder-item">
+              <div class="folder-info">
+                <span class="folder-name" id="local-folder-name"></span>
+                <span class="folder-meta" id="local-file-count"></span>
+              </div>
+              <button class="btn-icon-small" id="btn-clear-folder" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="section-buttons">
+              <button class="linkbtn" id="btn-select-different">Change folder</button>
+              <button class="linkbtn" id="btn-sync-local">Sync</button>
+            </div>
+          </div>
+
+          <div id="local-sync-status" class="sync-status hidden"></div>
+        </div>
+
+        <!-- Google Drive Section -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-name">
+              <img src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png" alt="Drive" style="width: 18px; height: 18px;">
+              Google Drive
+              <span class="badge" id="drive-badge">Not connected</span>
+            </div>
+            <div class="section-actions" id="drive-actions-connect">
+              <button class="linkbtn" id="btn-connect-drive">Connect</button>
+            </div>
+            <div class="section-actions hidden" id="drive-actions-connected">
+              <button class="linkbtn" id="btn-add-drive-folder">Add folder</button>
+              <button class="linkbtn" id="btn-sync-drive">Sync</button>
+            </div>
+          </div>
+
+          <!-- Drive sync status - moved to top for visibility -->
+          <div id="drive-sync-status" class="sync-status hidden"></div>
+
+          <!-- Drive: Not connected state -->
+          <div id="drive-not-connected" class="folder-group">
+            <div class="empty-hint">Connect to sync from Google Drive</div>
+          </div>
+
+          <!-- Drive: Connected state -->
+          <div id="drive-connected" class="folder-group hidden">
+            <div id="drive-folder-list">
+              <!-- Drive folders will be rendered here -->
+            </div>
+          </div>
+
+          <div id="sync-loading-bar" class="sync-loading-bar hidden">
+            <div class="progress"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav" id="mobile-nav">
+    <div class="mobile-nav-inner">
+      <button class="mobile-nav-btn" data-target="col-conversations">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        History
+      </button>
+      <button class="mobile-nav-btn active" data-target="col-chat">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Chat
+      </button>
+      <button class="mobile-nav-btn" data-target="col-documents">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        Docs
+      </button>
+    </div>
+  </nav>
+
+  <script type="module">
+    // =================================================================
+    // ESM Import of Supabase
+    // =================================================================
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    // =================================================================
+    // Configuration
+    // =================================================================
+    let supabase = null;
+    let publicConfig = null;
+    // File filtering moved to backend - it returns detailed skip reasons
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config/frontend');
+        publicConfig = await response.json();
+        supabase = createClient(publicConfig.supabase_url, publicConfig.supabase_anon_key);
+        return true;
+      } catch (err) {
+        console.error('Failed to load config:', err);
+        return false;
+      }
+    }
+
+    // =================================================================
+    // Auth Helpers
+    // =================================================================
+    async function getAccessToken() {
+      if (!supabase) return null;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    }
+
+    // =================================================================
+    // Auth View Elements
+    // =================================================================
+    const authView = document.getElementById('auth-view');
+    const appView = document.getElementById('app-view');
+    const btnGoogleLogin = document.getElementById('btn-google-login');
+    const btnLogin = document.getElementById('btn-login');
+    const btnSignup = document.getElementById('btn-signup');
+    const authEmail = document.getElementById('auth-email');
+    const authPassword = document.getElementById('auth-password');
+    const authStatus = document.getElementById('auth-status');
+
+    function showAuthStatus(message, type = '') {
+      authStatus.textContent = message;
+      authStatus.className = 'auth-status ' + type;
+    }
+
+    function showAuthView() {
+      authView.classList.remove('hidden');
+      appView.classList.add('hidden');
+      mobileNav?.classList.add('hidden');
+    }
+
+    function showAppView() {
+      authView.classList.add('hidden');
+      appView.classList.remove('hidden');
+      if (window.innerWidth <= 768) {
+        mobileNav?.classList.remove('hidden');
+      }
+    }
+
+    async function updateUserUI() {
+      if (!supabase) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        userEmail.textContent = session.user.email || 'Unknown';
+        userBar.classList.remove('hidden');
+        showAppView();
+      } else {
+        userBar.classList.add('hidden');
+        showAuthView();
+      }
+    }
+
+    // Google OAuth login
+    btnGoogleLogin?.addEventListener('click', async () => {
+      if (!supabase) return;
+      btnGoogleLogin.disabled = true;
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + '/app' }
+        });
+        if (error) {
+          showAuthStatus(error.message, 'error');
+        }
+      } catch (err) {
+        showAuthStatus('Login failed', 'error');
+      } finally {
+        btnGoogleLogin.disabled = false;
+      }
+    });
+
+    // Email/password login
+    btnLogin?.addEventListener('click', async () => {
+      if (!supabase) return;
+      const email = authEmail.value.trim();
+      const password = authPassword.value;
+      if (!email || !password) {
+        showAuthStatus('Please enter email and password', 'error');
+        return;
+      }
+      btnLogin.disabled = true;
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          showAuthStatus(error.message, 'error');
+        } else {
+          showAuthStatus('Logged in!', 'success');
+          authPassword.value = '';
+        }
+      } catch (err) {
+        showAuthStatus('Login failed', 'error');
+      } finally {
+        btnLogin.disabled = false;
+      }
+    });
+
+    // Email/password signup
+    btnSignup?.addEventListener('click', async () => {
+      if (!supabase) return;
+      const email = authEmail.value.trim();
+      const password = authPassword.value;
+      if (!email || !password) {
+        showAuthStatus('Please enter email and password', 'error');
+        return;
+      }
+      btnSignup.disabled = true;
+      try {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          showAuthStatus(error.message, 'error');
+        } else if (data.user && !data.session) {
+          showAuthStatus('Check your email to confirm your account', 'success');
+        } else {
+          showAuthStatus('Account created!', 'success');
+        }
+      } catch (err) {
+        showAuthStatus('Signup failed', 'error');
+      } finally {
+        btnSignup.disabled = false;
+      }
+    });
+
+    // Auth state listener
+    function setupAuthListener() {
+      if (!supabase) return;
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          userEmail.textContent = session.user.email || 'Unknown';
+          userBar.classList.remove('hidden');
+          showAppView();
+        } else {
+          userBar.classList.add('hidden');
+          showAuthView();
+        }
+      });
+    }
+
+    async function logout() {
+      if (!supabase) return;
+      try {
+        await supabase.auth.signOut();
+        // Clear local state
+        currentConversationId = null;
+        localStorage.removeItem('oku_conversations');
+        // Reload page to reset state
+        window.location.reload();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
+    }
+
+    async function apiFetch(path, options = {}) {
+      const token = await getAccessToken();
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(path, {
+        ...options,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || 'Request failed');
+      }
+      return response.json();
+    }
+
+    // =================================================================
+    // DOM Elements
+    // =================================================================
+    // Query input
+    const queryInput = document.getElementById('query-input');
+
+    // Document search
+    const docSearch = document.getElementById('doc-search');
+
+    // Local folder elements
+    const folderPicker = document.getElementById('folder-picker');
+    const btnSelectFolder = document.getElementById('btn-select-folder');
+    const btnSelectDifferent = document.getElementById('btn-select-different');
+    const btnClearFolder = document.getElementById('btn-clear-folder');
+    const btnSyncLocal = document.getElementById('btn-sync-local');
+    const localNotSelected = document.getElementById('local-not-selected');
+    const localSelected = document.getElementById('local-selected');
+    const localFolderName = document.getElementById('local-folder-name');
+    const localFileCount = document.getElementById('local-file-count');
+    const localBadge = document.getElementById('local-badge');
+    const localSyncStatus = document.getElementById('local-sync-status');
+
+    // Google Drive elements
+    const btnConnectDrive = document.getElementById('btn-connect-drive');
+    const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+    const btnSyncDrive = document.getElementById('btn-sync-drive');
+    const driveNotConnected = document.getElementById('drive-not-connected');
+    const driveConnected = document.getElementById('drive-connected');
+    const driveFolderList = document.getElementById('drive-folder-list');
+    const driveBadge = document.getElementById('drive-badge');
+    const driveActionsConnect = document.getElementById('drive-actions-connect');
+    const driveActionsConnected = document.getElementById('drive-actions-connected');
+    const driveSyncStatus = document.getElementById('drive-sync-status');
+    const syncLoadingBar = document.getElementById('sync-loading-bar');
+
+    // User bar elements
+    const userBar = document.getElementById('user-bar');
+    const userEmail = document.getElementById('user-email');
+    const btnLogout = document.getElementById('btn-logout');
+
+    // =================================================================
+    // State
+    // =================================================================
+    let selectedFiles = [];
+    let selectedFolderName = '';
+    let driveFolders = [];
+    let driveConnectedState = false;
+    let allDocuments = [];
+    let pickerApiLoaded = false;
+
+    // Conversation state
+    let currentConversationId = null;
+    let isSubmitting = false;
+    let isSyncing = false;
+
+    // =================================================================
+    // Conversation DOM Elements
+    // =================================================================
+    const convSearch = document.getElementById('conv-search');
+    const convCount = document.getElementById('conv-count');
+    const btnNewConversation = document.getElementById('btn-new-conversation');
+    const convList = document.getElementById('conv-list');
+    const emptyState = document.getElementById('empty-state');
+    const chatScroll = document.getElementById('chat-scroll');
+    const chatMessages = document.getElementById('chat-messages');
+    const stickyComposer = document.getElementById('sticky-composer');
+    const queryInputSticky = document.getElementById('query-input-sticky');
+    const askBtn = document.getElementById('ask-btn');
+    const askBtnSticky = document.getElementById('ask-btn-sticky');
+
+    // =================================================================
+    // ConversationStore - localStorage persistence
+    // =================================================================
+    const STORAGE_KEY = 'oku_conversations';
+
+    const ConversationStore = {
+      getAll() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch {
+          return [];
+        }
+      },
+
+      save(conversations) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      },
+
+      create(firstQuery) {
+        const conversations = this.getAll();
+        const now = new Date().toISOString();
+        const conv = {
+          id: 'conv_' + Date.now(),
+          title: firstQuery.slice(0, 50) + (firstQuery.length > 50 ? '...' : ''),
+          snippet: '',
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        };
+        conversations.unshift(conv);
+        this.save(conversations);
+        return conv;
+      },
+
+      update(id, updates) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          conversations[idx] = { ...conversations[idx], ...updates, updatedAt: new Date().toISOString() };
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      addMessage(convId, message) {
+        const conversations = this.getAll();
+        const idx = conversations.findIndex(c => c.id === convId);
+        if (idx !== -1) {
+          conversations[idx].messages.push(message);
+          conversations[idx].updatedAt = new Date().toISOString();
+          // Update snippet from first assistant response
+          if (message.role === 'assistant' && !conversations[idx].snippet) {
+            conversations[idx].snippet = message.content.slice(0, 80) + (message.content.length > 80 ? '...' : '');
+          }
+          this.save(conversations);
+          return conversations[idx];
+        }
+        return null;
+      },
+
+      get(id) {
+        return this.getAll().find(c => c.id === id) || null;
+      },
+
+      delete(id) {
+        const conversations = this.getAll().filter(c => c.id !== id);
+        this.save(conversations);
+      },
+    };
+
+    // =================================================================
+    // Conversation UI
+    // =================================================================
+    function formatRelativeDate(isoString) {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
+
+    function renderConversationList(filter = '') {
+      let conversations = ConversationStore.getAll();
+      convCount.textContent = conversations.length;
+
+      // Apply filter
+      if (filter) {
+        const term = filter.toLowerCase();
+        conversations = conversations.filter(c =>
+          c.title.toLowerCase().includes(term) ||
+          c.snippet.toLowerCase().includes(term) ||
+          c.messages.some(m => m.content.toLowerCase().includes(term))
+        );
+      }
+
+      if (conversations.length === 0) {
+        convList.innerHTML = `<div class="conv-empty">${filter ? 'No matches' : 'No conversations yet'}</div>`;
+        return;
+      }
+
+      convList.innerHTML = conversations.map(c => `
+        <div class="conv-item${c.id === currentConversationId ? ' active' : ''}" data-conv-id="${c.id}">
+          <div class="conv-item-content">
+            <div class="conv-title">${escapeHtml(c.title)}</div>
+            ${c.snippet ? `<div class="conv-snippet">${escapeHtml(c.snippet)}</div>` : ''}
+            <div class="conv-meta">${formatRelativeDate(c.updatedAt)}</div>
+          </div>
+          <button class="conv-delete" data-conv-id="${c.id}" title="Delete conversation">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+
+      // Attach click handlers for loading conversations
+      convList.querySelectorAll('.conv-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          // Don't load if clicking delete button
+          if (e.target.closest('.conv-delete')) return;
+          const id = item.dataset.convId;
+          loadConversation(id);
+        });
+      });
+
+      // Attach click handlers for delete buttons
+      convList.querySelectorAll('.conv-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.convId;
+          deleteConversation(id);
+        });
+      });
+    }
+
+    function deleteConversation(id) {
+      ConversationStore.delete(id);
+
+      // If deleting current conversation, start new one
+      if (id === currentConversationId) {
+        startNewConversation();
+      } else {
+        renderConversationList();
+      }
+    }
+
+    function loadConversation(id) {
+      const conv = ConversationStore.get(id);
+      if (!conv) return;
+
+      currentConversationId = id;
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Render messages
+      renderMessages(conv.messages);
+
+      // Update sidebar
+      renderConversationList();
+
+      // Scroll to bottom
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+
+    function renderMessages(messages) {
+      chatMessages.innerHTML = messages.map(m => {
+        let html = `
+          <div class="chat-message ${m.role}">
+            <div class="role">
+              <span class="role-dot"></span>
+              ${m.role === 'user' ? 'You' : 'Oku'}
+            </div>
+            <div class="content">${escapeHtml(m.content)}</div>
+        `;
+
+        // Add sources for assistant messages
+        if (m.role === 'assistant' && m.sources && m.sources.length > 0) {
+          html += `
+            <div class="chat-sources">
+              <button class="sources-toggle" onclick="this.nextElementSibling.classList.toggle('visible')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 12h6M12 9v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                ${m.sources.length} source${m.sources.length !== 1 ? 's' : ''}
+              </button>
+              <div class="sources-list">
+                ${m.sources.map(s => `
+                  <div class="source-item">
+                    <div class="source-title">${escapeHtml(s.doc_id || s.title || 'Source')}</div>
+                    ${s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        // Add suggestions for assistant messages
+        if (m.role === 'assistant' && m.suggestions) {
+          const { topics, doc_titles, scope_hint } = m.suggestions;
+          let suggestionsContent = '';
+
+          if (scope_hint) {
+            suggestionsContent += `<div class="suggestion-hint">${escapeHtml(scope_hint)}</div>`;
+          }
+          if (topics && topics.length > 0) {
+            suggestionsContent += `
+              <div class="suggestion-topics">
+                ${topics.map(t => `<span class="suggestion-chip" data-query="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            `;
+          }
+          if (doc_titles && doc_titles.length > 0) {
+            suggestionsContent += `<div class="suggestion-docs">Related: ${doc_titles.map(d => escapeHtml(d)).join(', ')}</div>`;
+          }
+
+          if (suggestionsContent) {
+            html += `
+              <div class="chat-suggestions">
+                <div class="suggestions-header">Try instead</div>
+                ${suggestionsContent}
+              </div>
+            `;
+          }
+        }
+
+        html += '</div>';
+        return html;
+      }).join('');
+
+      // Attach click handlers for suggestion chips
+      chatMessages.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const query = chip.dataset.query;
+          const input = stickyComposer.classList.contains('active') ? queryInputSticky : queryInput;
+          input.value = query;
+          input.focus();
+        });
+      });
+    }
+
+    function startNewConversation() {
+      currentConversationId = null;
+
+      // Show empty state
+      emptyState.classList.remove('hidden');
+      chatScroll.classList.remove('active');
+      stickyComposer.classList.remove('active');
+
+      // Clear chat messages
+      chatMessages.innerHTML = '';
+
+      // Clear inputs
+      queryInput.value = '';
+      if (queryInputSticky) queryInputSticky.value = '';
+
+      // Update sidebar
+      renderConversationList();
+    }
+
+    // Conversation search
+    convSearch.addEventListener('input', (e) => {
+      renderConversationList(e.target.value.trim());
+    });
+
+    // New conversation button (sidebar)
+    btnNewConversation.addEventListener('click', startNewConversation);
+
+    // New chat button (chat header - visible on mobile)
+    const btnNewChat = document.getElementById('btn-new-chat');
+    if (btnNewChat) {
+      btnNewChat.addEventListener('click', startNewConversation);
+    }
+
+    // Logout button
+    btnLogout.addEventListener('click', logout);
+
+    // =================================================================
+    // Push-to-Talk (PTT) Recording
+    // =================================================================
+    const micBtn = document.getElementById('mic-btn');
+    const micBtnSticky = document.getElementById('mic-btn-sticky');
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
+
+    const pttSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+    if (!pttSupported) {
+      micBtn.style.display = 'none';
+      if (micBtnSticky) micBtnSticky.style.display = 'none';
+    }
+
+    async function initMediaRecorder() {
+      if (mediaRecorder) return true;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          audioChunks = [];
+          await sendAudioForTranscription(audioBlob);
+        };
+
+        return true;
+      } catch (err) {
+        console.error('Failed to init MediaRecorder:', err);
+        return false;
+      }
+    }
+
+    async function startRecording(btn) {
+      if (isRecording) return;
+
+      const ready = await initMediaRecorder();
+      if (!ready) return;
+
+      audioChunks = [];
+      isRecording = true;
+      recordingStartTime = Date.now();
+
+      btn.style.background = '#ef4444';
+      btn.style.animation = 'pulse 1s infinite';
+      mediaRecorder.start();
+    }
+
+    function stopRecording(btn, targetInput) {
+      if (!isRecording || !mediaRecorder) return;
+
+      isRecording = false;
+      const duration = Date.now() - recordingStartTime;
+
+      btn.style.background = '';
+      btn.style.animation = '';
+
+      if (duration < 500) {
+        mediaRecorder.stop();
+        audioChunks = [];
+        return;
+      }
+
+      btn.style.opacity = '0.6';
+      // Store target input for transcription callback
+      window._pttTargetInput = targetInput;
+      mediaRecorder.stop();
+    }
+
+    async function sendAudioForTranscription(audioBlob) {
+      const targetInput = window._pttTargetInput || queryInput;
+      const btn = targetInput === queryInput ? micBtn : micBtnSticky;
+
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error('Not authenticated');
+
+        const formData = new FormData();
+        const extension = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
+        formData.append('audio', audioBlob, `recording.${extension}`);
+
+        const response = await fetch('/transcribe', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          let errorMsg = `Transcription failed (${response.status})`;
+          try {
+            const errData = await response.json();
+            errorMsg = errData.detail || errData.message || errorMsg;
+          } catch {}
+          throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+
+        if (data.text) {
+          const existingText = targetInput.value.trim();
+          targetInput.value = existingText ? existingText + ' ' + data.text : data.text;
+          targetInput.dispatchEvent(new Event('input'));
+          targetInput.focus();
+        }
+
+      } catch (err) {
+        console.error('Transcription error:', err);
+      } finally {
+        btn.style.opacity = '';
+      }
+    }
+
+    // PTT event handlers
+    function setupMicButton(btn, targetInput) {
+      btn.addEventListener('mousedown', () => startRecording(btn));
+      btn.addEventListener('mouseup', () => stopRecording(btn, targetInput));
+      btn.addEventListener('mouseleave', () => stopRecording(btn, targetInput));
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(btn); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(btn, targetInput); });
+    }
+
+    setupMicButton(micBtn, queryInput);
+    if (micBtnSticky && queryInputSticky) {
+      setupMicButton(micBtnSticky, queryInputSticky);
+    }
+
+    // =================================================================
+    // Query Input Auto-resize & Submit
+    // =================================================================
+    function setupQueryInput(input, isSticky = false) {
+      input.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+      });
+
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitQuery(this.value.trim(), isSticky);
+        }
+      });
+    }
+
+    setupQueryInput(queryInput, false);
+    if (queryInputSticky) setupQueryInput(queryInputSticky, true);
+
+    // Ask button handlers
+    askBtn.addEventListener('click', () => submitQuery(queryInput.value.trim(), false));
+    if (askBtnSticky) {
+      askBtnSticky.addEventListener('click', () => submitQuery(queryInputSticky.value.trim(), true));
+    }
+
+    // =================================================================
+    // Advanced Search Toggle
+    // =================================================================
+    function setupAdvancedToggle(toggleId, contentId) {
+      const toggle = document.getElementById(toggleId);
+      const content = document.getElementById(contentId);
+      if (!toggle || !content) return;
+
+      toggle.addEventListener('click', () => {
+        const isExpanded = toggle.classList.toggle('expanded');
+        content.classList.toggle('visible', isExpanded);
+      });
+    }
+
+    setupAdvancedToggle('advanced-toggle-empty', 'advanced-content-empty');
+    setupAdvancedToggle('advanced-toggle-sticky', 'advanced-content-sticky');
+
+    // =================================================================
+    // Mobile Composer Collapse/Expand
+    // =================================================================
+    const composerExpandBtn = document.getElementById('composer-expand-btn');
+
+    function isMobileView() {
+      return window.innerWidth <= 768;
+    }
+
+    function collapseMobileComposer() {
+      if (isMobileView() && stickyComposer) {
+        stickyComposer.classList.add('collapsed');
+      }
+    }
+
+    function expandMobileComposer() {
+      if (stickyComposer) {
+        stickyComposer.classList.remove('collapsed');
+        // Focus the input after expanding
+        if (queryInputSticky) {
+          setTimeout(() => queryInputSticky.focus(), 100);
+        }
+      }
+    }
+
+    if (composerExpandBtn) {
+      composerExpandBtn.addEventListener('click', expandMobileComposer);
+    }
+
+    // =================================================================
+    // Submit Query
+    // =================================================================
+    async function submitQuery(query, fromSticky = false) {
+      if (!query || isSubmitting) return;
+
+      isSubmitting = true;
+      const inputEl = fromSticky ? queryInputSticky : queryInput;
+      const btnEl = fromSticky ? askBtnSticky : askBtn;
+
+      // Get scope selectors
+      const folderSelector = fromSticky
+        ? document.getElementById('folder-selector-sticky')
+        : document.getElementById('folder-selector-empty');
+      const docSelector = fromSticky
+        ? document.getElementById('doc-selector-sticky')
+        : document.getElementById('doc-selector-empty');
+      const folderId = folderSelector?.value || '';
+      const docId = docSelector?.value || '';
+
+      // Create conversation if new
+      if (!currentConversationId) {
+        const conv = ConversationStore.create(query);
+        currentConversationId = conv.id;
+      }
+
+      // Switch to chat view
+      emptyState.classList.add('hidden');
+      chatScroll.classList.add('active');
+      stickyComposer.classList.add('active');
+
+      // Add user message to store and UI
+      const userMessage = { role: 'user', content: query };
+      ConversationStore.addMessage(currentConversationId, userMessage);
+
+      // Clear input
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+
+      // Render current messages + loading
+      const conv = ConversationStore.get(currentConversationId);
+      renderMessages(conv.messages);
+
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'chat-loading';
+      loadingDiv.innerHTML = '<div class="spinner"></div><span>Thinking...</span>';
+      chatMessages.appendChild(loadingDiv);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      // Disable button
+      btnEl.disabled = true;
+
+      try {
+        // Build request body
+        const body = { query };
+        if (folderId) body.folder_id = folderId;
+        if (docId) body.doc_ids = [docId];
+
+        // Include conversation history for multi-turn context
+        const conv = ConversationStore.get(currentConversationId);
+        if (conv && conv.messages.length > 0) {
+          // Only include messages before the current one (exclude the just-added user message)
+          const history = conv.messages.slice(0, -1).map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
+          if (history.length > 0) {
+            body.conversation_history = history;
+          }
+        }
+
+        const result = await apiFetch('/ask', {
+          method: 'POST',
+          body,
+        });
+
+        // Remove loading indicator
+        loadingDiv.remove();
+
+        // Add assistant message
+        const assistantMessage = {
+          role: 'assistant',
+          content: result.answer || 'No answer returned.',
+          sources: result.sources || [],
+          suggestions: result.suggestions || null,
+        };
+        ConversationStore.addMessage(currentConversationId, assistantMessage);
+
+        // Re-render messages
+        const updatedConv = ConversationStore.get(currentConversationId);
+        renderMessages(updatedConv.messages);
+
+        // Update sidebar
+        renderConversationList();
+
+        // Scroll behavior: on mobile scroll to show user question, on desktop scroll to bottom
+        if (isMobileView()) {
+          // On mobile, scroll to top so user sees their question + answer
+          chatScroll.scrollTop = 0;
+        } else {
+          // On desktop, scroll to bottom (more content visible)
+          chatScroll.scrollTop = chatScroll.scrollHeight;
+        }
+
+      } catch (err) {
+        loadingDiv.remove();
+
+        // Add error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'chat-message assistant';
+        errorDiv.innerHTML = `
+          <div class="role"><span class="role-dot"></span> Oku</div>
+          <div class="content" style="color: #dc2626;">Error: ${escapeHtml(err.message)}</div>
+        `;
+        chatMessages.appendChild(errorDiv);
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+      } finally {
+        isSubmitting = false;
+        btnEl.disabled = false;
+        // Collapse composer on mobile after any query (sticky composer is now visible)
+        collapseMobileComposer();
+      }
+    }
+
+    // =================================================================
+    // Document Search with Autocomplete
+    // =================================================================
+    const docSearchAutocomplete = document.getElementById('doc-search-autocomplete');
+    let autocompleteIndex = -1;
+    let autocompleteMatches = [];
+
+    function showAutocomplete(matches) {
+      autocompleteMatches = matches;
+      autocompleteIndex = -1;
+
+      if (matches.length === 0) {
+        docSearchAutocomplete.innerHTML = '<div class="autocomplete-empty">No documents found</div>';
+      } else {
+        docSearchAutocomplete.innerHTML = matches.slice(0, 10).map((doc, i) => {
+          const title = doc.title || doc.doc_id || 'Untitled';
+          const ext = (doc.file_type || '').toUpperCase();
+          return `
+            <div class="autocomplete-item" data-doc-id="${escapeHtml(doc.doc_id)}" data-folder-id="${escapeHtml(doc.folder_id || '')}">
+              <span class="doc-title">${escapeHtml(title)}</span>
+              ${ext ? `<span class="doc-type">${ext}</span>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+      docSearchAutocomplete.classList.remove('hidden');
+
+      // Attach click handlers
+      docSearchAutocomplete.querySelectorAll('.autocomplete-item').forEach((item, i) => {
+        item.addEventListener('click', () => selectAutocompleteItem(i));
+      });
+    }
+
+    function hideAutocomplete() {
+      docSearchAutocomplete.classList.add('hidden');
+      autocompleteIndex = -1;
+      autocompleteMatches = [];
+    }
+
+    function updateAutocompleteSelection() {
+      const items = docSearchAutocomplete.querySelectorAll('.autocomplete-item');
+      items.forEach((item, i) => {
+        item.classList.toggle('selected', i === autocompleteIndex);
+      });
+    }
+
+    function selectAutocompleteItem(index) {
+      if (index < 0 || index >= autocompleteMatches.length) return;
+
+      const doc = autocompleteMatches[index];
+      const docId = doc.doc_id;
+      const folderId = doc.folder_id;
+
+      // Hide autocomplete
+      hideAutocomplete();
+      docSearch.value = doc.title || doc.doc_id || '';
+
+      // Expand the folder containing this document and highlight it
+      highlightDocumentInList(docId, folderId);
+    }
+
+    function highlightDocumentInList(docId, folderId) {
+      // Remove any existing highlights
+      document.querySelectorAll('.folder-doc-item.highlighted').forEach(el => {
+        el.classList.remove('highlighted');
+      });
+
+      // Find the folder expandable that contains this document
+      const folderExpandables = document.querySelectorAll('.folder-expandable');
+      let targetFolder = null;
+
+      folderExpandables.forEach(folder => {
+        const folderIdAttr = folder.dataset.folderId;
+        // Check if this folder contains the doc
+        const docItem = folder.querySelector(`.folder-doc-item[data-doc-id="${CSS.escape(docId)}"]`);
+        if (docItem) {
+          targetFolder = folder;
+        }
+      });
+
+      if (targetFolder) {
+        // Expand the folder
+        const docsContainer = targetFolder.querySelector('.folder-docs');
+        const chevron = targetFolder.querySelector('.chevron');
+        if (docsContainer && docsContainer.classList.contains('hidden')) {
+          docsContainer.classList.remove('hidden');
+          if (chevron) chevron.classList.add('expanded');
+        }
+
+        // Highlight the document
+        const docItem = targetFolder.querySelector(`.folder-doc-item[data-doc-id="${CSS.escape(docId)}"]`);
+        if (docItem) {
+          docItem.classList.add('highlighted');
+          // Scroll into view
+          docItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            docItem.classList.remove('highlighted');
+          }, 3000);
+        }
+      }
+    }
+
+    docSearch.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+
+      if (!term) {
+        hideAutocomplete();
+        return;
+      }
+
+      // Filter documents matching the search term
+      const matches = allDocuments.filter(doc =>
+        (doc.title || doc.doc_id || '').toLowerCase().includes(term)
+      );
+
+      showAutocomplete(matches);
+    });
+
+    docSearch.addEventListener('keydown', (e) => {
+      if (docSearchAutocomplete.classList.contains('hidden')) return;
+
+      const items = docSearchAutocomplete.querySelectorAll('.autocomplete-item');
+      const maxIndex = items.length - 1;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        autocompleteIndex = Math.min(autocompleteIndex + 1, maxIndex);
+        updateAutocompleteSelection();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        autocompleteIndex = Math.max(autocompleteIndex - 1, 0);
+        updateAutocompleteSelection();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (autocompleteIndex >= 0) {
+          selectAutocompleteItem(autocompleteIndex);
+        } else if (autocompleteMatches.length > 0) {
+          // Select first item if none selected
+          selectAutocompleteItem(0);
+        }
+      } else if (e.key === 'Escape') {
+        hideAutocomplete();
+      }
+    });
+
+    // Hide autocomplete when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!docSearch.contains(e.target) && !docSearchAutocomplete.contains(e.target)) {
+        hideAutocomplete();
+      }
+    });
+
+    // =================================================================
+    // Local Folder Management
+    // =================================================================
+    function updateLocalUI() {
+      if (selectedFiles.length > 0) {
+        localNotSelected.classList.add('hidden');
+        localSelected.classList.remove('hidden');
+        localFolderName.textContent = selectedFolderName;
+        localFileCount.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`;
+        localBadge.textContent = '1 folder';
+        btnSelectFolder.textContent = 'Change folder';
+      } else {
+        localNotSelected.classList.remove('hidden');
+        localSelected.classList.add('hidden');
+        localBadge.textContent = '0 folders';
+        btnSelectFolder.textContent = 'Select folder';
+      }
+    }
+
+    function clearFolderSelection() {
+      selectedFiles = [];
+      selectedFolderName = '';
+      folderPicker.value = '';
+      updateLocalUI();
+      localSyncStatus.classList.add('hidden');
+    }
+
+    btnSelectFolder.addEventListener('click', () => folderPicker.click());
+    btnSelectDifferent.addEventListener('click', () => folderPicker.click());
+    btnClearFolder.addEventListener('click', clearFolderSelection);
+
+    folderPicker.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      // Send ALL files to backend - let server handle filtering and report skipped files
+      selectedFiles = files;
+
+      if (files.length > 0 && files[0].webkitRelativePath) {
+        selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+      } else {
+        selectedFolderName = 'Selected folder';
+      }
+
+      updateLocalUI();
+    });
+
+    function showLocalStatus(message, type = '') {
+      localSyncStatus.innerHTML = `
+        <span class="sync-message">${escapeHtml(message)}</span>
+        <button class="sync-dismiss" title="Dismiss">&times;</button>
+      `;
+      localSyncStatus.className = 'sync-status ' + type;
+      localSyncStatus.classList.remove('hidden');
+      localSyncStatus.querySelector('.sync-dismiss').onclick = () => {
+        localSyncStatus.classList.add('hidden');
+      };
+    }
+
+    btnSyncLocal.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      btnSyncLocal.disabled = true;
+      showLocalStatus('Syncing...', '');
+
+      try {
+        const formData = new FormData();
+        formData.append('folder_name', selectedFolderName);
+        selectedFiles.forEach(file => formData.append('files', file));
+
+        const token = await getAccessToken();
+        const response = await fetch('/sync/upload', {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || 'Sync failed');
+        }
+
+        const result = await response.json();
+        const found = result.documents_found || 0;
+        const processed = result.documents_processed || 0;
+        const errors = result.errors || [];
+        const skipped = found - processed;
+
+        if (skipped > 0) {
+          showLocalStatus(
+            `Synced ${processed} of ${found} documents (${skipped} skipped)`,
+            errors.length > 0 ? 'warning' : 'success'
+          );
+          if (errors.length > 0) {
+            console.warn('Sync errors:', errors);
+          }
+        } else if (processed === 0 && found === 0) {
+          showLocalStatus('No documents found in folder', 'warning');
+        } else {
+          showLocalStatus(`Synced ${processed} documents`, 'success');
+        }
+        await loadDocuments();
+      } catch (err) {
+        showLocalStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncLocal.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Google Drive Management
+    // =================================================================
+    function updateDriveUI() {
+      if (driveConnectedState) {
+        driveNotConnected.classList.add('hidden');
+        driveConnected.classList.remove('hidden');
+        driveActionsConnect.classList.add('hidden');
+        driveActionsConnected.classList.remove('hidden');
+        driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+        renderDriveFolders();
+      } else {
+        driveNotConnected.classList.remove('hidden');
+        driveConnected.classList.add('hidden');
+        driveActionsConnect.classList.remove('hidden');
+        driveActionsConnected.classList.add('hidden');
+        driveBadge.textContent = 'Not connected';
+      }
+    }
+
+    function renderDriveFolders() {
+      if (driveFolders.length === 0) {
+        driveFolderList.innerHTML = '<div class="empty-hint">No folders added yet</div>';
+        return;
+      }
+
+      driveFolderList.innerHTML = driveFolders.map(f => {
+        // Get documents in this folder (match by folder_name prefix for subfolders)
+        const folderName = f.folder_name || f.folder_id;
+        const folderDocs = allDocuments.filter(d =>
+          d.folder_id === f.folder_id ||
+          (d.folder_name && d.folder_name.startsWith(folderName))
+        );
+        const docCount = folderDocs.length;
+
+        return `
+          <div class="folder-expandable" data-folder-id="${escapeHtml(f.folder_id)}">
+            <div class="folder-row">
+              <button class="folder-toggle" title="Expand">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
+              <span class="folder-doc-count">${docCount}</span>
+              <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="folder-docs hidden">
+              ${folderDocs.length > 0 ? folderDocs.map(d => {
+                // Get file extension from source_file or try to infer from title
+                const fileName = d.source_file || d.title || d.doc_id;
+                const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
+                const displayName = d.title || d.doc_id;
+                return `<div class="folder-doc-item" data-doc-id="${escapeHtml(d.doc_id)}">
+                  <span class="doc-name">${escapeHtml(displayName)}</span>
+                  ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
+                </div>`;
+              }).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach toggle handlers
+      driveFolderList.querySelectorAll('.folder-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const expandable = btn.closest('.folder-expandable');
+          const docs = expandable.querySelector('.folder-docs');
+          const chevron = btn.querySelector('.chevron');
+          docs.classList.toggle('hidden');
+          chevron.classList.toggle('expanded');
+        });
+      });
+
+      // Attach delete handlers
+      driveFolderList.querySelectorAll('.folder-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const folderId = btn.dataset.folderId;
+          btn.disabled = true;
+          try {
+            const data = await apiFetch(`/sources/drive/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' });
+            driveFolders = data.folders || [];
+            renderDriveFolders();
+            driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+          } catch (err) {
+            showDriveStatus('Failed to remove folder', 'error');
+          }
+        });
+      });
+    }
+
+    function showDriveStatus(message, type = '') {
+      driveSyncStatus.innerHTML = `
+        <span class="sync-message">${escapeHtml(message)}</span>
+        <button class="sync-dismiss" title="Dismiss">&times;</button>
+      `;
+      driveSyncStatus.className = 'sync-status ' + type;
+      driveSyncStatus.classList.remove('hidden');
+      driveSyncStatus.querySelector('.sync-dismiss').onclick = () => {
+        driveSyncStatus.classList.add('hidden');
+      };
+    }
+
+    // Disable/enable composer during sync
+    function setSyncingState(syncing) {
+      isSyncing = syncing;
+      const composerElements = [
+        queryInput,
+        queryInputSticky,
+        askBtn,
+        askBtnSticky
+      ].filter(Boolean);
+
+      composerElements.forEach(el => {
+        el.disabled = syncing;
+      });
+
+      // Add/remove visual disabled state
+      const composerWrappers = document.querySelectorAll('.composer-center, .query-box');
+      composerWrappers.forEach(el => {
+        if (syncing) {
+          el.classList.add('composer-disabled');
+        } else {
+          el.classList.remove('composer-disabled');
+        }
+      });
+
+      // Show/hide loading bar (but don't hide sync status - it has its own dismiss button)
+      if (syncing) {
+        syncLoadingBar.classList.remove('hidden');
+      } else {
+        syncLoadingBar.classList.add('hidden');
+        // Don't hide driveSyncStatus here - let user dismiss it manually
+      }
+    }
+
+    async function refreshDriveStatus() {
+      try {
+        const data = await apiFetch('/sources/drive/status');
+        driveConnectedState = data.connected;
+        driveFolders = data.folders || [];
+        updateDriveUI();
+      } catch (err) {
+        console.error('Failed to refresh drive status:', err);
+      }
+    }
+
+    btnConnectDrive.addEventListener('click', async () => {
+      btnConnectDrive.disabled = true;
+      try {
+        const data = await apiFetch('/oauth/google/drive/start', { method: 'POST' });
+        const authUrl = data.auth_url;
+
+        const width = 600, height = 700;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        const popup = window.open(authUrl, 'drive_oauth', `width=${width},height=${height},left=${left},top=${top}`);
+
+        const messageHandler = async (event) => {
+          if (event.data?.type === 'drive_oauth_success') {
+            window.removeEventListener('message', messageHandler);
+            await refreshDriveStatus();
+            showDriveStatus('Google Drive connected!', 'success');
+          } else if (event.data?.type === 'drive_oauth_error') {
+            window.removeEventListener('message', messageHandler);
+            showDriveStatus('Connection failed', 'error');
+          }
+        };
+        window.addEventListener('message', messageHandler);
+      } catch (err) {
+        showDriveStatus('Failed to connect: ' + err.message, 'error');
+      } finally {
+        btnConnectDrive.disabled = false;
+      }
+    });
+
+    btnSyncDrive.addEventListener('click', async () => {
+      btnSyncDrive.disabled = true;
+      setSyncingState(true);
+      showDriveStatus('Syncing...', '');
+      try {
+        const result = await apiFetch('/sync/drive', { method: 'POST' });
+        const found = result.documents_found || 0;
+        const processed = result.documents_processed || 0;
+        const unchanged = result.documents_skipped || 0;  // Incremental sync: unchanged files
+        const deleted = result.documents_deleted || 0;  // Files removed from source
+        const errors = result.errors || [];
+        const errorSkipped = found - processed - unchanged;  // Files skipped due to errors
+
+        // Build status message based on sync results
+        let statusParts = [];
+
+        if (processed === 0 && found === 0 && deleted === 0) {
+          showDriveStatus('No documents found in folders', 'warning');
+        } else if (deleted > 0 && processed === 0 && unchanged === found) {
+          // Only deletions happened
+          showDriveStatus(`Cleaned up ${deleted} deleted document${deleted > 1 ? 's' : ''}`, 'success');
+        } else if (unchanged > 0 && processed === 0 && errorSkipped === 0 && deleted === 0) {
+          // All files unchanged - incremental sync did nothing
+          showDriveStatus(`All ${found} documents up to date`, 'success');
+        } else {
+          // Build composite status message
+          if (processed > 0) {
+            statusParts.push(`Synced ${processed}`);
+          }
+          if (unchanged > 0) {
+            statusParts.push(`${unchanged} unchanged`);
+          }
+          if (deleted > 0) {
+            statusParts.push(`${deleted} deleted`);
+          }
+          if (errorSkipped > 0) {
+            statusParts.push(`${errorSkipped} skipped`);
+          }
+
+          let statusMsg = statusParts.join(', ');
+          if (processed > 0 && (unchanged > 0 || deleted > 0 || errorSkipped > 0)) {
+            statusMsg = `Synced ${processed} (${statusParts.slice(1).join(', ')})`;
+          } else if (processed === 0 && statusParts.length > 0) {
+            statusMsg = statusParts.join(', ');
+          }
+
+          showDriveStatus(statusMsg, errors.length > 0 ? 'warning' : 'success');
+        }
+        // Show skipped files info if any
+        if (errors.length > 0) {
+          console.warn('Sync errors:', errors);
+          // Show skipped files in a second status line or alert
+          const skippedFiles = errors.filter(e => e.startsWith('Skipped'));
+          if (skippedFiles.length > 0) {
+            const fileNames = skippedFiles.map(e => {
+              const match = e.match(/Skipped ([^:]+):/);
+              return match ? match[1] : e;
+            });
+            setTimeout(() => {
+              alert(`${skippedFiles.length} file(s) were skipped:\n\n${fileNames.join('\n')}\n\nCheck console for details.`);
+            }, 500);
+          }
+        }
+        await loadDocuments();
+      } catch (err) {
+        showDriveStatus('Sync failed: ' + err.message, 'error');
+      } finally {
+        btnSyncDrive.disabled = false;
+        setSyncingState(false);
+      }
+    });
+
+    // =================================================================
+    // Google Picker API
+    // =================================================================
+    async function loadPickerApi() {
+      if (pickerApiLoaded) return true;
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => {
+          gapi.load('picker', () => {
+            pickerApiLoaded = true;
+            resolve(true);
+          });
+        };
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    }
+
+    // Add Drive folder via Google Picker
+    btnAddDriveFolder.addEventListener('click', async () => {
+      // Load Picker API if not loaded
+      if (!pickerApiLoaded) {
+        showDriveStatus('Loading Google Picker...', '');
+        const loaded = await loadPickerApi();
+        if (!loaded) {
+          showDriveStatus('Failed to load Google Picker', 'error');
+          return;
+        }
+      }
+
+      btnAddDriveFolder.disabled = true;
+      try {
+        // Get access token for Picker
+        const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+        const accessToken = tokenData.access_token;
+
+        if (!publicConfig?.google_picker_api_key) {
+          showDriveStatus('Google Picker API key not configured', 'error');
+          btnAddDriveFolder.disabled = false;
+          return;
+        }
+
+        // Create folder-only view
+        const view = new google.picker.DocsView()
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(true)
+          .setMimeTypes('application/vnd.google-apps.folder');
+
+        // Build and show Picker
+        const picker = new google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(accessToken)
+          .setDeveloperKey(publicConfig.google_picker_api_key)
+          .setCallback(async (data) => {
+            if (data.action === google.picker.Action.PICKED) {
+              const folder = data.docs[0];
+              try {
+                const result = await apiFetch('/sources/drive/folders', {
+                  method: 'POST',
+                  body: {
+                    folder_id: folder.id,
+                    folder_name: folder.name,
+                  },
+                });
+                driveFolders = result.folders || [];
+                renderDriveFolders();
+                driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+                showDriveStatus(`Added folder: ${folder.name}`, 'success');
+              } catch (err) {
+                showDriveStatus('Failed to add folder: ' + err.message, 'error');
+              }
+            }
+            btnAddDriveFolder.disabled = false;
+          })
+          .setTitle('Select a folder to sync')
+          .build();
+
+        picker.setVisible(true);
+
+      } catch (err) {
+        showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
+        btnAddDriveFolder.disabled = false;
+      }
+    });
+
+    // =================================================================
+    // Load Documents
+    // =================================================================
+    async function loadDocuments() {
+      try {
+        const docs = await apiFetch('/documents');
+        allDocuments = docs;
+        console.log('Loaded', docs.length, 'documents');
+        populateSelectors();
+      } catch (err) {
+        console.warn('Failed to load documents:', err);
+      }
+    }
+
+    let allFolders = [];
+
+    async function loadFolders() {
+      try {
+        allFolders = await apiFetch('/folders');
+        console.log('Loaded', allFolders.length, 'folders');
+      } catch (err) {
+        console.warn('Failed to load folders:', err);
+        allFolders = [];
+      }
+    }
+
+    function populateSelectors() {
+      // Folder selectors - use allFolders which has folder_name
+      const folderEmpty = document.getElementById('folder-selector-empty');
+      const folderSticky = document.getElementById('folder-selector-sticky');
+
+      const folderOptions = '<option value="">All folders</option>' +
+        allFolders.map(f => {
+          const name = f.folder_name || f.folder_id;
+          return `<option value="${escapeHtml(f.folder_id)}">${escapeHtml(name)}</option>`;
+        }).join('');
+
+      if (folderEmpty) folderEmpty.innerHTML = folderOptions;
+      if (folderSticky) folderSticky.innerHTML = folderOptions;
+
+      // Document selectors
+      const docEmpty = document.getElementById('doc-selector-empty');
+      const docSticky = document.getElementById('doc-selector-sticky');
+
+      const docOptions = '<option value="">All documents</option>' +
+        allDocuments.map(d => {
+          const title = d.title || d.doc_id || 'Untitled';
+          return `<option value="${escapeHtml(d.doc_id)}">${escapeHtml(title)}</option>`;
+        }).join('');
+
+      if (docEmpty) docEmpty.innerHTML = docOptions;
+      if (docSticky) docSticky.innerHTML = docOptions;
+
+      // Sync selectors when one changes
+      function syncSelectors(source, target) {
+        if (source && target) {
+          source.addEventListener('change', () => target.value = source.value);
+          target.addEventListener('change', () => source.value = target.value);
+        }
+      }
+      syncSelectors(folderEmpty, folderSticky);
+      syncSelectors(docEmpty, docSticky);
+    }
+
+    // =================================================================
+    // Utilities
+    // =================================================================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // =================================================================
+    // Mobile Navigation
+    // =================================================================
+    const mobileNav = document.getElementById('mobile-nav');
+    const mobileNavBtns = mobileNav?.querySelectorAll('.mobile-nav-btn');
+    const colConversations = document.querySelector('.col-conversations');
+    const colChat = document.querySelector('.col-chat');
+    const colDocuments = document.querySelector('.col-documents');
+
+    function setMobileActiveTab(targetClass) {
+      // Update nav buttons
+      mobileNavBtns?.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.target === targetClass);
+      });
+
+      // Update visible column
+      [colConversations, colChat, colDocuments].forEach(col => {
+        if (col) {
+          col.classList.toggle('mobile-active', col.classList.contains(targetClass));
+        }
+      });
+    }
+
+    // Set initial active tab on mobile
+    if (window.innerWidth <= 768) {
+      setMobileActiveTab('col-chat');
+    }
+
+    // Handle mobile nav clicks
+    mobileNavBtns?.forEach(btn => {
+      btn.addEventListener('click', () => {
+        setMobileActiveTab(btn.dataset.target);
+      });
+    });
+
+    // Handle resize - reset mobile state when going to desktop
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        // Remove mobile-active class from all columns
+        [colConversations, colChat, colDocuments].forEach(col => {
+          col?.classList.remove('mobile-active');
+        });
+      } else {
+        // Ensure chat is active on mobile
+        if (!document.querySelector('.col.mobile-active')) {
+          setMobileActiveTab('col-chat');
+        }
+      }
+    });
+
+    // =================================================================
+    // Initialize
+    // =================================================================
+    async function init() {
+      await loadConfig();
+
+      // Setup auth listener for state changes
+      setupAuthListener();
+
+      // Check initial auth state
+      await updateUserUI();
+
+      // Only load app data if logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await refreshDriveStatus();
+        await loadFolders();
+        await loadDocuments();
+        updateLocalUI();
+
+        // Re-render drive folders now that documents are loaded
+        if (driveConnectedState) {
+          renderDriveFolders();
+        }
+
+        // Load conversations
+        renderConversationList();
+
+        // Set mobile active tab on init
+        if (window.innerWidth <= 768) {
+          setMobileActiveTab('col-chat');
+        }
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
