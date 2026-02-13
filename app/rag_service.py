@@ -336,7 +336,10 @@ CONTRACT_MODE_PROMPT = (
     "- Only factual claims require citations.\n"
     '- Clarifying questions and the response "I couldn\'t find a clear reference to that in your files. Try narrowing the question or specifying a document." do NOT\n'
     "  require citations.\n"
-    "- Keep answers concise and focused on the user's question."
+    "- Keep answers concise and focused on the user's question.\n\n"
+    "Formatting:\n"
+    "- Use **bold** for key terms, names, amounts, and dates.\n"
+    "- Keep answers as flowing prose, not bullet points unless listing multiple items."
 )
 
 TRANSCRIPT_MODE_PROMPT = (
@@ -368,7 +371,10 @@ TRANSCRIPT_MODE_PROMPT = (
     "Notes:\n"
     "- Synthesis across chunks is allowed for transcripts.\n"
     "- Always distinguish between explicit statements and inferences.\n"
-    "- Keep answers focused on the user's question."
+    "- Keep answers focused on the user's question.\n\n"
+    "Formatting:\n"
+    "- Use **bold** for key terms, names, amounts, and dates.\n"
+    "- Keep answers as flowing prose, not bullet points unless listing multiple items."
 )
 
 
@@ -1207,3 +1213,136 @@ def answer_question(
         scope=scope_metadata,
         suggestions=suggestions,
     )
+
+
+def answer_question_stream(
+    query: str,
+    tenant_id: str | None = None,
+    folder_id: str | None = None,
+    doc_ids: list[str] | None = None,
+    conversation_history: list[dict] | None = None,
+):
+    """
+    Streaming version of answer_question.
+    Yields SSE-formatted events:
+    - data: {"type": "token", "content": "..."} for text chunks
+    - data: {"type": "done", "sources": [...]} at the end
+    """
+    import json
+
+    query_id = str(uuid.uuid4())[:8]
+    effective_tenant_id = tenant_id or settings.default_tenant_id
+
+    # Normalize and optionally rewrite query
+    original_query = query
+    query = normalize_query(query)
+
+    retrieval_query = query
+    if needs_query_rewrite(query, conversation_history):
+        retrieval_query = rewrite_query_with_history(query, conversation_history, query_id)
+
+    # Determine retrieval count
+    if settings.hybrid_enabled:
+        retrieve_count = settings.hybrid_vec_k
+    elif settings.rerank_enabled:
+        retrieve_count = settings.retrieve_k
+    else:
+        retrieve_count = settings.retrieval_limit
+
+    # Retrieve chunks
+    try:
+        points = retrieve(retrieval_query, top_k=retrieve_count, tenant_id=tenant_id, folder_id=folder_id, doc_ids=doc_ids)
+    except HTTPException as e:
+        yield f"data: {json.dumps({'type': 'error', 'message': e.detail})}\n\n"
+        return
+
+    if not points:
+        yield f"data: {json.dumps({'type': 'token', 'content': 'I couldn\\'t find a clear reference to that in your files. Try narrowing the question or specifying a document.'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'sources': []})}\n\n"
+        return
+
+    # Build sources from points
+    sources = []
+    for i, p in enumerate(points):
+        payload = p.payload or {}
+        sources.append(Source(
+            doc_id=payload.get("doc_id", f"doc_{i}"),
+            title=payload.get("title"),
+            snippet=payload.get("text", "")[:300] + "..." if len(payload.get("text", "")) > 300 else payload.get("text", ""),
+            score=p.score if hasattr(p, 'score') else None,
+            chunk_id=i,
+        ))
+
+    # Build context
+    context = build_context_from_sources(sources, points)
+
+    # Determine answer mode and get system prompt
+    answer_mode, mode_reason = determine_answer_mode(sources, doc_ids)
+    system_prompt = CONTRACT_MODE_PROMPT if answer_mode == "contract" else TRANSCRIPT_MODE_PROMPT
+
+    # Build messages
+    messages = [{"role": "system", "content": system_prompt}]
+
+    if conversation_history:
+        for turn in conversation_history[-6:]:
+            messages.append({
+                "role": turn.get("role", "user"),
+                "content": turn.get("content", ""),
+            })
+
+    messages.append({
+        "role": "user",
+        "content": f"Context:\n{context}\n\nQuestion: {query}",
+    })
+
+    # Stream the response
+    try:
+        stream = client.chat.completions.create(
+            model=settings.chat_model,
+            messages=messages,
+            temperature=0.2,
+            stream=True,
+        )
+
+        full_answer = ""
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                full_answer += content
+                yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+
+    except RateLimitError as e:
+        yield f"data: {json.dumps({'type': 'error', 'message': 'OpenAI rate limit / quota exceeded. Check billing or try again later.'})}\n\n"
+        return
+    except APITimeoutError as e:
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Request timed out. Please try again.'})}\n\n"
+        return
+
+    # Extract citations and filter sources
+    citations = extract_citations(full_answer)
+    sources_cited = filter_cited_sources(sources, citations)
+
+    # Send final event with sources
+    sources_data = [
+        {
+            "doc_id": s.doc_id,
+            "title": s.title,
+            "snippet": s.snippet,
+            "score": s.score,
+            "chunk_id": s.chunk_id,
+        }
+        for s in (sources_cited if sources_cited else sources[:3])
+    ]
+
+    yield f"data: {json.dumps({'type': 'done', 'sources': sources_data})}\n\n"
+
+
+def build_context_from_sources(sources: list[Source], points: list) -> str:
+    """Build context string from sources for the LLM."""
+    context_parts = []
+    for i, p in enumerate(points):
+        payload = p.payload or {}
+        doc_id = payload.get("doc_id", f"doc_{i}")
+        text = payload.get("text", "")
+        context_parts.append(f"[{doc_id}]\n{text}")
+    return "\n\n---\n\n".join(context_parts)

@@ -2895,24 +2895,80 @@
           }
         }
 
-        const result = await apiFetch('/ask', {
-          method: 'POST',
-          body,
-        });
-
-        // Remove loading indicator
+        // Remove loading indicator and create streaming message div
         loadingDiv.remove();
 
-        // Add assistant message
+        const streamingDiv = document.createElement('div');
+        streamingDiv.className = 'chat-message assistant';
+        streamingDiv.innerHTML = `
+          <div class="role"><span class="role-dot"></span> Oku</div>
+          <div class="content streaming-content"></div>
+        `;
+        chatMessages.appendChild(streamingDiv);
+        const contentDiv = streamingDiv.querySelector('.streaming-content');
+
+        // Stream the response
+        const token = await getAccessToken();
+        const response = await fetch('/ask/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+          throw new Error(error.detail || 'Request failed');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullAnswer = '';
+        let sources = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === 'token') {
+                  fullAnswer += data.content;
+                  // Render markdown bold
+                  contentDiv.innerHTML = fullAnswer.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                  chatScroll.scrollTop = chatScroll.scrollHeight;
+                } else if (data.type === 'done') {
+                  sources = data.sources || [];
+                } else if (data.type === 'error') {
+                  throw new Error(data.message);
+                }
+              } catch (e) {
+                if (e.message !== 'Unexpected end of JSON input') {
+                  console.error('SSE parse error:', e);
+                }
+              }
+            }
+          }
+        }
+
+        // Add assistant message to store with sources
         const assistantMessage = {
           role: 'assistant',
-          content: result.answer || 'No answer returned.',
-          sources: result.sources || [],
-          suggestions: result.suggestions || null,
+          content: fullAnswer || 'No answer returned.',
+          sources: sources,
+          suggestions: null,
         };
         ConversationStore.addMessage(currentConversationId, assistantMessage);
 
-        // Re-render messages
+        // Re-render to add sources
         const updatedConv = ConversationStore.get(currentConversationId);
         renderMessages(updatedConv.messages);
 
@@ -2921,15 +2977,15 @@
 
         // Scroll behavior: on mobile scroll to show user question, on desktop scroll to bottom
         if (isMobileView()) {
-          // On mobile, scroll to top so user sees their question + answer
           chatScroll.scrollTop = 0;
         } else {
-          // On desktop, scroll to bottom (more content visible)
           chatScroll.scrollTop = chatScroll.scrollHeight;
         }
 
       } catch (err) {
-        loadingDiv.remove();
+        // Remove any streaming div if present
+        const streamingDiv = chatMessages.querySelector('.streaming-content')?.closest('.chat-message');
+        if (streamingDiv) streamingDiv.remove();
 
         // Add error message
         const errorDiv = document.createElement('div');

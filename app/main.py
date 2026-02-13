@@ -10,7 +10,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -20,7 +20,7 @@ from slowapi.errors import RateLimitExceeded
 from app.models import AskRequest, AskResponse
 from app.logging_config import setup_logging, get_logger
 from app.logging_utils import request_id_ctx, new_request_id
-from app.rag_service import answer_question
+from app.rag_service import answer_question, answer_question_stream
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
 from app.qdrant_client import client as qdrant_client, check_qdrant_health
@@ -340,6 +340,44 @@ async def ask(request: Request, body: AskRequest, user: dict = Depends(verify_su
         folder_id=body.folder_id,
         doc_ids=body.doc_ids,
         conversation_history=history,
+    )
+
+
+@app.post("/ask/stream")
+@limiter.limit(settings.rate_limit_ask)
+async def ask_stream(request: Request, body: AskRequest, user: dict = Depends(verify_supabase_token)):
+    """
+    Streaming version of /ask endpoint.
+    Returns Server-Sent Events (SSE) with:
+    - type: "token" for text chunks
+    - type: "done" with sources at the end
+    - type: "error" for errors
+    """
+    origin = request.headers.get("origin", "none")
+    host = request.headers.get("host", "none")
+    logger.info(f"[ask/stream] origin={origin} host={host} user={user.get('user_id', 'unknown')[:8]}...")
+
+    history = None
+    if body.conversation_history:
+        history = [{"role": turn.role, "content": turn.content} for turn in body.conversation_history]
+
+    def generate():
+        yield from answer_question_stream(
+            body.query,
+            tenant_id=user["user_id"],
+            folder_id=body.folder_id,
+            doc_ids=body.doc_ids,
+            conversation_history=history,
+        )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
     )
 
 
