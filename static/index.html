@@ -178,20 +178,6 @@
       transform: translateY(-1px);
     }
 
-    @media (max-width: 768px) {
-      .header-inner {
-        padding: 20px 24px;
-      }
-      .nav {
-        display: none;
-      }
-      .mobile-nav {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
-    }
-
     /* Mobile Navigation */
     .mobile-nav {
       display: none;
@@ -204,6 +190,20 @@
       border-radius: 50px;
       font-size: 14px;
       font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .header-inner {
+        padding: 20px 24px;
+      }
+      .nav {
+        display: none;
+      }
+      .mobile-nav {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
     }
 
     .hamburger {
