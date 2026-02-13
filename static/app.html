@@ -1511,6 +1511,21 @@
       background: var(--divider);
     }
 
+    .auth-google-terms {
+      font-size: 12px;
+      color: var(--light);
+      text-align: center;
+      margin-top: 12px;
+    }
+
+    .auth-google-terms a {
+      color: var(--muted);
+    }
+
+    .auth-google-terms a:hover {
+      color: var(--ink);
+    }
+
     .auth-input {
       width: 100%;
       padding: 14px 16px;
@@ -1527,10 +1542,109 @@
       border-color: var(--ink);
     }
 
+    .auth-consent {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .auth-consent input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .auth-consent a {
+      color: var(--ink);
+      text-decoration: underline;
+    }
+
+    .auth-consent a:hover {
+      color: var(--accent);
+    }
+
     .auth-actions {
       display: flex;
       gap: 12px;
       margin-top: 8px;
+    }
+
+    /* Cookie Banner */
+    .cookie-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--ink);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 9999;
+      font-size: 14px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    }
+
+    .cookie-banner.hidden {
+      display: none;
+    }
+
+    .cookie-banner p {
+      margin: 0;
+      max-width: 600px;
+    }
+
+    .cookie-banner a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    .cookie-banner-buttons {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .cookie-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .cookie-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .cookie-btn-accept {
+      background: var(--accent);
+      color: var(--ink);
+    }
+
+    .cookie-btn-decline {
+      background: transparent;
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    @media (max-width: 600px) {
+      .cookie-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+      }
     }
 
     .auth-btn-primary {
@@ -1594,11 +1708,17 @@
         </svg>
         Continue with Google
       </button>
+      <p class="auth-google-terms">By continuing with Google, you agree to our <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a></p>
 
       <div class="auth-divider">or</div>
 
       <input type="email" class="auth-input" id="auth-email" placeholder="Email">
       <input type="password" class="auth-input" id="auth-password" placeholder="Password">
+
+      <label class="auth-consent">
+        <input type="checkbox" id="consent-checkbox">
+        <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>, including the processing of my documents by third-party AI services.</span>
+      </label>
 
       <div class="auth-actions">
         <button class="auth-btn auth-btn-primary" id="btn-login">Log in</button>
@@ -1995,7 +2115,7 @@
       }
     }
 
-    // Google OAuth login
+    // Google OAuth login/signup
     btnGoogleLogin?.addEventListener('click', async () => {
       if (!supabase) return;
       btnGoogleLogin.disabled = true;
@@ -2044,10 +2164,19 @@
       if (!supabase) return;
       const email = authEmail.value.trim();
       const password = authPassword.value;
+      const consentCheckbox = document.getElementById('consent-checkbox');
+
       if (!email || !password) {
         showAuthStatus('Please enter email and password', 'error');
         return;
       }
+
+      // Validate consent checkbox for signup
+      if (!consentCheckbox?.checked) {
+        showAuthStatus('Please agree to the Terms of Service and Privacy Policy', 'error');
+        return;
+      }
+
       btnSignup.disabled = true;
       try {
         const { data, error } = await supabase.auth.signUp({ email, password });
@@ -3568,6 +3697,45 @@
     }
 
     init();
+  </script>
+
+  <!-- Cookie Banner -->
+  <div class="cookie-banner" id="cookie-banner">
+    <p>We use essential cookies for authentication and error monitoring (Sentry). Your documents are processed by OpenAI to provide search functionality. <a href="/privacy">Learn more</a></p>
+    <div class="cookie-banner-buttons">
+      <button class="cookie-btn cookie-btn-accept" id="cookie-accept">Accept</button>
+      <button class="cookie-btn cookie-btn-decline" id="cookie-decline">Decline</button>
+    </div>
+  </div>
+
+  <script>
+    // Cookie Banner Logic
+    (function() {
+      const banner = document.getElementById('cookie-banner');
+      const acceptBtn = document.getElementById('cookie-accept');
+      const declineBtn = document.getElementById('cookie-decline');
+
+      // Check if user has already made a choice
+      const cookieChoice = localStorage.getItem('oku-cookie-consent');
+
+      if (cookieChoice) {
+        banner.classList.add('hidden');
+      }
+
+      acceptBtn?.addEventListener('click', () => {
+        localStorage.setItem('oku-cookie-consent', 'accepted');
+        localStorage.setItem('oku-cookie-consent-date', new Date().toISOString());
+        banner.classList.add('hidden');
+      });
+
+      declineBtn?.addEventListener('click', () => {
+        localStorage.setItem('oku-cookie-consent', 'declined');
+        localStorage.setItem('oku-cookie-consent-date', new Date().toISOString());
+        banner.classList.add('hidden');
+        // Note: User can still use the service, but we log their preference
+        // In a stricter implementation, you might disable Sentry here
+      });
+    })();
   </script>
 </body>
 </html>
