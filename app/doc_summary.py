@@ -257,7 +257,7 @@ def generate_document_summaries(
     title_log = doc_title[:50] if doc_title else doc_id
 
     try:
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(api_key=settings.openai_api_key, timeout=60.0)
         model = settings.document_summary_model or settings.chat_model
 
         prompt = _build_summary_prompt(content, document_type)

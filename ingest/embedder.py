@@ -23,7 +23,7 @@ def get_embeddings(texts: list[str], batch_size: int = 100) -> tuple[list[list[f
     if not texts:
         return [], 0
     
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.openai_api_key, timeout=60.0)
     all_embeddings = []
     dimension = 0
     

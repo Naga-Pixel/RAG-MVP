@@ -23,7 +23,7 @@ from app.logging_utils import request_id_ctx, new_request_id
 from app.rag_service import answer_question
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
-from app.qdrant_client import client as qdrant_client
+from app.qdrant_client import client as qdrant_client, check_qdrant_health
 
 logger = get_logger(__name__)
 
@@ -282,6 +282,29 @@ def serve_terms():
     if terms_path.exists():
         return FileResponse(terms_path)
     raise HTTPException(status_code=404, detail="Terms of service not found")
+
+
+@app.get("/health")
+def health_check():
+    """
+    Health check endpoint for monitoring and load balancers.
+
+    Returns 200 if all services are healthy, 503 if any critical service is down.
+    """
+    qdrant_ok, qdrant_msg = check_qdrant_health()
+
+    status = {
+        "status": "healthy" if qdrant_ok else "unhealthy",
+        "services": {
+            "qdrant": {"ok": qdrant_ok, "message": qdrant_msg},
+            "api": {"ok": True, "message": "ok"},
+        }
+    }
+
+    if not qdrant_ok:
+        raise HTTPException(status_code=503, detail=status)
+
+    return status
 
 
 @app.get("/config/frontend")

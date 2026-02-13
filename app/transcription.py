@@ -14,7 +14,8 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-client = OpenAI(api_key=settings.openai_api_key)
+# Longer timeout for transcription - audio files can take time to process
+client = OpenAI(api_key=settings.openai_api_key, timeout=120.0)
 
 # Supported audio formats by Whisper
 SUPPORTED_FORMATS = {".webm", ".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".flac"}

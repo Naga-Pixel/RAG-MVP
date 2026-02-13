@@ -5,7 +5,7 @@ import re
 import uuid
 
 from fastapi import HTTPException
-from openai import OpenAI, RateLimitError
+from openai import OpenAI, RateLimitError, APITimeoutError
 from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
 
 from app.config import settings
@@ -18,7 +18,13 @@ from app.hybrid import rrf_fuse, FusedChunk
 from app.scope_resolver import resolve_scope_from_query, ResolvedScope
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=settings.openai_api_key)
+
+# OpenAI client with timeout to prevent hanging requests
+# timeout: max seconds for entire request (connect + read)
+client = OpenAI(
+    api_key=settings.openai_api_key,
+    timeout=60.0,  # 60 seconds max for any OpenAI call
+)
 
 
 def normalize_query(query: str) -> str:
@@ -462,6 +468,12 @@ def retrieve(
             status_code=503,
             detail="OpenAI rate limit / quota exceeded. Check billing or try again later.",
         ) from e
+    except APITimeoutError as e:
+        logger.error(f"OpenAI embedding timeout: {e}")
+        raise HTTPException(
+            status_code=504,
+            detail="Request timed out. Please try again.",
+        ) from e
 
     embedding = emb_resp.data[0].embedding
 
@@ -494,12 +506,20 @@ def retrieve(
     query_filter = Filter(must=must_conditions)
 
     # query_points is the current recommended search API
-    resp = qdrant_client.query_points(
-        collection_name=settings.qdrant_collection,
-        query=embedding,
-        limit=top_k,
-        query_filter=query_filter,
-    )
+    try:
+        resp = qdrant_client.query_points(
+            collection_name=settings.qdrant_collection,
+            query=embedding,
+            limit=top_k,
+            query_filter=query_filter,
+        )
+    except Exception as e:
+        # Qdrant connection error - return graceful error
+        logger.error(f"Qdrant query failed: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Search service temporarily unavailable. Please try again in a moment.",
+        ) from e
 
     return resp.points
 
@@ -1096,6 +1116,12 @@ def answer_question(
         raise HTTPException(
             status_code=503,
             detail="OpenAI rate limit / quota exceeded during answer generation.",
+        ) from e
+    except APITimeoutError as e:
+        logger.error(f"OpenAI chat completion timeout: {e}")
+        raise HTTPException(
+            status_code=504,
+            detail="Request timed out while generating answer. Please try again.",
         ) from e
 
     answer = chat_resp.choices[0].message.content

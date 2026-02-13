@@ -23,6 +23,22 @@ def get_qdrant_client() -> QdrantClient:
     return client
 
 
+def check_qdrant_health() -> tuple[bool, str]:
+    """
+    Check if Qdrant is reachable and responding.
+
+    Returns:
+        Tuple of (is_healthy, message)
+    """
+    try:
+        # Simple health check - get collections list
+        client.get_collections()
+        return True, "ok"
+    except Exception as e:
+        logger.error(f"Qdrant health check failed: {type(e).__name__}: {e}")
+        return False, f"{type(e).__name__}: {e}"
+
+
 def collection_exists() -> bool:
     """Check if the configured collection exists."""
     collections = client.get_collections().collections
