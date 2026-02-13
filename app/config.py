@@ -261,7 +261,7 @@ class Settings(BaseSettings):
         description="Rate limit for sync endpoints (e.g., 5/minute)",
     )
     max_sync_files: int = Field(
-        default=50,
+        default=100,
         alias="MAX_SYNC_FILES",
         description="Maximum files per sync operation (prevents blocking)",
     )

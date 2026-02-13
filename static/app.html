@@ -3154,7 +3154,7 @@
       if (selectedFiles.length === 0) return;
 
       btnSyncLocal.disabled = true;
-      showLocalStatus('Syncing...', '');
+      showLocalStatus('Oku is syncing your documents. This may take a few minutes...', '');
 
       try {
         const formData = new FormData();
@@ -3384,7 +3384,7 @@
     btnSyncDrive.addEventListener('click', async () => {
       btnSyncDrive.disabled = true;
       setSyncingState(true);
-      showDriveStatus('Syncing...', '');
+      showDriveStatus('Oku is syncing your documents. This may take a few minutes...', '');
       try {
         const result = await apiFetch('/sync/drive', { method: 'POST' });
         const found = result.documents_found || 0;
