@@ -310,7 +310,7 @@ CONTRACT_MODE_PROMPT = (
     "   identifier as provided in the context (do not invent identifiers).\n\n"
     "4. If the answer is NOT explicitly found in the provided documents, respond with\n"
     "   exactly:\n"
-    '   "I couldn't find a clear reference to that in your files. Try narrowing the question or specifying a document."\n\n'
+    '   "I couldn\'t find a clear reference to that in your files. Try narrowing the question or specifying a document."\n\n'
     "5. Do NOT infer, extrapolate, guess, or fill in missing details.\n"
     "   If something is implied but not stated, treat it as NOT found.\n\n"
     "6. If the question is ambiguous or underspecified, ask a clarifying question\n"
@@ -328,7 +328,7 @@ CONTRACT_MODE_PROMPT = (
     "   - Suggest the user use a spreadsheet for counting or calculations.\n\n"
     "Notes:\n"
     "- Only factual claims require citations.\n"
-    '- Clarifying questions and the response "I couldn't find a clear reference to that in your files. Try narrowing the question or specifying a document." do NOT\n'
+    '- Clarifying questions and the response "I couldn\'t find a clear reference to that in your files. Try narrowing the question or specifying a document." do NOT\n'
     "  require citations.\n"
     "- Keep answers concise and focused on the user's question."
 )
