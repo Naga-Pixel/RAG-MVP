@@ -941,7 +941,6 @@
         <a href="/app" class="nav-btn">Try it now</a>
       </nav>
       <div class="mobile-nav">
-        <a href="/app" class="mobile-cta">Try it now</a>
         <div class="hamburger" id="hamburger">
           <span></span>
           <span></span>
@@ -1496,12 +1495,13 @@
     })();
 
     // Feature section blurs (filled circles, more subtle)
-    // Disable on mobile for performance
-    if (window.innerWidth <= 768) return;
+    (function() {
+      // Disable on mobile for performance
+      if (window.innerWidth <= 768) return;
 
-    const featureContainers = document.querySelectorAll('.feature-blur-container');
-    featureContainers.forEach((container, index) => {
-      if (typeof THREE === 'undefined') return;
+      const featureContainers = document.querySelectorAll('.feature-blur-container');
+      featureContainers.forEach((container, index) => {
+        if (typeof THREE === 'undefined') return;
 
       const SHAPE_COLOR = new THREE.Vector3(0.196, 0.906, 0.663); // #32e7a9
       const isFirstOrLast = index === 0 || index === featureContainers.length - 1;
@@ -1651,7 +1651,8 @@
         requestAnimationFrame(update);
       };
       update();
-    });
+      });
+    })();
   </script>
 
 </body>
