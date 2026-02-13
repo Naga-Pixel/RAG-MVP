@@ -495,6 +495,13 @@
       line-height: 1.5;
     }
 
+    .source-snippet mark {
+      background: rgba(50, 231, 169, 0.3);
+      color: inherit;
+      padding: 1px 2px;
+      border-radius: 2px;
+    }
+
     /* Suggestions */
     .chat-suggestions {
       margin-top: 16px;
@@ -2517,7 +2524,7 @@
                 ${m.sources.map(s => `
                   <div class="source-item">
                     <div class="source-title">${escapeHtml(s.doc_id || s.title || 'Source')}</div>
-                    ${s.snippet ? `<div class="source-snippet">${escapeHtml(s.snippet)}</div>` : ''}
+                    ${s.snippet ? `<div class="source-snippet">${highlightSourceSnippet(s.snippet, m.content)}</div>` : ''}
                   </div>
                 `).join('')}
               </div>
@@ -3614,6 +3621,55 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    /**
+     * Highlight matching phrases from the answer in a source snippet.
+     * Extracts key phrases from answer and highlights them in the snippet.
+     */
+    function highlightSourceSnippet(snippet, answer) {
+      if (!snippet || !answer) return escapeHtml(snippet || '');
+
+      // Extract potential phrases from answer (4+ word sequences)
+      const words = answer.replace(/\[.*?\]/g, '').split(/\s+/);
+      const phrases = [];
+
+      // Get 4-8 word phrases from the answer
+      for (let len = 8; len >= 4; len--) {
+        for (let i = 0; i <= words.length - len; i++) {
+          const phrase = words.slice(i, i + len).join(' ')
+            .replace(/[.,;:!?"'()]/g, '')
+            .trim();
+          if (phrase.length > 15) {
+            phrases.push(phrase);
+          }
+        }
+      }
+
+      // Escape HTML first
+      let highlighted = escapeHtml(snippet);
+
+      // Track what we've highlighted to avoid overlaps
+      const highlightedRanges = [];
+
+      // Try to find and highlight each phrase
+      for (const phrase of phrases) {
+        if (phrase.length < 15) continue;
+
+        // Case-insensitive search
+        const regex = new RegExp(
+          phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          'gi'
+        );
+
+        const match = highlighted.match(regex);
+        if (match && !highlighted.includes('<mark>' + match[0])) {
+          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
+          break; // Only highlight one phrase to keep it clean
+        }
+      }
+
+      return highlighted;
     }
 
     // =================================================================
