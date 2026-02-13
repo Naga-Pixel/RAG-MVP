@@ -275,6 +275,15 @@ def serve_privacy():
     raise HTTPException(status_code=404, detail="Privacy policy not found")
 
 
+@app.get("/terms")
+def serve_terms():
+    """Serve the terms of service page."""
+    terms_path = static_dir / "terms.html"
+    if terms_path.exists():
+        return FileResponse(terms_path)
+    raise HTTPException(status_code=404, detail="Terms of service not found")
+
+
 @app.get("/config/frontend")
 def get_frontend_config():
     """
