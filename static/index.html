@@ -207,16 +207,20 @@
       flex: 1;
     }
 
-    .hero-blur-container {
+    /* Hero Demo Box - contains animation + chat */
+    .hero-demo-box {
+      position: relative;
+      width: 100%;
+      min-height: 500px;
+      border-radius: 32px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #32e7a9 0%, #28d99a 50%, #20c98a 100%);
+    }
+
+    .hero-demo-box canvas {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 0;
-    }
-
-    .hero-blur-container canvas {
       width: 100%;
       height: 100%;
     }
@@ -228,8 +232,8 @@
       align-items: start;
       position: relative;
       z-index: 1;
-      margin-bottom: 150px;
-      padding-top: 150px;
+      margin-bottom: 60px;
+      padding-top: 100px;
     }
 
     .hero-left {
@@ -308,23 +312,25 @@
     .chat-demo {
       position: relative;
       z-index: 1;
-      margin-bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 60px 40px;
     }
 
     .chat-window {
       width: 100%;
-      background: rgba(255, 255, 255, 0.9);
+      max-width: 800px;
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-radius: 24px;
-      border: 1px solid var(--divider);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+      border: 1px solid rgba(255,255,255,0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
       overflow: hidden;
     }
 
     .chat-messages {
-      max-width: 800px;
-      margin: 0 auto;
       padding: 32px;
       height: 450px;
       overflow: hidden;
@@ -835,7 +841,6 @@
 
   <!-- Hero -->
   <section class="hero">
-    <div class="hero-blur-container"></div>
     <div class="container">
       <div class="hero-grid">
         <div class="hero-left">
@@ -847,15 +852,17 @@
             Get answers instantly from your local and Google Drive documents with the source attached. Oku scans your files, understands the context, and highlights exactly where the information appears.
           </p>
           <div class="hero-ctas">
-            <a href="/signup" class="hero-cta primary">Try it now</a>
+            <a href="/app" class="hero-cta primary">Try it now</a>
             <a href="#features" class="hero-cta secondary">See how it works</a>
           </div>
         </div>
       </div>
 
-      <!-- Animated Chat Demo -->
-      <div class="chat-demo animate delay-3">
-        <div class="chat-window">
+      <!-- Demo Box with Animation + Chat -->
+      <div class="hero-demo-box animate delay-3">
+        <!-- Animated Chat Demo -->
+        <div class="chat-demo">
+          <div class="chat-window">
           <div class="chat-messages">
             <!-- User Question -->
             <div class="chat-message user">
@@ -883,6 +890,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1160,10 +1168,11 @@
   <!-- Threads WebGL Animation -->
   <script>
     (function() {
-      const container = document.querySelector('.hero-blur-container');
+      const container = document.querySelector('.hero-demo-box');
       if (!container || typeof THREE === 'undefined') return;
 
-      const threadColor = new THREE.Vector3(0.196, 0.906, 0.663); // #32e7a9
+      const bgColor = new THREE.Vector3(0.196, 0.906, 0.663); // #32e7a9
+      const lineColor = new THREE.Vector3(1.0, 1.0, 1.0); // white
 
       const vertexShader = `
         varying vec2 vUv;
@@ -1178,7 +1187,8 @@
 
         uniform float iTime;
         uniform vec2 iResolution;
-        uniform vec3 uColor;
+        uniform vec3 uBgColor;
+        uniform vec3 uLineColor;
         uniform float uAmplitude;
         uniform float uDistance;
         uniform vec2 uMouse;
@@ -1272,7 +1282,7 @@
             }
 
             float colorVal = 1.0 - line_strength;
-            vec3 finalColor = mix(vec3(1.0), uColor, colorVal);
+            vec3 finalColor = mix(uBgColor, uLineColor, colorVal);
             gl_FragColor = vec4(finalColor, 1.0);
         }
       `;
@@ -1284,7 +1294,7 @@
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
       const renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setClearColor(0xffffff, 1);
+      renderer.setClearColor(0x32e7a9, 1);
       container.appendChild(renderer.domElement);
 
       const geometry = new THREE.PlaneGeometry(2, 2);
@@ -1294,7 +1304,8 @@
         uniforms: {
           iTime: { value: 0 },
           iResolution: { value: new THREE.Vector2(w, h) },
-          uColor: { value: threadColor },
+          uBgColor: { value: bgColor },
+          uLineColor: { value: lineColor },
           uAmplitude: { value: 3.0 },
           uDistance: { value: 0.0 },
           uMouse: { value: new THREE.Vector2(0.5, 0.5) }
