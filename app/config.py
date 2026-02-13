@@ -260,6 +260,11 @@ class Settings(BaseSettings):
         alias="RATE_LIMIT_SYNC",
         description="Rate limit for sync endpoints (e.g., 5/minute)",
     )
+    max_sync_files: int = Field(
+        default=50,
+        alias="MAX_SYNC_FILES",
+        description="Maximum files per sync operation (prevents blocking)",
+    )
     allowed_sync_directories: list[str] = Field(
         default_factory=list,
         alias="ALLOWED_SYNC_DIRECTORIES",

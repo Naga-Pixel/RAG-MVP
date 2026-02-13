@@ -148,24 +148,29 @@ class GoogleDriveConnector(BaseConnector):
             return []
 
         documents = []
+        max_files = settings.max_sync_files
 
         try:
             # Build query for supported file types (dynamic based on OCR settings)
             supported_mimes = self.get_supported_mime_types()
             mime_queries = [f"mimeType='{mime}'" for mime in supported_mimes.keys()]
             mime_filter = " or ".join(mime_queries)
-            
+
             query = f"({mime_filter}) and trashed=false"
             if self.folder_id:
                 query += f" and '{self.folder_id}' in parents"
-            
+
+            # Limit to max_sync_files to prevent blocking
             results = self._service.files().list(
                 q=query,
-                pageSize=100,
+                pageSize=min(100, max_files),
                 fields="files(id, name, mimeType, modifiedTime, size)",
             ).execute()
-            
+
             for file in results.get("files", []):
+                if len(documents) >= max_files:
+                    logger.warning(f"Reached max sync limit ({max_files} files). Some files were skipped.")
+                    break
                 documents.append({
                     "source_id": file["id"],
                     "title": file["name"],
@@ -173,10 +178,10 @@ class GoogleDriveConnector(BaseConnector):
                     "modified_at": datetime.fromisoformat(file["modifiedTime"].replace("Z", "+00:00")),
                     "size": int(file.get("size", 0)),
                 })
-                
+
         except Exception as e:
             logger.error("Error listing Drive files: {e}")
-        
+
         return documents
     
     def fetch_document(self, source_id: str) -> Document | None:

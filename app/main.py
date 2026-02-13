@@ -703,6 +703,13 @@ async def sync_upload(
     errors = []
     documents = []
 
+    # Check file count limit
+    if len(files) > settings.max_sync_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files ({len(files)}). Maximum is {settings.max_sync_files} files per sync. Please upload in smaller batches.",
+        )
+
     # Generate a stable folder_id from tenant + folder_name
     folder_id = hashlib.sha256(f"{tenant_id}:{folder_name}".encode()).hexdigest()[:16]
 
