@@ -266,6 +266,15 @@ def serve_pricing():
     raise HTTPException(status_code=404, detail="Pricing page not found")
 
 
+@app.get("/privacy")
+def serve_privacy():
+    """Serve the privacy policy page."""
+    privacy_path = static_dir / "privacy.html"
+    if privacy_path.exists():
+        return FileResponse(privacy_path)
+    raise HTTPException(status_code=404, detail="Privacy policy not found")
+
+
 @app.get("/config/frontend")
 def get_frontend_config():
     """

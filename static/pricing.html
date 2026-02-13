@@ -371,6 +371,16 @@
       color: var(--light);
     }
 
+    .footer a {
+      color: var(--light);
+      margin: 0 12px;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: var(--muted);
+    }
+
     @media (max-width: 768px) {
       .header-inner {
         padding: 20px 24px;
@@ -493,7 +503,11 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
-      <p>&copy; 2024 Oku. All rights reserved.</p>
+      <p>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+      </p>
+      <p style="margin-top: 16px;">&copy; 2025 Oku. All rights reserved.</p>
     </div>
   </footer>
 

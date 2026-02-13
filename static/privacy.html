@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy - Oku</title>
+  <meta name="description" content="Privacy Policy for Oku. Learn how we collect, use, and protect your data.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Inter:wght@300;400;500;600;700&family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #0a0a0a;
+      --muted: #666666;
+      --light: #999999;
+      --accent: #32e7a9;
+      --divider: rgba(0,0,0,0.06);
+      --font: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-heading: "Urbanist", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-numbers: "Bricolage Grotesque", var(--font-heading);
+      --max-width: 800px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--ink);
+    }
+
+    a {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      color: var(--accent);
+    }
+
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      font-family: var(--font-numbers);
+      font-size: 29px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+    }
+
+    .nav a {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav a:hover {
+      color: var(--ink);
+    }
+
+    .nav-btn {
+      background: var(--ink);
+      color: white !important;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: #333;
+      transform: translateY(-1px);
+    }
+
+    /* Content */
+    .policy-header {
+      padding: 160px 0 60px;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .policy-header h1 {
+      font-family: var(--font-heading);
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+
+    .policy-header .last-updated {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .policy-content {
+      padding: 60px 0 120px;
+    }
+
+    .policy-content h2 {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .policy-content h3 {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+
+    .policy-content p {
+      margin-bottom: 16px;
+      color: var(--muted);
+    }
+
+    .policy-content ul, .policy-content ol {
+      margin-bottom: 16px;
+      padding-left: 24px;
+      color: var(--muted);
+    }
+
+    .policy-content li {
+      margin-bottom: 8px;
+    }
+
+    .policy-content strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .highlight-box {
+      background: rgba(50, 231, 169, 0.1);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin: 24px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+      color: var(--ink);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-size: 14px;
+    }
+
+    .data-table th,
+    .data-table td {
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .data-table th {
+      font-weight: 600;
+      color: var(--ink);
+      background: rgba(0,0,0,0.02);
+    }
+
+    .data-table td {
+      color: var(--muted);
+    }
+
+    /* Footer */
+    .footer {
+      padding: 48px 0;
+      border-top: 1px solid var(--divider);
+      text-align: center;
+    }
+
+    .footer p {
+      font-size: 14px;
+      color: var(--light);
+    }
+
+    .footer a {
+      color: var(--light);
+      margin: 0 12px;
+    }
+
+    @media (max-width: 768px) {
+      .header-inner {
+        padding: 20px 24px;
+      }
+      .nav {
+        display: none;
+      }
+      .policy-header {
+        padding: 120px 0 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">Oku</a>
+      <nav class="nav">
+        <a href="/#setup">Set up</a>
+        <a href="/#features">How it works</a>
+        <a href="/#why">Why Oku</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/app" class="nav-btn">Try now</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Policy Header -->
+  <section class="policy-header">
+    <div class="container">
+      <h1>Privacy Policy</h1>
+      <p class="last-updated">Last updated: 13 February 2025</p>
+    </div>
+  </section>
+
+  <!-- Policy Content -->
+  <section class="policy-content">
+    <div class="container">
+
+      <p>Oku ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our document search service.</p>
+
+      <div class="highlight-box">
+        <p><strong>Summary:</strong> We only collect data necessary to provide the service. Your documents are processed to enable search but are not used for any other purpose. You can export or delete your data at any time.</p>
+      </div>
+
+      <h2>1. Data Controller</h2>
+      <p>The data controller responsible for your personal data is:</p>
+      <p>
+        <strong>Andrea Mattioli</strong><br>
+        53A Blackstock Road<br>
+        London N4 2JW<br>
+        United Kingdom<br>
+        Email: <a href="mailto:andrea@oku.systems">andrea@oku.systems</a>
+      </p>
+
+      <h2>2. Information We Collect</h2>
+
+      <h3>2.1 Account Information</h3>
+      <p>When you create an account, we collect:</p>
+      <ul>
+        <li><strong>Email address</strong> - Used for authentication and account communications</li>
+        <li><strong>Authentication tokens</strong> - Securely stored to maintain your session</li>
+      </ul>
+
+      <h3>2.2 Document Data</h3>
+      <p>When you use Oku to search your documents, we process:</p>
+      <ul>
+        <li><strong>Document content</strong> - Text extracted from your uploaded files or Google Drive documents</li>
+        <li><strong>Document metadata</strong> - File names, folder names, and modification dates</li>
+        <li><strong>Search queries</strong> - Questions you ask about your documents</li>
+      </ul>
+
+      <h3>2.3 Google Drive Connection</h3>
+      <p>If you connect Google Drive, we store:</p>
+      <ul>
+        <li><strong>OAuth tokens</strong> - Encrypted refresh tokens to maintain the connection</li>
+        <li><strong>Folder selections</strong> - Which folders you've chosen to sync</li>
+        <li><strong>Sync metadata</strong> - File IDs and modification times to enable incremental sync</li>
+      </ul>
+
+      <h3>2.4 Technical Data</h3>
+      <p>We automatically collect:</p>
+      <ul>
+        <li><strong>Error logs</strong> - To identify and fix issues (via Sentry, with personal data filtered)</li>
+        <li><strong>Request metadata</strong> - IP addresses and timestamps for security purposes</li>
+      </ul>
+
+      <h2>3. How We Use Your Information</h2>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Purpose</th>
+            <th>Data Used</th>
+            <th>Legal Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Provide the search service</td>
+            <td>Document content, queries</td>
+            <td>Contract performance</td>
+          </tr>
+          <tr>
+            <td>Authenticate your account</td>
+            <td>Email, auth tokens</td>
+            <td>Contract performance</td>
+          </tr>
+          <tr>
+            <td>Sync Google Drive files</td>
+            <td>OAuth tokens, folder selections</td>
+            <td>Contract performance</td>
+          </tr>
+          <tr>
+            <td>Fix bugs and improve service</td>
+            <td>Error logs (anonymised)</td>
+            <td>Legitimate interest</td>
+          </tr>
+          <tr>
+            <td>Prevent abuse and fraud</td>
+            <td>IP addresses, request patterns</td>
+            <td>Legitimate interest</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>4. Third-Party Services</h2>
+
+      <p>To provide our service, your data is processed by the following third parties:</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Purpose</th>
+            <th>Data Shared</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>OpenAI</strong></td>
+            <td>Generate embeddings and answers</td>
+            <td>Document text chunks, search queries</td>
+          </tr>
+          <tr>
+            <td><strong>Google Cloud</strong></td>
+            <td>Google Drive API, OAuth</td>
+            <td>File access requests, authentication</td>
+          </tr>
+          <tr>
+            <td><strong>Supabase</strong></td>
+            <td>User authentication, database</td>
+            <td>Email, user ID, encrypted tokens</td>
+          </tr>
+          <tr>
+            <td><strong>Sentry</strong></td>
+            <td>Error monitoring</td>
+            <td>Error context (personal data filtered)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>All third-party providers are bound by data processing agreements and comply with applicable data protection laws.</p>
+
+      <h2>5. Data Retention</h2>
+
+      <ul>
+        <li><strong>Document data</strong> - Retained while your account is active. Deleted upon account deletion request.</li>
+        <li><strong>Account information</strong> - Retained while your account is active.</li>
+        <li><strong>Google Drive tokens</strong> - Retained while the connection is active. Deleted when you disconnect or delete your account.</li>
+        <li><strong>Error logs</strong> - Retained for 90 days, then automatically deleted.</li>
+      </ul>
+
+      <h2>6. Your Rights (UK GDPR)</h2>
+
+      <p>Under UK data protection law, you have the following rights:</p>
+
+      <h3>6.1 Right of Access</h3>
+      <p>You can view a summary of your stored data at any time in the app, or request a full copy by contacting us.</p>
+
+      <h3>6.2 Right to Data Portability</h3>
+      <p>You can export all your data in a machine-readable format (JSON) from within the app.</p>
+
+      <h3>6.3 Right to Erasure</h3>
+      <p>You can delete all your data at any time from within the app. This permanently removes your documents, search history, and all associated data.</p>
+
+      <h3>6.4 Right to Rectification</h3>
+      <p>You can update your account information or re-sync documents to correct any inaccuracies.</p>
+
+      <h3>6.5 Right to Object</h3>
+      <p>You can object to processing based on legitimate interests by contacting us.</p>
+
+      <h3>6.6 Right to Complain</h3>
+      <p>You have the right to lodge a complaint with the Information Commissioner's Office (ICO) if you believe your data protection rights have been violated. Visit <a href="https://ico.org.uk" target="_blank">ico.org.uk</a> for more information.</p>
+
+      <h2>7. Data Security</h2>
+
+      <p>We implement appropriate technical and organisational measures to protect your data:</p>
+      <ul>
+        <li>All data transmitted over HTTPS (TLS encryption)</li>
+        <li>Google OAuth tokens encrypted at rest using Fernet symmetric encryption</li>
+        <li>Tenant isolation ensuring users can only access their own data</li>
+        <li>Rate limiting to prevent abuse</li>
+        <li>Regular security reviews and updates</li>
+      </ul>
+
+      <h2>8. International Transfers</h2>
+
+      <p>Your data may be processed by third-party services located outside the UK (including the US). These transfers are protected by:</p>
+      <ul>
+        <li>Standard Contractual Clauses (SCCs) approved by the UK ICO</li>
+        <li>The service providers' compliance with applicable data protection frameworks</li>
+      </ul>
+
+      <h2>9. Children's Privacy</h2>
+
+      <p>Oku is not intended for use by individuals under the age of 18. We do not knowingly collect personal data from children.</p>
+
+      <h2>10. Changes to This Policy</h2>
+
+      <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date.</p>
+
+      <h2>11. Contact Us</h2>
+
+      <p>If you have any questions about this Privacy Policy or wish to exercise your data protection rights, please contact us:</p>
+
+      <p>
+        Email: <a href="mailto:andrea@oku.systems">andrea@oku.systems</a><br>
+        Address: 53A Blackstock Road, London N4 2JW, United Kingdom
+      </p>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+      </p>
+      <p style="margin-top: 16px;">&copy; 2025 Oku. All rights reserved.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
