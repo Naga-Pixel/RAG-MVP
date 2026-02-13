@@ -1278,7 +1278,7 @@ def answer_question_stream(
     context = build_context_from_sources(sources, points)
 
     # Determine answer mode and get system prompt
-    answer_mode, mode_reason = determine_answer_mode(sources, doc_ids)
+    answer_mode, mode_reason = _determine_answer_mode(sources, doc_ids)
     system_prompt = CONTRACT_MODE_PROMPT if answer_mode == "contract" else TRANSCRIPT_MODE_PROMPT
 
     # Build messages
