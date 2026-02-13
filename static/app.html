@@ -2506,7 +2506,7 @@
               <span class="role-dot"></span>
               ${m.role === 'user' ? 'You' : 'Oku'}
             </div>
-            <div class="content">${escapeHtml(m.content)}</div>
+            <div class="content">${escapeHtml(m.content).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</div>
         `;
 
         // Add sources for assistant messages
@@ -2927,15 +2927,21 @@
         const decoder = new TextDecoder();
         let fullAnswer = '';
         let sources = [];
+        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
+          buffer += decoder.decode(value, { stream: true });
 
-          for (const line of lines) {
+          // SSE events are separated by double newlines
+          const events = buffer.split('\n\n');
+          // Keep the last potentially incomplete event in buffer
+          buffer = events.pop() || '';
+
+          for (const event of events) {
+            const line = event.trim();
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
@@ -2951,9 +2957,7 @@
                   throw new Error(data.message);
                 }
               } catch (e) {
-                if (e.message !== 'Unexpected end of JSON input') {
-                  console.error('SSE parse error:', e);
-                }
+                console.error('SSE parse error:', e, line);
               }
             }
           }
