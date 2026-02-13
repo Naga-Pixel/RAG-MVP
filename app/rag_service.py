@@ -1270,7 +1270,6 @@ def answer_question_stream(
             doc_id=payload.get("doc_id", f"doc_{i}"),
             title=payload.get("title"),
             snippet=payload.get("text", "")[:300] + "..." if len(payload.get("text", "")) > 300 else payload.get("text", ""),
-            score=p.score if hasattr(p, 'score') else None,
             chunk_id=str(i),
         ))
 
@@ -1329,7 +1328,6 @@ def answer_question_stream(
             "doc_id": s.doc_id,
             "title": s.title,
             "snippet": s.snippet,
-            "score": s.score,
             "chunk_id": s.chunk_id,
         }
         for s in (sources_cited if sources_cited else sources[:3])
