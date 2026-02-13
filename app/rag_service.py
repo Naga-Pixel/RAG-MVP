@@ -310,7 +310,7 @@ CONTRACT_MODE_PROMPT = (
     "   identifier as provided in the context (do not invent identifiers).\n\n"
     "4. If the answer is NOT explicitly found in the provided documents, respond with\n"
     "   exactly:\n"
-    '   "Not found in the documents."\n\n'
+    '   "I couldn't find a clear reference to that in your files. Try narrowing the question or specifying a document."\n\n'
     "5. Do NOT infer, extrapolate, guess, or fill in missing details.\n"
     "   If something is implied but not stated, treat it as NOT found.\n\n"
     "6. If the question is ambiguous or underspecified, ask a clarifying question\n"
@@ -328,7 +328,7 @@ CONTRACT_MODE_PROMPT = (
     "   - Suggest the user use a spreadsheet for counting or calculations.\n\n"
     "Notes:\n"
     "- Only factual claims require citations.\n"
-    '- Clarifying questions and the response "Not found in the documents." do NOT\n'
+    '- Clarifying questions and the response "I couldn't find a clear reference to that in your files. Try narrowing the question or specifying a document." do NOT\n'
     "  require citations.\n"
     "- Keep answers concise and focused on the user's question."
 )
@@ -650,8 +650,9 @@ def is_not_found_response(answer: str) -> bool:
     not_found_patterns = [
         r"not found in the documents",
         r"not found in the transcripts",
-        r"couldn't find.*in the (documents|transcripts)",
-        r"could not find.*in the (documents|transcripts)",
+        r"couldn't find.*in the (documents|transcripts|files)",
+        r"couldn't find a clear reference",
+        r"could not find.*in the (documents|transcripts|files)",
         r"no (relevant )?information (was )?found",
         r"unable to find",
         r"don't have (any )?(information|data) (about|on|regarding)",
