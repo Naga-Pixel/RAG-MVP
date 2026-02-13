@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Oku - Close the Loop</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <meta name="description" content="Get answers instantly from your local and Google Drive documents with the source attached.">
 
   <!-- Fonts -->
@@ -325,7 +326,7 @@
     .chat-messages {
       max-width: 800px;
       margin: 0 auto;
-      padding: 58px 32px;
+      padding: 60px 32px;
       height: 450px;
       overflow: hidden;
     }
@@ -779,7 +780,8 @@
        ======================================== */
     .footer {
       padding: 48px 0;
-      border-top: 1px solid var(--divider);
+      background: var(--ink);
+      color: white;
     }
 
     .footer-inner {
@@ -790,7 +792,7 @@
 
     .footer-copy {
       font-size: 14px;
-      color: var(--muted);
+      color: rgba(255,255,255,0.6);
     }
 
     .footer-links {
@@ -800,12 +802,12 @@
 
     .footer-links a {
       font-size: 14px;
-      color: var(--muted);
+      color: rgba(255,255,255,0.6);
       transition: color 0.2s;
     }
 
     .footer-links a:hover {
-      color: var(--ink);
+      color: white;
     }
 
     @media (max-width: 768px) {
@@ -828,7 +830,7 @@
         <a href="#features">How it works</a>
         <a href="#why">Why Oku</a>
         <a href="/pricing">Pricing</a>
-        <a href="/app" class="nav-btn">Try now</a>
+        <a href="/app" class="nav-btn">Try it now</a>
       </nav>
     </div>
   </header>
@@ -847,7 +849,7 @@
             Get answers instantly from your local and Google Drive documents with the source attached. Oku scans your files, understands the context, and highlights exactly where the information appears.
           </p>
           <div class="hero-ctas">
-            <a href="/signup" class="hero-cta primary">Try it now</a>
+            <a href="/app" class="hero-cta primary">Try it now</a>
             <a href="#features" class="hero-cta secondary">See how it works</a>
           </div>
         </div>
