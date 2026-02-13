@@ -845,6 +845,126 @@ async def transcribe_audio_endpoint(
         raise HTTPException(status_code=500, detail="Transcription failed")
 
 
+# ============== GDPR Compliance Endpoints ==============
+
+class UserDataSummary(BaseModel):
+    user_id: str
+    generated_at: str
+    documents_count: int
+    chunks_count: int
+    folders_count: int
+    synced_files_count: int
+    google_drive_connected: bool
+    storage_estimate_bytes: int
+
+
+class UserDataDeletionResponse(BaseModel):
+    user_id: str
+    deleted_at: str
+    qdrant_points: int
+    fts_chunks: int
+    drive_tokens: int
+    drive_folders: int
+    drive_synced_files: int
+    errors: list[str]
+
+
+@app.get("/users/me/data", response_model=UserDataSummary)
+async def get_my_data_summary(user: dict = Depends(verify_supabase_token)):
+    """
+    Get a summary of personal data held for the authenticated user.
+
+    GDPR Article 15 (Right of Access) - Provides overview of stored data.
+
+    Returns summary including document counts, storage estimates,
+    and connection status.
+    """
+    from app.gdpr import get_user_data_summary
+
+    user_id = user["user_id"]
+    return get_user_data_summary(user_id)
+
+
+@app.get("/users/me/export")
+async def export_my_data(user: dict = Depends(verify_supabase_token)):
+    """
+    Export all personal data for the authenticated user.
+
+    GDPR Article 20 (Right to Data Portability) - Returns all user data
+    in a structured, machine-readable format (JSON).
+
+    Includes:
+    - All documents and their text content
+    - Google Drive folder connections
+    - Sync history metadata
+
+    Note: This may take a while for users with many documents.
+    """
+    from fastapi.responses import JSONResponse
+    from app.gdpr import export_user_data
+
+    user_id = user["user_id"]
+    export = export_user_data(user_id)
+
+    # Return as downloadable JSON file
+    return JSONResponse(
+        content=export,
+        headers={
+            "Content-Disposition": f'attachment; filename="oku-data-export-{user_id[:8]}.json"'
+        }
+    )
+
+
+@app.delete("/users/me", response_model=UserDataDeletionResponse)
+async def delete_my_account(
+    confirm: str,
+    user: dict = Depends(verify_supabase_token),
+):
+    """
+    Delete all personal data for the authenticated user.
+
+    GDPR Article 17 (Right to Erasure / Right to be Forgotten).
+
+    **WARNING**: This action is irreversible. All documents, vectors,
+    and connection data will be permanently deleted.
+
+    Requires confirmation parameter: confirm="DELETE_MY_DATA"
+
+    Deletes from:
+    - Qdrant (document vectors and chunks)
+    - Postgres (FTS index, Drive connections, sync history)
+
+    Note: This does NOT delete your Supabase auth account.
+    Contact support to fully close your account.
+    """
+    from app.gdpr import delete_all_user_data
+
+    # Require explicit confirmation
+    if confirm != "DELETE_MY_DATA":
+        raise HTTPException(
+            status_code=400,
+            detail='Deletion requires confirmation. Set confirm="DELETE_MY_DATA"',
+        )
+
+    user_id = user["user_id"]
+    logger.warning(f"gdpr_deletion_requested | user={user_id}")
+
+    try:
+        result = delete_all_user_data(user_id)
+
+        if result["errors"]:
+            logger.error(f"gdpr_deletion_partial | user={user_id} | errors={result['errors']}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"gdpr_deletion_failed | user={user_id} | err={type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Data deletion failed. Please contact support.",
+        )
+
+
 @app.get("/health")
 def health_check():
     """Health check endpoint. Returns minimal status information."""
