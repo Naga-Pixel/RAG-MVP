@@ -1271,7 +1271,7 @@ def answer_question_stream(
             title=payload.get("title"),
             snippet=payload.get("text", "")[:300] + "..." if len(payload.get("text", "")) > 300 else payload.get("text", ""),
             score=p.score if hasattr(p, 'score') else None,
-            chunk_id=i,
+            chunk_id=str(i),
         ))
 
     # Build context
