@@ -3625,47 +3625,58 @@
 
     /**
      * Highlight matching phrases from the answer in a source snippet.
-     * Extracts key phrases from answer and highlights them in the snippet.
+     * Extracts key terms and phrases, then highlights them in the snippet.
      */
     function highlightSourceSnippet(snippet, answer) {
       if (!snippet || !answer) return escapeHtml(snippet || '');
 
-      // Extract potential phrases from answer (4+ word sequences)
-      const words = answer.replace(/\[.*?\]/g, '').split(/\s+/);
-      const phrases = [];
+      // Escape HTML first
+      let highlighted = escapeHtml(snippet);
+      const snippetLower = snippet.toLowerCase();
+      const keyTerms = [];
 
-      // Get 4-8 word phrases from the answer
-      for (let len = 8; len >= 4; len--) {
+      // 1. Extract key terms: currency amounts, percentages, dates
+      const amounts = answer.match(/[£$€]\s*[\d,]+(?:\.\d+)?/g) || [];
+      keyTerms.push(...amounts.map(a => a.replace(/\s/g, '')));
+
+      const percentages = answer.match(/\d+(?:\.\d+)?%/g) || [];
+      keyTerms.push(...percentages);
+
+      // 2. Extract 3-5 word phrases
+      const cleanAnswer = answer.replace(/\[.*?\]/g, '');
+      const words = cleanAnswer.split(/\s+/).filter(w => w.length > 2);
+
+      for (let len = 5; len >= 3; len--) {
         for (let i = 0; i <= words.length - len; i++) {
           const phrase = words.slice(i, i + len).join(' ')
-            .replace(/[.,;:!?"'()]/g, '')
-            .trim();
-          if (phrase.length > 15) {
-            phrases.push(phrase);
+            .replace(/^[.,;:!?"'()\s]+|[.,;:!?"'()\s]+$/g, '');
+          if (phrase.length >= 8) {
+            keyTerms.push(phrase);
           }
         }
       }
 
-      // Escape HTML first
-      let highlighted = escapeHtml(snippet);
+      // Sort by length (longer = more specific = better)
+      keyTerms.sort((a, b) => b.length - a.length);
 
-      // Track what we've highlighted to avoid overlaps
-      const highlightedRanges = [];
+      // Try to highlight matches
+      for (const term of keyTerms) {
+        if (term.length < 3) continue;
 
-      // Try to find and highlight each phrase
-      for (const phrase of phrases) {
-        if (phrase.length < 15) continue;
+        const termLower = term.toLowerCase().replace(/\s/g, '');
+        const snippetNoSpace = snippetLower.replace(/\s/g, '');
 
-        // Case-insensitive search
-        const regex = new RegExp(
-          phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          'gi'
-        );
+        // Check if term exists in snippet
+        if (snippetNoSpace.includes(termLower) || snippetLower.includes(term.toLowerCase())) {
+          const regex = new RegExp(
+            term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            'gi'
+          );
 
-        const match = highlighted.match(regex);
-        if (match && !highlighted.includes('<mark>' + match[0])) {
-          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
-          break; // Only highlight one phrase to keep it clean
+          if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
+            highlighted = highlighted.replace(regex, '<mark>$&</mark>');
+            break; // One highlight per snippet
+          }
         }
       }
 
