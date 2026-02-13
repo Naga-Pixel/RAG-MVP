@@ -1257,7 +1257,8 @@ def answer_question_stream(
         return
 
     if not points:
-        yield f"data: {json.dumps({'type': 'token', 'content': 'I couldn\\'t find a clear reference to that in your files. Try narrowing the question or specifying a document.'})}\n\n"
+        no_results_msg = "I couldn't find a clear reference to that in your files. Try narrowing the question or specifying a document."
+        yield f"data: {json.dumps({'type': 'token', 'content': no_results_msg})}\n\n"
         yield f"data: {json.dumps({'type': 'done', 'sources': []})}\n\n"
         return
 
