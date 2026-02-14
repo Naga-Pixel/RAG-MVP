@@ -3694,69 +3694,72 @@
       // Escape HTML first
       let highlighted = escapeHtml(snippet);
       const snippetLower = snippet.toLowerCase();
+      let hasHighlights = false;
 
-      // Helper to try highlighting a term
+      // Helper to highlight a term (can highlight multiple terms)
       function tryHighlight(term) {
-        if (term.length < 3) return false;
+        if (term.length < 2) return false;
         const termLower = term.toLowerCase();
         if (!snippetLower.includes(termLower)) return false;
 
         const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(escapedTerm, 'gi');
+        const regex = new RegExp('(?<!<mark[^>]*>)(' + escapedTerm + ')(?!</mark>)', 'gi');
 
-        if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
-          regex.lastIndex = 0;
-          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
+        const newHighlighted = highlighted.replace(regex, '<mark>$1</mark>');
+        if (newHighlighted !== highlighted) {
+          highlighted = newHighlighted;
           return true;
         }
         return false;
       }
 
-      // PRIORITY 1: Bold terms (these are THE key answers)
+      // Highlight ALL bold terms (these are the key answers)
       const boldTerms = answer.match(/\*\*([^*]+)\*\*/g) || [];
       for (const term of boldTerms) {
         const clean = term.replace(/\*\*/g, '').trim();
-        if (tryHighlight(clean)) return highlighted;
+        if (tryHighlight(clean)) hasHighlights = true;
       }
 
-      // PRIORITY 2: Currency amounts
+      // Highlight ALL currency amounts
       const amounts = answer.match(/[£$€]\s*[\d,]+(?:\.\d+)?/g) || [];
       for (const amount of amounts) {
-        if (tryHighlight(amount.replace(/\s/g, ''))) return highlighted;
+        if (tryHighlight(amount.replace(/\s/g, ''))) hasHighlights = true;
       }
 
-      // PRIORITY 3: Percentages
+      // Highlight ALL percentages
       const percentages = answer.match(/\d+(?:\.\d+)?%/g) || [];
       for (const pct of percentages) {
-        if (tryHighlight(pct)) return highlighted;
+        if (tryHighlight(pct)) hasHighlights = true;
       }
 
-      // PRIORITY 4: Phrases from answer (fallback only)
-      const cleanAnswer = answer
-        .replace(/\[.*?\]/g, '')   // Remove citations
-        .replace(/\*\*/g, '')      // Remove bold markers
-        .replace(/[*_]/g, '');     // Remove other markdown
-      const words = cleanAnswer.split(/\s+/).filter(w => w.length > 2);
+      // Only use phrase fallback if nothing else matched
+      if (!hasHighlights) {
+        const cleanAnswer = answer
+          .replace(/\[.*?\]/g, '')   // Remove citations
+          .replace(/\*\*/g, '')      // Remove bold markers
+          .replace(/[*_]/g, '');     // Remove other markdown
+        const words = cleanAnswer.split(/\s+/).filter(w => w.length > 2);
 
-      // Extract phrases, longest first
-      const phrases = [];
-      for (let len = 5; len >= 3; len--) {
-        for (let i = 0; i <= words.length - len; i++) {
-          const phrase = words.slice(i, i + len).join(' ')
-            .replace(/^[.,;:!?"'()\s]+|[.,;:!?"'()\s]+$/g, '');
-          if (phrase.length >= 8) {
-            phrases.push(phrase);
+        // Extract phrases, longest first
+        const phrases = [];
+        for (let len = 5; len >= 3; len--) {
+          for (let i = 0; i <= words.length - len; i++) {
+            const phrase = words.slice(i, i + len).join(' ')
+              .replace(/^[.,;:!?"'()\s]+|[.,;:!?"'()\s]+$/g, '');
+            if (phrase.length >= 8) {
+              phrases.push(phrase);
+            }
           }
         }
-      }
 
-      // Dedupe and try phrases
-      const seen = new Set();
-      for (const phrase of phrases) {
-        const key = phrase.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (tryHighlight(phrase)) return highlighted;
+        // Dedupe and try phrases (highlight all matching)
+        const seen = new Set();
+        for (const phrase of phrases) {
+          const key = phrase.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          tryHighlight(phrase);
+        }
       }
 
       return highlighted;
