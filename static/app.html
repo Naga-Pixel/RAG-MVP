@@ -3694,69 +3694,69 @@
       // Escape HTML first
       let highlighted = escapeHtml(snippet);
       const snippetLower = snippet.toLowerCase();
-      const keyTerms = [];
 
-      // 1. Extract key terms: currency amounts, percentages
-      const amounts = answer.match(/[£$€]\s*[\d,]+(?:\.\d+)?/g) || [];
-      keyTerms.push(...amounts.map(a => a.replace(/\s/g, '')));
+      // Helper to try highlighting a term
+      function tryHighlight(term) {
+        if (term.length < 3) return false;
+        const termLower = term.toLowerCase();
+        if (!snippetLower.includes(termLower)) return false;
 
-      const percentages = answer.match(/\d+(?:\.\d+)?%/g) || [];
-      keyTerms.push(...percentages);
+        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedTerm, 'gi');
 
-      // 2. Extract bold terms from answer (these are the key results)
-      const boldTerms = answer.match(/\*\*([^*]+)\*\*/g) || [];
-      boldTerms.forEach(term => {
-        const clean = term.replace(/\*\*/g, '').trim();
-        if (clean.length >= 3) {
-          keyTerms.push(clean);
+        if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
+          regex.lastIndex = 0;
+          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
+          return true;
         }
-      });
+        return false;
+      }
 
-      // 3. Extract 2-5 word phrases from cleaned answer
+      // PRIORITY 1: Bold terms (these are THE key answers)
+      const boldTerms = answer.match(/\*\*([^*]+)\*\*/g) || [];
+      for (const term of boldTerms) {
+        const clean = term.replace(/\*\*/g, '').trim();
+        if (tryHighlight(clean)) return highlighted;
+      }
+
+      // PRIORITY 2: Currency amounts
+      const amounts = answer.match(/[£$€]\s*[\d,]+(?:\.\d+)?/g) || [];
+      for (const amount of amounts) {
+        if (tryHighlight(amount.replace(/\s/g, ''))) return highlighted;
+      }
+
+      // PRIORITY 3: Percentages
+      const percentages = answer.match(/\d+(?:\.\d+)?%/g) || [];
+      for (const pct of percentages) {
+        if (tryHighlight(pct)) return highlighted;
+      }
+
+      // PRIORITY 4: Phrases from answer (fallback only)
       const cleanAnswer = answer
         .replace(/\[.*?\]/g, '')   // Remove citations
         .replace(/\*\*/g, '')      // Remove bold markers
         .replace(/[*_]/g, '');     // Remove other markdown
       const words = cleanAnswer.split(/\s+/).filter(w => w.length > 2);
 
-      for (let len = 5; len >= 2; len--) {
+      // Extract phrases, longest first
+      const phrases = [];
+      for (let len = 5; len >= 3; len--) {
         for (let i = 0; i <= words.length - len; i++) {
           const phrase = words.slice(i, i + len).join(' ')
             .replace(/^[.,;:!?"'()\s]+|[.,;:!?"'()\s]+$/g, '');
-          if (phrase.length >= 6) {
-            keyTerms.push(phrase);
+          if (phrase.length >= 8) {
+            phrases.push(phrase);
           }
         }
       }
 
-      // Sort by length (longer = more specific = better), dedupe
+      // Dedupe and try phrases
       const seen = new Set();
-      const uniqueTerms = keyTerms.filter(t => {
-        const key = t.toLowerCase();
-        if (seen.has(key)) return false;
+      for (const phrase of phrases) {
+        const key = phrase.toLowerCase();
+        if (seen.has(key)) continue;
         seen.add(key);
-        return true;
-      });
-      uniqueTerms.sort((a, b) => b.length - a.length);
-
-      // Try to highlight the first matching term
-      for (const term of uniqueTerms) {
-        if (term.length < 3) continue;
-
-        // Check if term exists in snippet (case-insensitive)
-        const termLower = term.toLowerCase();
-        if (!snippetLower.includes(termLower)) continue;
-
-        // Create regex and try to highlight
-        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(escapedTerm, 'gi');
-
-        if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
-          // Reset lastIndex and replace
-          regex.lastIndex = 0;
-          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
-          break; // One highlight per snippet
-        }
+        if (tryHighlight(phrase)) return highlighted;
       }
 
       return highlighted;
