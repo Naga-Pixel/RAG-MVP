@@ -2500,6 +2500,12 @@
     }
 
     function renderMessages(messages) {
+      console.log('[renderMessages] called with', messages.length, 'messages');
+      messages.forEach(m => {
+        if (m.sources) {
+          console.log('[renderMessages] sources:', m.sources.map(s => ({ doc_id: s.doc_id, hasSnippet: !!s.snippet })));
+        }
+      });
       chatMessages.innerHTML = messages.map(m => {
         let html = `
           <div class="chat-message ${m.role}">
@@ -3691,53 +3697,82 @@
     function highlightSourceSnippet(snippet, answer) {
       if (!snippet || !answer) return escapeHtml(snippet || '');
 
+      console.log('[highlight] answer:', answer);
+      console.log('[highlight] snippet:', snippet.substring(0, 100));
+
       // Escape HTML first
       let highlighted = escapeHtml(snippet);
       const snippetLower = snippet.toLowerCase();
       const keyTerms = [];
 
-      // 1. Extract key terms: currency amounts, percentages, dates
+      // 1. Extract key terms: currency amounts, percentages
       const amounts = answer.match(/[£$€]\s*[\d,]+(?:\.\d+)?/g) || [];
       keyTerms.push(...amounts.map(a => a.replace(/\s/g, '')));
 
       const percentages = answer.match(/\d+(?:\.\d+)?%/g) || [];
       keyTerms.push(...percentages);
 
-      // 2. Extract 3-5 word phrases
-      const cleanAnswer = answer.replace(/\[.*?\]/g, '');
+      // 2. Extract bold terms from answer (these are the key results)
+      const boldTerms = answer.match(/\*\*([^*]+)\*\*/g) || [];
+      boldTerms.forEach(term => {
+        const clean = term.replace(/\*\*/g, '').trim();
+        if (clean.length >= 3) {
+          keyTerms.push(clean);
+        }
+      });
+
+      // 3. Extract 2-5 word phrases from cleaned answer
+      const cleanAnswer = answer
+        .replace(/\[.*?\]/g, '')   // Remove citations
+        .replace(/\*\*/g, '')      // Remove bold markers
+        .replace(/[*_]/g, '');     // Remove other markdown
       const words = cleanAnswer.split(/\s+/).filter(w => w.length > 2);
 
-      for (let len = 5; len >= 3; len--) {
+      for (let len = 5; len >= 2; len--) {
         for (let i = 0; i <= words.length - len; i++) {
           const phrase = words.slice(i, i + len).join(' ')
             .replace(/^[.,;:!?"'()\s]+|[.,;:!?"'()\s]+$/g, '');
-          if (phrase.length >= 8) {
+          if (phrase.length >= 6) {
             keyTerms.push(phrase);
           }
         }
       }
 
-      // Sort by length (longer = more specific = better)
-      keyTerms.sort((a, b) => b.length - a.length);
+      // Sort by length (longer = more specific = better), dedupe
+      const seen = new Set();
+      const uniqueTerms = keyTerms.filter(t => {
+        const key = t.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      uniqueTerms.sort((a, b) => b.length - a.length);
 
-      // Try to highlight matches
-      for (const term of keyTerms) {
+      console.log('[highlight] uniqueTerms (first 10):', uniqueTerms.slice(0, 10));
+
+      // Try to highlight the first matching term
+      for (const term of uniqueTerms) {
         if (term.length < 3) continue;
 
-        const termLower = term.toLowerCase().replace(/\s/g, '');
-        const snippetNoSpace = snippetLower.replace(/\s/g, '');
+        // Check if term exists in snippet (case-insensitive)
+        const termLower = term.toLowerCase();
+        const found = snippetLower.includes(termLower);
+        console.log('[highlight] checking term:', term, 'found in snippet:', found);
+        if (!found) continue;
 
-        // Check if term exists in snippet
-        if (snippetNoSpace.includes(termLower) || snippetLower.includes(term.toLowerCase())) {
-          const regex = new RegExp(
-            term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'gi'
-          );
+        // Create regex and try to highlight
+        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedTerm, 'gi');
 
-          if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
-            highlighted = highlighted.replace(regex, '<mark>$&</mark>');
-            break; // One highlight per snippet
-          }
+        const testResult = regex.test(highlighted);
+        console.log('[highlight] regex test on highlighted:', testResult);
+
+        if (testResult && !highlighted.includes('<mark>')) {
+          // Reset lastIndex and replace
+          regex.lastIndex = 0;
+          highlighted = highlighted.replace(regex, '<mark>$&</mark>');
+          console.log('[highlight] SUCCESS - highlighted term:', term);
+          break; // One highlight per snippet
         }
       }
 
