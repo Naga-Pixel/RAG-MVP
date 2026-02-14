@@ -390,6 +390,7 @@
     }
 
     .chat-window {
+      position: relative;
       width: 100%;
       background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(20px);
@@ -514,6 +515,58 @@
     @keyframes blink {
       0%, 50% { opacity: 1; }
       51%, 100% { opacity: 0; }
+    }
+
+    /* Loader - top right of chat window */
+    .chat-loader {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 90px;
+      height: 90px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .chat-loader.visible {
+      opacity: 1;
+    }
+    .chat-loader .item1,
+    .chat-loader .item2,
+    .chat-loader .item3 {
+      position: absolute;
+      background-color: transparent;
+      left: calc(50% - (var(--size) / 2));
+      top: calc(50% - (var(--size) / 2));
+      height: var(--size);
+      width: var(--size);
+      border-radius: 50%;
+    }
+    .chat-loader .item1 {
+      --size: 90px;
+      animation: loaderSize1 2.5s infinite alternate;
+      z-index: 1;
+    }
+    .chat-loader .item2 {
+      --size: 60px;
+      animation: loaderSize2 2.5s infinite alternate;
+      z-index: 2;
+    }
+    .chat-loader .item3 {
+      --size: 30px;
+      animation: loaderSize3 2.5s infinite alternate;
+      z-index: 3;
+    }
+    @keyframes loaderSize1 {
+      0%, 10% { transform: scale(0); }
+      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
+    }
+    @keyframes loaderSize2 {
+      0%, 40% { transform: scale(0); }
+      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
+    }
+    @keyframes loaderSize3 {
+      0%, 70% { transform: scale(0); }
+      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
     }
 
     @media (max-width: 900px) {
@@ -981,6 +1034,12 @@
       <!-- Animated Chat Demo -->
       <div class="chat-demo animate delay-3">
         <div class="chat-window">
+          <!-- Loader -->
+          <div class="chat-loader" id="chat-loader">
+            <div class="item1"></div>
+            <div class="item2"></div>
+            <div class="item3"></div>
+          </div>
           <div class="chat-messages">
             <!-- User Question -->
             <div class="chat-message user">
@@ -1204,6 +1263,7 @@
       const sourcesSection = document.getElementById('sources-section');
       const sourceTitle = document.querySelector('.source-title');
       const sourceSnippet = document.querySelector('.source-snippet');
+      const chatLoader = document.getElementById('chat-loader');
 
       if (!userMessage) return;
 
@@ -1246,6 +1306,9 @@
         if (sourceTitle) sourceTitle.textContent = conv.sourceTitle;
         if (sourceSnippet) sourceSnippet.textContent = conv.sourceSnippet;
 
+        // Show loader while "thinking"
+        if (chatLoader) chatLoader.classList.add('visible');
+
         // Then start typing the answer
         setTimeout(() => {
           assistantResponse.style.display = 'block';
@@ -1260,6 +1323,8 @@
           answerIndex++;
           setTimeout(typeAnswer, 8 + Math.random() * 8);
         } else {
+          // Hide loader when done typing
+          if (chatLoader) chatLoader.classList.remove('visible');
           assistantMessage.innerHTML = conv.answer;
           setTimeout(() => {
             sourcesSection.style.display = 'block';
