@@ -586,6 +586,7 @@ def retrieve(
 
     # Add doc_ids filter if specified (hard document scoping)
     if doc_ids:
+        logger.info(f"[vector_search] Filtering by doc_ids: {doc_ids}")
         must_conditions.append(
             FieldCondition(
                 key="doc_id",
@@ -610,6 +611,29 @@ def retrieve(
             status_code=503,
             detail="Search service temporarily unavailable. Please try again in a moment.",
         ) from e
+
+    if doc_ids:
+        logger.info(f"[vector_search] Got {len(resp.points)} results for doc_ids filter")
+        if resp.points:
+            actual_doc_ids = set(p.payload.get("doc_id") for p in resp.points if p.payload)
+            logger.info(f"[vector_search] Actual doc_ids in results: {actual_doc_ids}")
+        elif len(resp.points) == 0:
+            # Debug: query without doc_id filter to see what exists
+            try:
+                base_filter = Filter(must=[
+                    FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id)),
+                ])
+                debug_resp = qdrant_client.query_points(
+                    collection_name=settings.qdrant_collection,
+                    query=embedding,
+                    limit=5,
+                    query_filter=base_filter,
+                )
+                if debug_resp.points:
+                    available_doc_ids = set(p.payload.get("doc_id") for p in debug_resp.points if p.payload)
+                    logger.warning(f"[vector_search] No results for doc_ids={doc_ids}, but found docs: {available_doc_ids}")
+            except Exception:
+                pass
 
     return resp.points
 

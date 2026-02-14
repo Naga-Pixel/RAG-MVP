@@ -2881,7 +2881,10 @@
         // Build request body
         const body = { query };
         if (folderId) body.folder_id = folderId;
-        if (docId) body.doc_ids = [docId];
+        if (docId) {
+          body.doc_ids = [docId];
+          console.log('[handleSubmit] Filtering by doc_id:', docId);
+        }
 
         // Include conversation history for multi-turn context
         const conv = ConversationStore.get(currentConversationId);
