@@ -16,6 +16,7 @@ from app.reranker import rerank_and_filter, RankedChunk, RerankerStats
 from app.keyword_retrieval import keyword_retrieve
 from app.hybrid import rrf_fuse, FusedChunk
 from app.scope_resolver import resolve_scope_from_query, ResolvedScope
+from app.context_formatter import format_context_block
 
 logger = get_logger(__name__)
 
@@ -761,7 +762,8 @@ def build_context(points):
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
-        context_blocks.append(f"[{doc_id}] {text}")
+        # Format context block based on content type (legal, spreadsheet, general)
+        context_blocks.append(format_context_block(text, doc_id, payload))
         sources.append(
             Source(
                 doc_id=doc_id,
@@ -797,7 +799,8 @@ def build_context_from_ranked(ranked_chunks: list[RankedChunk]):
 
         snippet = text[:250] + "..." if len(text) > 250 else text
 
-        context_blocks.append(f"[{doc_id}] {text}")
+        # Format context block based on content type (legal, spreadsheet, general)
+        context_blocks.append(format_context_block(text, doc_id, chunk.payload))
         sources.append(
             Source(
                 doc_id=doc_id,
@@ -1405,5 +1408,6 @@ def build_context_from_sources(sources: list[Source], points: list) -> str:
         payload = p.payload or {}
         doc_id = payload.get("doc_id", f"doc_{i}")
         text = payload.get("text", "")
-        context_parts.append(f"[{doc_id}]\n{text}")
+        # Format context block based on content type (legal, spreadsheet, general)
+        context_parts.append(format_context_block(text, doc_id, payload))
     return "\n\n---\n\n".join(context_parts)
