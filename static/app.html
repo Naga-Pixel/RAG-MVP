@@ -124,6 +124,17 @@
       line-height: 1;
     }
 
+    .brand-beta {
+      font-family: 'Inter', sans-serif;
+      font-weight: 900;
+      font-size: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
     .brand-dot {
       width: 9px;
       height: 9px;
@@ -150,6 +161,26 @@
       text-underline-offset: 2px;
     }
     .linkbtn:hover { color: #000; }
+
+    .btn-new-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 300;
+      line-height: 1;
+      padding: 0;
+    }
+    .btn-new-circle:hover {
+      background: #333;
+    }
 
     /* ========================================
        LEFT COLUMN: CONVERSATIONS
@@ -1235,8 +1266,7 @@
       align-items: center;
       gap: 6px;
       background: none;
-      border: 1px solid var(--divider);
-      border-radius: 999px;
+      border: none;
       padding: 6px 12px;
       font-size: 12px;
       font-weight: 500;
@@ -1748,6 +1778,7 @@
         <div class="brand">
           <span class="brand-dot"></span>
           Oku
+          <span class="brand-beta">beta</span>
         </div>
       </div>
 
@@ -1770,7 +1801,7 @@
             Past conversations
             <span class="badge" id="conv-count">0</span>
           </div>
-          <button class="linkbtn" id="btn-new-conversation">New</button>
+          <button class="btn-new-circle" id="btn-new-conversation" title="New conversation">+</button>
         </div>
 
         <div class="conv-list" id="conv-list">
