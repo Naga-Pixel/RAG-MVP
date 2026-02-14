@@ -530,8 +530,8 @@
       top: 50%;
       left: 120px;
       transform: translateY(-50%);
-      width: 90px;
-      height: 90px;
+      width: 120px;
+      height: 120px;
       opacity: 0;
       transition: opacity 0.3s ease;
     }
@@ -542,39 +542,54 @@
     .chat-loader .item2,
     .chat-loader .item3 {
       position: absolute;
-      background-color: transparent;
       left: calc(50% - (var(--size) / 2));
       top: calc(50% - (var(--size) / 2));
       height: var(--size);
       width: var(--size);
       border-radius: 50%;
+      background: linear-gradient(145deg, #e6e6e6, #ffffff);
     }
     .chat-loader .item1 {
-      --size: 90px;
+      --size: 100px;
+      box-shadow:
+        10px 10px 20px #d1d1d1,
+        -10px -10px 20px #ffffff,
+        inset 2px 2px 5px rgba(255,255,255,0.7),
+        inset -2px -2px 5px rgba(0,0,0,0.05);
       animation: loaderSize1 2.5s infinite alternate;
       z-index: 1;
     }
     .chat-loader .item2 {
-      --size: 60px;
+      --size: 66px;
+      box-shadow:
+        6px 6px 12px #d1d1d1,
+        -6px -6px 12px #ffffff,
+        inset 2px 2px 4px rgba(255,255,255,0.7),
+        inset -2px -2px 4px rgba(0,0,0,0.05);
       animation: loaderSize2 2.5s infinite alternate;
       z-index: 2;
     }
     .chat-loader .item3 {
-      --size: 30px;
+      --size: 36px;
+      box-shadow:
+        4px 4px 8px #d1d1d1,
+        -4px -4px 8px #ffffff,
+        inset 1px 1px 3px rgba(255,255,255,0.7),
+        inset -1px -1px 3px rgba(0,0,0,0.05);
       animation: loaderSize3 2.5s infinite alternate;
       z-index: 3;
     }
     @keyframes loaderSize1 {
-      0%, 10% { transform: scale(0); }
-      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
+      0%, 10% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
     @keyframes loaderSize2 {
-      0%, 40% { transform: scale(0); }
-      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
+      0%, 40% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
     @keyframes loaderSize3 {
-      0%, 70% { transform: scale(0); }
-      100% { transform: scale(1); box-shadow: 8px 8px 14px #c5c5c5, -8px -8px 14px #ffffff; }
+      0%, 70% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     @media (max-width: 900px) {
