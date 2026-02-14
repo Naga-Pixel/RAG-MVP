@@ -2500,12 +2500,6 @@
     }
 
     function renderMessages(messages) {
-      console.log('[renderMessages] called with', messages.length, 'messages');
-      messages.forEach(m => {
-        if (m.sources) {
-          console.log('[renderMessages] sources:', m.sources.map(s => ({ doc_id: s.doc_id, hasSnippet: !!s.snippet })));
-        }
-      });
       chatMessages.innerHTML = messages.map(m => {
         let html = `
           <div class="chat-message ${m.role}">
@@ -3697,9 +3691,6 @@
     function highlightSourceSnippet(snippet, answer) {
       if (!snippet || !answer) return escapeHtml(snippet || '');
 
-      console.log('[highlight] answer:', answer);
-      console.log('[highlight] snippet:', snippet.substring(0, 100));
-
       // Escape HTML first
       let highlighted = escapeHtml(snippet);
       const snippetLower = snippet.toLowerCase();
@@ -3748,30 +3739,22 @@
       });
       uniqueTerms.sort((a, b) => b.length - a.length);
 
-      console.log('[highlight] uniqueTerms (first 10):', uniqueTerms.slice(0, 10));
-
       // Try to highlight the first matching term
       for (const term of uniqueTerms) {
         if (term.length < 3) continue;
 
         // Check if term exists in snippet (case-insensitive)
         const termLower = term.toLowerCase();
-        const found = snippetLower.includes(termLower);
-        console.log('[highlight] checking term:', term, 'found in snippet:', found);
-        if (!found) continue;
+        if (!snippetLower.includes(termLower)) continue;
 
         // Create regex and try to highlight
         const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(escapedTerm, 'gi');
 
-        const testResult = regex.test(highlighted);
-        console.log('[highlight] regex test on highlighted:', testResult);
-
-        if (testResult && !highlighted.includes('<mark>')) {
+        if (regex.test(highlighted) && !highlighted.includes('<mark>')) {
           // Reset lastIndex and replace
           regex.lastIndex = 0;
           highlighted = highlighted.replace(regex, '<mark>$&</mark>');
-          console.log('[highlight] SUCCESS - highlighted term:', term);
           break; // One highlight per snippet
         }
       }

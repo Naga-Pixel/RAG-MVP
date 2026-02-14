@@ -101,6 +101,46 @@ VAGUE_QUERY_PATTERNS = [
 # Compile patterns for efficiency
 _VAGUE_PATTERNS_COMPILED = [re.compile(p, re.IGNORECASE) for p in VAGUE_QUERY_PATTERNS]
 
+# Patterns that suggest the user is correcting the previous answer
+CORRECTION_PATTERNS = [
+    r"\bis\s+(the|a)\s+\w+,?\s*not\s+(the|a)?\s*\w+",  # "is the landlord, not the tenant"
+    r"\bthat'?s\s+(wrong|incorrect|not\s+right)",  # "that's wrong"
+    r"\byou('re|\s+are)\s+(wrong|incorrect|mistaken)",  # "you're wrong"
+    r"\bactually,?\s+(it'?s|that'?s|the)",  # "actually, it's..."
+    r"\bno,?\s+(it'?s|that'?s|the|he|she)",  # "no, it's..."
+    r"\bnot\s+\w+,?\s*(but|it'?s|that'?s)",  # "not X, but Y"
+    r"\bi\s+(meant|said|asked)",  # "I meant..."
+    r"\bthat\s+should\s+be",  # "that should be..."
+]
+
+_CORRECTION_PATTERNS_COMPILED = [re.compile(p, re.IGNORECASE) for p in CORRECTION_PATTERNS]
+
+
+def is_correction(query: str, conversation_history: list[dict] | None) -> bool:
+    """
+    Detect if a query is a correction to the previous answer.
+
+    Returns True if:
+    - There's conversation history AND
+    - Query matches correction patterns (e.g., "X is the Y, not the Z")
+    """
+    if not conversation_history:
+        return False
+
+    for pattern in _CORRECTION_PATTERNS_COMPILED:
+        if pattern.search(query):
+            return True
+
+    return False
+
+
+def get_correction_response() -> str:
+    """Return a graceful acknowledgment for user corrections."""
+    return (
+        "Thank you for the correction. I apologize for the error in my previous response. "
+        "Please feel free to ask another question, and I'll do my best to provide accurate information."
+    )
+
 
 def needs_query_rewrite(query: str, conversation_history: list[dict] | None) -> bool:
     """
@@ -806,6 +846,15 @@ def answer_question(
     if query != original_query:
         logger.debug(f"[{query_id}] query_normalized | original=\"{original_query}\" | normalized=\"{query}\"")
 
+    # Check if user is correcting the previous answer
+    if is_correction(query, conversation_history):
+        return AskResponse(
+            answer=get_correction_response(),
+            sources=[],
+            used_sources=[],
+            suggestions=None,
+        )
+
     # Rewrite vague follow-up queries using conversation history
     # This expands queries like "tell me more" into standalone questions
     retrieval_query = query  # Query used for retrieval (may be rewritten)
@@ -1238,10 +1287,18 @@ def answer_question_stream(
     query_id = str(uuid.uuid4())[:8]
     effective_tenant_id = tenant_id or settings.default_tenant_id
 
-    # Normalize and optionally rewrite query
+    # Normalize query
     original_query = query
     query = normalize_query(query)
 
+    # Check if user is correcting the previous answer
+    if is_correction(query, conversation_history):
+        correction_msg = get_correction_response()
+        yield f"data: {json.dumps({'type': 'token', 'content': correction_msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'sources': []})}\n\n"
+        return
+
+    # Optionally rewrite query for context
     retrieval_query = query
     if needs_query_rewrite(query, conversation_history):
         retrieval_query = rewrite_query_with_history(query, conversation_history, query_id)
