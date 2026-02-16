@@ -643,6 +643,7 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
         conn.close()
 
     if not row:
+        logger.warning(f"[picker-token] No refresh token found for user_id={user_id}")
         raise HTTPException(
             status_code=400,
             detail="Google Drive not connected. Please connect first."
@@ -650,6 +651,7 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
 
     # Decrypt refresh token
     refresh_token = _decrypt_token(row["refresh_token_enc"])
+    logger.info(f"[picker-token] Found refresh token for user_id={user_id}, exchanging for access token")
 
     # Exchange refresh token for access token
     try:
@@ -665,8 +667,11 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
             )
 
             if response.status_code != 200:
-                error_msg = response.json().get("error_description", "Token refresh failed")
-                raise HTTPException(status_code=400, detail=error_msg)
+                error_data = response.json()
+                error_code = error_data.get("error", "unknown")
+                error_msg = error_data.get("error_description", "Token refresh failed")
+                logger.error(f"[picker-token] Google token refresh failed for user_id={user_id}: {error_code} - {error_msg}")
+                raise HTTPException(status_code=400, detail=f"{error_code}: {error_msg}")
 
             tokens = response.json()
 
