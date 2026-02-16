@@ -13,6 +13,7 @@ from typing import Any
 
 import httpx
 import psycopg2
+import sentry_sdk
 from psycopg2.extras import RealDictCursor
 from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from fastapi.responses import HTMLResponse
@@ -644,6 +645,11 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
 
     if not row:
         logger.warning(f"[picker-token] No refresh token found for user_id={user_id}")
+        sentry_sdk.capture_message(
+            "Google picker-token: no refresh token found",
+            level="warning",
+            extras={"user_id": user_id}
+        )
         raise HTTPException(
             status_code=400,
             detail="Google Drive not connected. Please connect first."
@@ -671,6 +677,11 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
                 error_code = error_data.get("error", "unknown")
                 error_msg = error_data.get("error_description", "Token refresh failed")
                 logger.error(f"[picker-token] Google token refresh failed for user_id={user_id}: {error_code} - {error_msg}")
+                sentry_sdk.capture_message(
+                    f"Google picker-token refresh failed: {error_code}",
+                    level="error",
+                    extras={"user_id": user_id, "error_code": error_code, "error_description": error_msg}
+                )
                 raise HTTPException(status_code=400, detail=f"{error_code}: {error_msg}")
 
             tokens = response.json()
