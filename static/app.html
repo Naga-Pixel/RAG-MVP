@@ -3696,7 +3696,19 @@
         picker.setVisible(true);
 
       } catch (err) {
-        showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
+        // If token expired, reset Drive UI to disconnected state
+        if (err.message.includes('expired') || err.message.includes('reconnect')) {
+          driveConnectedState = false;
+          driveFolders = [];
+          driveNotConnected.classList.remove('hidden');
+          driveConnected.classList.add('hidden');
+          driveActionsConnect.classList.remove('hidden');
+          driveActionsConnected.classList.add('hidden');
+          driveBadge.textContent = 'Not connected';
+          showDriveStatus('Google Drive connection expired. Please reconnect.', 'error');
+        } else {
+          showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
+        }
         btnAddDriveFolder.disabled = false;
       }
     });

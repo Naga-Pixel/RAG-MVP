@@ -682,6 +682,28 @@ async def get_picker_token(user: dict = Depends(verify_supabase_token)):
                     level="error",
                     extras={"user_id": user_id, "error_code": error_code, "error_description": error_msg}
                 )
+
+                # Auto-clear invalid tokens so user can reconnect
+                if error_code == "invalid_grant":
+                    logger.info(f"[picker-token] Auto-clearing invalid token for user_id={user_id}")
+                    conn = _get_db()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute(
+                            "DELETE FROM google_drive_tokens WHERE user_id = %s",
+                            (user_id,)
+                        )
+                        conn.commit()
+                    except psycopg2.Error as e:
+                        logger.error(f"[picker-token] Failed to clear invalid token: {e}")
+                    finally:
+                        cursor.close()
+                        conn.close()
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Google Drive connection expired. Please reconnect."
+                    )
+
                 raise HTTPException(status_code=400, detail=f"{error_code}: {error_msg}")
 
             tokens = response.json()
@@ -1003,6 +1025,30 @@ async def sync_drive(request: Request, user: dict = Depends(verify_supabase_toke
             )
 
             if response.status_code != 200:
+                error_data = response.json()
+                error_code = error_data.get("error", "unknown")
+
+                # Auto-clear invalid tokens so user can reconnect
+                if error_code == "invalid_grant":
+                    logger.info(f"[sync] Auto-clearing invalid token for user_id={user_id}")
+                    conn = _get_db()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute(
+                            "DELETE FROM google_drive_tokens WHERE user_id = %s",
+                            (user_id,)
+                        )
+                        conn.commit()
+                    except psycopg2.Error as e:
+                        logger.error(f"[sync] Failed to clear invalid token: {e}")
+                    finally:
+                        cursor.close()
+                        conn.close()
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Google Drive connection expired. Please reconnect."
+                    )
+
                 raise HTTPException(status_code=400, detail="Failed to refresh token")
 
             access_token = response.json()["access_token"]
