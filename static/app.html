@@ -1978,19 +1978,21 @@
                 <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
               </svg>
               Local
-              <span class="badge" id="local-badge">0 folders</span>
+              <span class="badge" id="local-badge">0 files</span>
             </div>
             <div class="section-actions">
+              <button class="linkbtn" id="btn-select-files">Select files</button>
               <button class="linkbtn" id="btn-select-folder">Select folder</button>
             </div>
           </div>
 
-          <!-- Hidden file picker -->
+          <!-- Hidden file pickers -->
           <input type="file" id="folder-picker" webkitdirectory multiple style="display: none;">
+          <input type="file" id="file-picker" multiple accept=".pdf,.doc,.docx,.txt,.md,.rtf,.odt,.xls,.xlsx,.csv,.ppt,.pptx,.epub" style="display: none;">
 
           <!-- Local: Not selected state -->
           <div id="local-not-selected" class="folder-group">
-            <div class="empty-hint">Select a folder to sync documents</div>
+            <div class="empty-hint">Select files or a folder to sync</div>
           </div>
 
           <!-- Local: Selected state -->
@@ -2000,14 +2002,10 @@
                 <span class="folder-name" id="local-folder-name"></span>
                 <span class="folder-meta" id="local-file-count"></span>
               </div>
-              <button class="btn-icon-small" id="btn-clear-folder" title="Remove">
-                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </button>
             </div>
             <div class="section-buttons">
-              <button class="linkbtn" id="btn-select-different">Change folder</button>
+              <button class="linkbtn" id="btn-add-more-files">Add more</button>
+              <button class="linkbtn" id="btn-clear-selection">Clear</button>
               <button class="linkbtn" id="btn-sync-local">Sync</button>
             </div>
           </div>
@@ -2294,11 +2292,13 @@
     // Document search
     const docSearch = document.getElementById('doc-search');
 
-    // Local folder elements
+    // Local file/folder elements
     const folderPicker = document.getElementById('folder-picker');
+    const filePicker = document.getElementById('file-picker');
     const btnSelectFolder = document.getElementById('btn-select-folder');
-    const btnSelectDifferent = document.getElementById('btn-select-different');
-    const btnClearFolder = document.getElementById('btn-clear-folder');
+    const btnSelectFiles = document.getElementById('btn-select-files');
+    const btnAddMoreFiles = document.getElementById('btn-add-more-files');
+    const btnClearSelection = document.getElementById('btn-clear-selection');
     const btnSyncLocal = document.getElementById('btn-sync-local');
     const localNotSelected = document.getElementById('local-not-selected');
     const localSelected = document.getElementById('local-selected');
@@ -3198,51 +3198,31 @@
     });
 
     // =================================================================
-    // Local Folder Management
+    // Local File/Folder Management
     // =================================================================
     function updateLocalUI() {
-      if (selectedFiles.length > 0) {
+      const fileCount = selectedFiles.length;
+      if (fileCount > 0) {
         localNotSelected.classList.add('hidden');
         localSelected.classList.remove('hidden');
         localFolderName.textContent = selectedFolderName;
-        localFileCount.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`;
-        localBadge.textContent = '1 folder';
-        btnSelectFolder.textContent = 'Change folder';
+        localFileCount.textContent = `${fileCount} file${fileCount !== 1 ? 's' : ''}`;
+        localBadge.textContent = `${fileCount} file${fileCount !== 1 ? 's' : ''}`;
       } else {
         localNotSelected.classList.remove('hidden');
         localSelected.classList.add('hidden');
-        localBadge.textContent = '0 folders';
-        btnSelectFolder.textContent = 'Select folder';
+        localBadge.textContent = '0 files';
       }
     }
 
-    function clearFolderSelection() {
+    function clearSelection() {
       selectedFiles = [];
       selectedFolderName = '';
       folderPicker.value = '';
+      filePicker.value = '';
       updateLocalUI();
       localSyncStatus.classList.add('hidden');
     }
-
-    btnSelectFolder.addEventListener('click', () => folderPicker.click());
-    btnSelectDifferent.addEventListener('click', () => folderPicker.click());
-    btnClearFolder.addEventListener('click', clearFolderSelection);
-
-    folderPicker.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
-      if (files.length === 0) return;
-
-      // Send ALL files to backend - let server handle filtering and report skipped files
-      selectedFiles = files;
-
-      if (files.length > 0 && files[0].webkitRelativePath) {
-        selectedFolderName = files[0].webkitRelativePath.split('/')[0];
-      } else {
-        selectedFolderName = 'Selected folder';
-      }
-
-      updateLocalUI();
-    });
 
     function showLocalStatus(message, type = '') {
       localSyncStatus.innerHTML = `
@@ -3255,6 +3235,82 @@
         localSyncStatus.classList.add('hidden');
       };
     }
+
+    // Check if folder picking is supported
+    function canPickFolders() {
+      // Check for secure context (HTTPS or localhost)
+      if (!window.isSecureContext) {
+        return { supported: false, reason: 'Local folder sync requires HTTPS. Please access the app via https://' };
+      }
+      // Check for mobile (directory picking not supported)
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        return { supported: false, reason: 'Local folder sync is not supported on mobile devices. Please use Google Drive instead, or access from a desktop browser.' };
+      }
+      // Check for webkitdirectory support
+      if (!('webkitdirectory' in document.createElement('input'))) {
+        return { supported: false, reason: 'Your browser does not support folder selection. Please use Chrome, Edge, or a recent version of Firefox.' };
+      }
+      return { supported: true };
+    }
+
+    function handleFolderSelect() {
+      const check = canPickFolders();
+      if (!check.supported) {
+        showLocalStatus(check.reason, 'error');
+        return;
+      }
+      folderPicker.click();
+    }
+
+    function handleFileSelect() {
+      filePicker.click();
+    }
+
+    // Header buttons - replace current selection
+    btnSelectFolder.addEventListener('click', handleFolderSelect);
+    btnSelectFiles.addEventListener('click', handleFileSelect);
+
+    // Selected state buttons
+    btnAddMoreFiles.addEventListener('click', handleFileSelect);
+    btnClearSelection.addEventListener('click', clearSelection);
+
+    // Folder picker - replaces selection with folder contents
+    folderPicker.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      selectedFiles = files;
+
+      if (files.length > 0 && files[0].webkitRelativePath) {
+        selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+      } else {
+        selectedFolderName = 'Selected folder';
+      }
+
+      updateLocalUI();
+    });
+
+    // File picker - adds to current selection
+    filePicker.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      // Add new files to selection (avoid duplicates by name)
+      const existingNames = new Set(selectedFiles.map(f => f.name));
+      const newFiles = files.filter(f => !existingNames.has(f.name));
+      selectedFiles = [...selectedFiles, ...newFiles];
+
+      // Update display name
+      if (selectedFiles.length === 1) {
+        selectedFolderName = selectedFiles[0].name;
+      } else {
+        selectedFolderName = `${selectedFiles.length} files selected`;
+      }
+
+      updateLocalUI();
+      filePicker.value = ''; // Reset so same files can be re-selected
+    });
 
     btnSyncLocal.addEventListener('click', async () => {
       if (selectedFiles.length === 0) return;
