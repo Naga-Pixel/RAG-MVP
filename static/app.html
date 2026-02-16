@@ -918,7 +918,86 @@
 
     .section-actions {
       display: flex;
-      gap: 12px;
+      gap: 8px;
+      align-items: center;
+      position: relative;
+    }
+
+    .add-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid var(--divider);
+      background: var(--bg);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 300;
+      line-height: 1;
+      transition: background 0.15s;
+    }
+    .add-btn:hover {
+      background: var(--hover);
+    }
+
+    .sync-pill {
+      height: 26px;
+      padding: 0 12px;
+      border-radius: 13px;
+      border: none;
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .sync-pill:hover {
+      opacity: 0.85;
+    }
+    .sync-pill:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .add-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
+      min-width: 120px;
+      overflow: hidden;
+    }
+    .add-menu.hidden {
+      display: none;
+    }
+
+    .add-menu-item {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .add-menu-item:hover {
+      background: var(--hover);
+    }
+    .add-menu-item + .add-menu-item {
+      border-top: 1px solid var(--divider);
     }
 
     .section-buttons {
@@ -1981,8 +2060,12 @@
               <span class="badge" id="local-badge">0 files</span>
             </div>
             <div class="section-actions">
-              <button class="linkbtn" id="btn-select-files">Select files</button>
-              <button class="linkbtn" id="btn-select-folder">Select folder</button>
+              <button class="add-btn" id="btn-local-add" title="Add files or folder">+</button>
+              <div class="add-menu hidden" id="local-add-menu">
+                <button class="add-menu-item" id="btn-select-files">Files</button>
+                <button class="add-menu-item" id="btn-select-folder">Folder</button>
+              </div>
+              <button class="sync-pill" id="btn-sync-local">Sync</button>
             </div>
           </div>
 
@@ -2002,11 +2085,11 @@
                 <span class="folder-name" id="local-folder-name"></span>
                 <span class="folder-meta" id="local-file-count"></span>
               </div>
-            </div>
-            <div class="section-buttons">
-              <button class="linkbtn" id="btn-add-more-files">Add more</button>
-              <button class="linkbtn" id="btn-clear-selection">Clear</button>
-              <button class="linkbtn" id="btn-sync-local">Sync</button>
+              <button class="btn-icon-small" id="btn-clear-selection" title="Clear">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -2025,8 +2108,12 @@
               <button class="linkbtn" id="btn-connect-drive">Connect</button>
             </div>
             <div class="section-actions hidden" id="drive-actions-connected">
-              <button class="linkbtn" id="btn-add-drive-folder">Add folder</button>
-              <button class="linkbtn" id="btn-sync-drive">Sync</button>
+              <button class="add-btn" id="btn-drive-add" title="Add files or folder">+</button>
+              <div class="add-menu hidden" id="drive-add-menu">
+                <button class="add-menu-item" id="btn-add-drive-files">Files</button>
+                <button class="add-menu-item" id="btn-add-drive-folder">Folder</button>
+              </div>
+              <button class="sync-pill" id="btn-sync-drive">Sync</button>
             </div>
           </div>
 
@@ -2041,7 +2128,7 @@
           <!-- Drive: Connected state -->
           <div id="drive-connected" class="folder-group hidden">
             <div id="drive-folder-list">
-              <!-- Drive folders will be rendered here -->
+              <!-- Drive folders/files will be rendered here -->
             </div>
           </div>
 
@@ -2295,9 +2382,10 @@
     // Local file/folder elements
     const folderPicker = document.getElementById('folder-picker');
     const filePicker = document.getElementById('file-picker');
+    const btnLocalAdd = document.getElementById('btn-local-add');
+    const localAddMenu = document.getElementById('local-add-menu');
     const btnSelectFolder = document.getElementById('btn-select-folder');
     const btnSelectFiles = document.getElementById('btn-select-files');
-    const btnAddMoreFiles = document.getElementById('btn-add-more-files');
     const btnClearSelection = document.getElementById('btn-clear-selection');
     const btnSyncLocal = document.getElementById('btn-sync-local');
     const localNotSelected = document.getElementById('local-not-selected');
@@ -2309,6 +2397,9 @@
 
     // Google Drive elements
     const btnConnectDrive = document.getElementById('btn-connect-drive');
+    const btnDriveAdd = document.getElementById('btn-drive-add');
+    const driveAddMenu = document.getElementById('drive-add-menu');
+    const btnAddDriveFiles = document.getElementById('btn-add-drive-files');
     const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
     const btnSyncDrive = document.getElementById('btn-sync-drive');
     const driveNotConnected = document.getElementById('drive-not-connected');
@@ -3255,6 +3346,7 @@
     }
 
     function handleFolderSelect() {
+      localAddMenu.classList.add('hidden');
       const check = canPickFolders();
       if (!check.supported) {
         showLocalStatus(check.reason, 'error');
@@ -3264,19 +3356,34 @@
     }
 
     function handleFileSelect() {
+      localAddMenu.classList.add('hidden');
       filePicker.click();
     }
 
-    // Header buttons - replace current selection
+    // Add menu toggle for Local
+    btnLocalAdd.addEventListener('click', (e) => {
+      e.stopPropagation();
+      localAddMenu.classList.toggle('hidden');
+      driveAddMenu.classList.add('hidden'); // Close other menu
+    });
+
+    // Menu item handlers
     btnSelectFolder.addEventListener('click', handleFolderSelect);
     btnSelectFiles.addEventListener('click', handleFileSelect);
-
-    // Selected state buttons
-    btnAddMoreFiles.addEventListener('click', handleFileSelect);
     btnClearSelection.addEventListener('click', clearSelection);
 
-    // Folder picker - replaces selection with folder contents
-    folderPicker.addEventListener('change', (e) => {
+    // Close menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!localAddMenu.contains(e.target) && e.target !== btnLocalAdd) {
+        localAddMenu.classList.add('hidden');
+      }
+      if (!driveAddMenu.contains(e.target) && e.target !== btnDriveAdd) {
+        driveAddMenu.classList.add('hidden');
+      }
+    });
+
+    // Folder picker - replaces selection with folder contents, then auto-syncs
+    folderPicker.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
 
@@ -3289,10 +3396,12 @@
       }
 
       updateLocalUI();
+      // Auto-sync after selection
+      btnSyncLocal.click();
     });
 
-    // File picker - adds to current selection
-    filePicker.addEventListener('change', (e) => {
+    // File picker - adds to current selection, then auto-syncs
+    filePicker.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
 
@@ -3310,6 +3419,8 @@
 
       updateLocalUI();
       filePicker.value = ''; // Reset so same files can be re-selected
+      // Auto-sync after selection
+      btnSyncLocal.click();
     });
 
     btnSyncLocal.addEventListener('click', async () => {
@@ -3384,49 +3495,72 @@
 
     function renderDriveFolders() {
       if (driveFolders.length === 0) {
-        driveFolderList.innerHTML = '<div class="empty-hint">No folders added yet</div>';
+        driveFolderList.innerHTML = '<div class="empty-hint">No files or folders added yet</div>';
         return;
       }
 
       driveFolderList.innerHTML = driveFolders.map(f => {
-        // Get documents in this folder (match by folder_name prefix for subfolders)
-        const folderName = f.folder_name || f.folder_id;
-        const folderDocs = allDocuments.filter(d =>
-          d.folder_id === f.folder_id ||
-          (d.folder_name && d.folder_name.startsWith(folderName))
-        );
-        const docCount = folderDocs.length;
+        const isFolder = f.is_folder !== false;
+        const itemName = f.folder_name || f.folder_id;
 
-        return `
-          <div class="folder-expandable" data-folder-id="${escapeHtml(f.folder_id)}">
-            <div class="folder-row">
-              <button class="folder-toggle" title="Expand">
-                <svg class="chevron" viewBox="0 0 24 24" fill="none" width="14" height="14">
-                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <span class="folder-name">${escapeHtml(f.folder_name || f.folder_id)}</span>
-              <span class="folder-doc-count">${docCount}</span>
-              <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
-                <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </button>
+        if (isFolder) {
+          // Get documents in this folder (match by folder_name prefix for subfolders)
+          const folderDocs = allDocuments.filter(d =>
+            d.folder_id === f.folder_id ||
+            (d.folder_name && d.folder_name.startsWith(itemName))
+          );
+          const docCount = folderDocs.length;
+
+          return `
+            <div class="folder-expandable" data-folder-id="${escapeHtml(f.folder_id)}">
+              <div class="folder-row">
+                <button class="folder-toggle" title="Expand">
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none" width="14" height="14">
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <span class="folder-name">${escapeHtml(itemName)}</span>
+                <span class="folder-doc-count">${docCount}</span>
+                <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+                  <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="folder-docs hidden">
+                ${folderDocs.length > 0 ? folderDocs.map(d => {
+                  const fileName = d.source_file || d.title || d.doc_id;
+                  const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
+                  const displayName = d.title || d.doc_id;
+                  return `<div class="folder-doc-item" data-doc-id="${escapeHtml(d.doc_id)}">
+                    <span class="doc-name">${escapeHtml(displayName)}</span>
+                    ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
+                  </div>`;
+                }).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+              </div>
             </div>
-            <div class="folder-docs hidden">
-              ${folderDocs.length > 0 ? folderDocs.map(d => {
-                // Get file extension from source_file or try to infer from title
-                const fileName = d.source_file || d.title || d.doc_id;
-                const ext = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : '';
-                const displayName = d.title || d.doc_id;
-                return `<div class="folder-doc-item" data-doc-id="${escapeHtml(d.doc_id)}">
-                  <span class="doc-name">${escapeHtml(displayName)}</span>
-                  ${ext ? `<span class="doc-type">${escapeHtml(ext)}</span>` : ''}
-                </div>`;
-              }).join('') : '<div class="folder-doc-empty">No documents synced</div>'}
+          `;
+        } else {
+          // Individual file - simpler display without expand
+          const ext = itemName.includes('.') ? itemName.split('.').pop().toUpperCase() : '';
+          return `
+            <div class="folder-expandable file-item" data-folder-id="${escapeHtml(f.folder_id)}">
+              <div class="folder-row">
+                <svg class="file-icon" viewBox="0 0 24 24" fill="none" width="14" height="14" style="margin-left: 4px; margin-right: 8px; color: var(--muted);">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2"/>
+                  <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span class="folder-name">${escapeHtml(itemName)}</span>
+                ${ext ? `<span class="folder-doc-count" style="font-size: 10px;">${ext}</span>` : ''}
+                <button class="btn-icon-small folder-delete" data-folder-id="${escapeHtml(f.folder_id)}" title="Remove">
+                  <svg viewBox="0 0 24 24" fill="none" width="14" height="14">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }).join('');
 
       // Attach toggle handlers
@@ -3634,8 +3768,33 @@
       });
     }
 
+    // Add menu toggle for Drive
+    btnDriveAdd.addEventListener('click', (e) => {
+      e.stopPropagation();
+      driveAddMenu.classList.toggle('hidden');
+      localAddMenu.classList.add('hidden'); // Close other menu
+    });
+
+    // Helper to handle Drive picker token expiry
+    function handleDriveTokenExpiry(err) {
+      if (err.message.includes('expired') || err.message.includes('reconnect')) {
+        driveConnectedState = false;
+        driveFolders = [];
+        driveNotConnected.classList.remove('hidden');
+        driveConnected.classList.add('hidden');
+        driveActionsConnect.classList.remove('hidden');
+        driveActionsConnected.classList.add('hidden');
+        driveBadge.textContent = 'Not connected';
+        showDriveStatus('Google Drive connection expired. Please reconnect.', 'error');
+        return true;
+      }
+      return false;
+    }
+
     // Add Drive folder via Google Picker
     btnAddDriveFolder.addEventListener('click', async () => {
+      driveAddMenu.classList.add('hidden');
+
       // Load Picker API if not loaded
       if (!pickerApiLoaded) {
         showDriveStatus('Loading Google Picker...', '');
@@ -3646,7 +3805,7 @@
         }
       }
 
-      btnAddDriveFolder.disabled = true;
+      btnDriveAdd.disabled = true;
       try {
         // Get access token for Picker
         const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
@@ -3654,7 +3813,7 @@
 
         if (!publicConfig?.google_picker_api_key) {
           showDriveStatus('Google Picker API key not configured', 'error');
-          btnAddDriveFolder.disabled = false;
+          btnDriveAdd.disabled = false;
           return;
         }
 
@@ -3682,13 +3841,15 @@
                 });
                 driveFolders = result.folders || [];
                 renderDriveFolders();
-                driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
-                showDriveStatus(`Added folder: ${folder.name}`, 'success');
+                updateDriveBadge();
+                showDriveStatus(`Added folder: ${folder.name}. Syncing...`, 'success');
+                // Auto-sync after adding
+                btnSyncDrive.click();
               } catch (err) {
                 showDriveStatus('Failed to add folder: ' + err.message, 'error');
               }
             }
-            btnAddDriveFolder.disabled = false;
+            btnDriveAdd.disabled = false;
           })
           .setTitle('Select a folder to sync')
           .build();
@@ -3696,22 +3857,96 @@
         picker.setVisible(true);
 
       } catch (err) {
-        // If token expired, reset Drive UI to disconnected state
-        if (err.message.includes('expired') || err.message.includes('reconnect')) {
-          driveConnectedState = false;
-          driveFolders = [];
-          driveNotConnected.classList.remove('hidden');
-          driveConnected.classList.add('hidden');
-          driveActionsConnect.classList.remove('hidden');
-          driveActionsConnected.classList.add('hidden');
-          driveBadge.textContent = 'Not connected';
-          showDriveStatus('Google Drive connection expired. Please reconnect.', 'error');
-        } else {
+        if (!handleDriveTokenExpiry(err)) {
           showDriveStatus('Failed to open folder picker: ' + err.message, 'error');
         }
-        btnAddDriveFolder.disabled = false;
+        btnDriveAdd.disabled = false;
       }
     });
+
+    // Add Drive files via Google Picker
+    btnAddDriveFiles.addEventListener('click', async () => {
+      driveAddMenu.classList.add('hidden');
+
+      // Load Picker API if not loaded
+      if (!pickerApiLoaded) {
+        showDriveStatus('Loading Google Picker...', '');
+        const loaded = await loadPickerApi();
+        if (!loaded) {
+          showDriveStatus('Failed to load Google Picker', 'error');
+          return;
+        }
+      }
+
+      btnDriveAdd.disabled = true;
+      try {
+        // Get access token for Picker
+        const tokenData = await apiFetch('/drive/picker-token', { method: 'POST' });
+        const accessToken = tokenData.access_token;
+
+        if (!publicConfig?.google_picker_api_key) {
+          showDriveStatus('Google Picker API key not configured', 'error');
+          btnDriveAdd.disabled = false;
+          return;
+        }
+
+        // Create file view (documents only, no folders)
+        const view = new google.picker.DocsView()
+          .setIncludeFolders(false)
+          .setSelectFolderEnabled(false)
+          .setMode(google.picker.DocsViewMode.LIST);
+
+        // Build and show Picker with multi-select enabled
+        const picker = new google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(accessToken)
+          .setDeveloperKey(publicConfig.google_picker_api_key)
+          .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+          .setCallback(async (data) => {
+            if (data.action === google.picker.Action.PICKED) {
+              const files = data.docs;
+              try {
+                // Add files as a "Selected Files" pseudo-folder
+                const result = await apiFetch('/sources/drive/files', {
+                  method: 'POST',
+                  body: {
+                    files: files.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType })),
+                  },
+                });
+                driveFolders = result.folders || [];
+                renderDriveFolders();
+                updateDriveBadge();
+                showDriveStatus(`Added ${files.length} file${files.length !== 1 ? 's' : ''}. Syncing...`, 'success');
+                // Auto-sync after adding
+                btnSyncDrive.click();
+              } catch (err) {
+                showDriveStatus('Failed to add files: ' + err.message, 'error');
+              }
+            }
+            btnDriveAdd.disabled = false;
+          })
+          .setTitle('Select files to sync')
+          .build();
+
+        picker.setVisible(true);
+
+      } catch (err) {
+        if (!handleDriveTokenExpiry(err)) {
+          showDriveStatus('Failed to open file picker: ' + err.message, 'error');
+        }
+        btnDriveAdd.disabled = false;
+      }
+    });
+
+    // Helper to update Drive badge
+    function updateDriveBadge() {
+      const folderCount = driveFolders.filter(f => f.is_folder !== false).length;
+      const fileCount = driveFolders.filter(f => f.is_folder === false).length;
+      const parts = [];
+      if (folderCount > 0) parts.push(`${folderCount} folder${folderCount !== 1 ? 's' : ''}`);
+      if (fileCount > 0) parts.push(`${fileCount} file${fileCount !== 1 ? 's' : ''}`);
+      driveBadge.textContent = parts.length > 0 ? parts.join(', ') : 'Connected';
+    }
 
     // =================================================================
     // Load Documents

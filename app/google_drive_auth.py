@@ -299,6 +299,16 @@ class AddFolderRequest(BaseModel):
     folder_name: str
 
 
+class DriveFileInfo(BaseModel):
+    id: str
+    name: str
+    mimeType: str | None = None
+
+
+class AddFilesRequest(BaseModel):
+    files: list[DriveFileInfo]
+
+
 class FoldersResponse(BaseModel):
     folders: list[dict]
 
@@ -544,9 +554,9 @@ async def get_drive_status(user: dict = Depends(verify_supabase_token)):
         )
         connected = cursor.fetchone() is not None
 
-        # Get folders
+        # Get folders and files
         cursor.execute(
-            "SELECT folder_id, folder_name FROM google_drive_folders WHERE user_id = %s",
+            "SELECT folder_id, folder_name, COALESCE(is_folder, true) as is_folder FROM google_drive_folders WHERE user_id = %s",
             (user_id,)
         )
         folders = [dict(row) for row in cursor.fetchall()]
@@ -568,15 +578,49 @@ async def add_drive_folder(request: AddFolderRequest, user: dict = Depends(verif
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO google_drive_folders (user_id, folder_id, folder_name)
-            VALUES (%s, %s, %s)
+            INSERT INTO google_drive_folders (user_id, folder_id, folder_name, is_folder)
+            VALUES (%s, %s, %s, true)
             ON CONFLICT (user_id, folder_id) DO UPDATE SET folder_name = EXCLUDED.folder_name
         """, (user_id, request.folder_id, request.folder_name))
         conn.commit()
 
         # Return updated list
         cursor.execute(
-            "SELECT folder_id, folder_name FROM google_drive_folders WHERE user_id = %s",
+            "SELECT folder_id, folder_name, COALESCE(is_folder, true) as is_folder FROM google_drive_folders WHERE user_id = %s",
+            (user_id,)
+        )
+        folders = [dict(row) for row in cursor.fetchall()]
+    except psycopg2.Error as e:
+        _handle_db_error(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+    return FoldersResponse(folders=folders)
+
+
+@router.post("/sources/drive/files", response_model=FoldersResponse)
+async def add_drive_files(request: AddFilesRequest, user: dict = Depends(verify_supabase_token)):
+    """Add individual Drive files to sync list."""
+    user_id = user["user_id"]
+
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        # Insert each file
+        for file in request.files:
+            cursor.execute("""
+                INSERT INTO google_drive_folders (user_id, folder_id, folder_name, is_folder, mime_type)
+                VALUES (%s, %s, %s, false, %s)
+                ON CONFLICT (user_id, folder_id) DO UPDATE SET
+                    folder_name = EXCLUDED.folder_name,
+                    mime_type = EXCLUDED.mime_type
+            """, (user_id, file.id, file.name, file.mimeType))
+        conn.commit()
+
+        # Return updated list
+        cursor.execute(
+            "SELECT folder_id, folder_name, COALESCE(is_folder, true) as is_folder FROM google_drive_folders WHERE user_id = %s",
             (user_id,)
         )
         folders = [dict(row) for row in cursor.fetchall()]
@@ -591,7 +635,7 @@ async def add_drive_folder(request: AddFolderRequest, user: dict = Depends(verif
 
 @router.delete("/sources/drive/folders/{folder_id}", response_model=FoldersResponse)
 async def remove_drive_folder(folder_id: str, user: dict = Depends(verify_supabase_token)):
-    """Remove a Drive folder from sync list."""
+    """Remove a Drive folder or file from sync list."""
     user_id = user["user_id"]
 
     conn = _get_db()
@@ -605,7 +649,7 @@ async def remove_drive_folder(folder_id: str, user: dict = Depends(verify_supaba
 
         # Return updated list
         cursor.execute(
-            "SELECT folder_id, folder_name FROM google_drive_folders WHERE user_id = %s",
+            "SELECT folder_id, folder_name, COALESCE(is_folder, true) as is_folder FROM google_drive_folders WHERE user_id = %s",
             (user_id,)
         )
         folders = [dict(row) for row in cursor.fetchall()]
