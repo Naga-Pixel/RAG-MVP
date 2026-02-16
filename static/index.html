@@ -1575,7 +1575,10 @@
       featureContainers.forEach((container, index) => {
         if (typeof THREE === 'undefined') return;
 
-      const SHAPE_COLOR = new THREE.Vector3(0.196, 0.906, 0.663); // #32e7a9
+      // Gradient colors matching the loader: purple -> green -> teal
+      const COLOR_PURPLE = new THREE.Vector3(0.608, 0.349, 0.714); // #9b59b6
+      const COLOR_GREEN = new THREE.Vector3(0.196, 0.906, 0.663);  // #32e7a9
+      const COLOR_TEAL = new THREE.Vector3(0.157, 0.831, 0.596);   // #28d498
       const isFirstOrLast = index === 0 || index === featureContainers.length - 1;
       const blurIntensity = isFirstOrLast ? 0.4 : 0.25;
 
@@ -1592,7 +1595,9 @@
         uniform vec2 u_mouse;
         uniform vec2 u_resolution;
         uniform float u_pixelRatio;
-        uniform vec3 u_color;
+        uniform vec3 u_colorPurple;
+        uniform vec3 u_colorGreen;
+        uniform vec3 u_colorTeal;
         uniform float u_blurIntensity;
         uniform float u_opacity;
         uniform float u_time;
@@ -1634,12 +1639,39 @@
           // Mouse influence - soft blur only on hover
           float mouseBlur = fill(sdCircle(st, posMouse), 0.3, 0.4);
 
-          // Main circle - hard edge by default, soft where blur spot or mouse
+          // Distance from center
           float dist = sdCircle(st, vec2(0.5));
           float edge = 0.005 + perimeterBlur + mouseBlur * u_blurIntensity;
-          float sdf = fill(dist, 0.7, edge);
 
-          gl_FragColor = vec4(u_color, sdf * u_opacity);
+          // Outer ring (donut shape)
+          float outerSize = 0.7;
+          float innerSize = 0.35;  // White center cutout
+          float outerSdf = fill(dist, outerSize, edge);
+          float innerSdf = fill(dist, innerSize, edge * 0.5);
+          float ringSdf = outerSdf - innerSdf;
+
+          // Gradient based on angle (rotating with time for dynamic effect)
+          vec2 dir = st - vec2(0.5);
+          float gradientAngle = atan(dir.y, dir.x) + u_time * 0.2;
+          float gradientT = (sin(gradientAngle) + 1.0) * 0.5;
+
+          // Three-way gradient: purple -> green -> teal
+          vec3 gradientColor;
+          if (gradientT < 0.5) {
+            gradientColor = mix(u_colorPurple, u_colorGreen, gradientT * 2.0);
+          } else {
+            gradientColor = mix(u_colorGreen, u_colorTeal, (gradientT - 0.5) * 2.0);
+          }
+
+          // Add glow effect
+          float glow = fill(dist, outerSize + 0.15, 0.2) * 0.3;
+          vec3 glowColor = mix(u_colorGreen, u_colorTeal, 0.5);
+
+          // Combine ring with glow
+          vec3 finalColor = gradientColor * ringSdf + glowColor * glow * (1.0 - ringSdf);
+          float finalAlpha = max(ringSdf, glow) * u_opacity;
+
+          gl_FragColor = vec4(finalColor, finalAlpha);
         }
       `;
 
@@ -1666,9 +1698,11 @@
           u_mouse: { value: vMouseDamp },
           u_resolution: { value: vResolution },
           u_pixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
-          u_color: { value: SHAPE_COLOR },
+          u_colorPurple: { value: COLOR_PURPLE },
+          u_colorGreen: { value: COLOR_GREEN },
+          u_colorTeal: { value: COLOR_TEAL },
           u_blurIntensity: { value: blurIntensity },
-          u_opacity: { value: 0.7 },
+          u_opacity: { value: 0.85 },
           u_time: { value: 0 }
         },
         transparent: true
