@@ -497,12 +497,14 @@
       // Check Drive connection status
       try {
         const driveData = await apiFetch('/sources/drive/folders');
+        console.log('Drive folders response:', driveData);
         if (driveData && Array.isArray(driveData)) {
           driveStatus.innerHTML = '<span class="status-badge status-connected">Connected</span>';
           driveDisconnectRow.style.display = 'flex';
         }
       } catch (err) {
         // Not connected or error - show disconnected state
+        console.log('Drive check error:', err.message);
         driveStatus.innerHTML = '<span class="status-badge status-disconnected">Not connected</span>';
         driveDisconnectRow.style.display = 'none';
       }
