@@ -222,6 +222,7 @@
       background: transparent;
       color: var(--danger);
       border: 1px solid var(--danger);
+      white-space: nowrap;
     }
 
     .btn-danger:hover {
@@ -403,7 +404,7 @@
               <span class="section-label">Delete all data</span>
               <p class="section-description">Permanently delete all your documents, search history, and connections. This cannot be undone.</p>
             </div>
-            <button class="btn btn-danger" id="btn-delete-data">Delete my data</button>
+            <button class="btn btn-danger" id="btn-delete-data">Delete all data</button>
           </div>
         </div>
 
@@ -600,7 +601,7 @@
       } catch (err) {
         alert('Failed to delete data: ' + err.message);
         btnDeleteData.disabled = false;
-        btnDeleteData.textContent = 'Delete my data';
+        btnDeleteData.textContent = 'Delete all data';
       }
     });
 
