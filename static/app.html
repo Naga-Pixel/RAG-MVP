@@ -2112,6 +2112,7 @@
               <div class="add-menu hidden" id="drive-add-menu">
                 <button class="add-menu-item" id="btn-add-drive-files">Files</button>
                 <button class="add-menu-item" id="btn-add-drive-folder">Folder</button>
+                <button class="add-menu-item" id="btn-disconnect-drive" style="color: #c0392b;">Disconnect</button>
               </div>
               <button class="sync-pill" id="btn-sync-drive">Sync</button>
             </div>
@@ -2401,6 +2402,7 @@
     const driveAddMenu = document.getElementById('drive-add-menu');
     const btnAddDriveFiles = document.getElementById('btn-add-drive-files');
     const btnAddDriveFolder = document.getElementById('btn-add-drive-folder');
+    const btnDisconnectDrive = document.getElementById('btn-disconnect-drive');
     const btnSyncDrive = document.getElementById('btn-sync-drive');
     const driveNotConnected = document.getElementById('drive-not-connected');
     const driveConnected = document.getElementById('drive-connected');
@@ -3773,6 +3775,31 @@
       e.stopPropagation();
       driveAddMenu.classList.toggle('hidden');
       localAddMenu.classList.add('hidden'); // Close other menu
+    });
+
+    // Disconnect Google Drive
+    btnDisconnectDrive.addEventListener('click', async () => {
+      driveAddMenu.classList.add('hidden');
+
+      if (!confirm('Disconnect Google Drive? Your folder selections will be removed.')) {
+        return;
+      }
+
+      try {
+        await apiFetch('/sources/drive/disconnect', { method: 'POST' });
+
+        // Reset UI to disconnected state
+        driveConnectedState = false;
+        driveFolders = [];
+        driveNotConnected.classList.remove('hidden');
+        driveConnected.classList.add('hidden');
+        driveActionsConnect.classList.remove('hidden');
+        driveActionsConnected.classList.add('hidden');
+        driveBadge.textContent = 'Not connected';
+        showDriveStatus('Google Drive disconnected.', 'success');
+      } catch (err) {
+        showDriveStatus('Failed to disconnect: ' + err.message, 'error');
+      }
     });
 
     // Helper to handle Drive picker token expiry

@@ -662,6 +662,39 @@ async def remove_drive_folder(folder_id: str, user: dict = Depends(verify_supaba
     return FoldersResponse(folders=folders)
 
 
+@router.post("/sources/drive/disconnect")
+async def disconnect_drive(user: dict = Depends(verify_supabase_token)):
+    """Disconnect Google Drive - removes tokens and folder selections."""
+    user_id = user["user_id"]
+
+    conn = _get_db()
+    cursor = conn.cursor()
+    try:
+        # Delete tokens
+        cursor.execute(
+            "DELETE FROM google_drive_tokens WHERE user_id = %s",
+            (user_id,)
+        )
+        tokens_deleted = cursor.rowcount
+
+        # Delete folder/file selections
+        cursor.execute(
+            "DELETE FROM google_drive_folders WHERE user_id = %s",
+            (user_id,)
+        )
+        folders_deleted = cursor.rowcount
+
+        conn.commit()
+        logger.info(f"[drive_disconnect] user_id={user_id} tokens={tokens_deleted} folders={folders_deleted}")
+    except psycopg2.Error as e:
+        _handle_db_error(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+    return {"status": "disconnected", "tokens_deleted": tokens_deleted, "folders_deleted": folders_deleted}
+
+
 # ============== Picker Token Endpoint ==============
 
 @router.post("/drive/picker-token", response_model=PickerTokenResponse)
