@@ -440,13 +440,23 @@
     </div>
   </footer>
 
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = 'https://mndbdmnrikztonfypsj.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uZGJkbW5yaWt6dG9uZnlwc2oiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczNjcwNjgxOCwiZXhwIjoyMDUyMjgyODE4fQ.JCOXKNvkpBS5j-FOnl68Y-c8YR6FTk5IYjAxuPyxXOA';
+  <!-- Supabase (ESM import to match app.html) -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Load config from server (same as app.html)
+    let sb = null;
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config/frontend');
+        const config = await response.json();
+        sb = createClient(config.supabase_url, config.supabase_anon_key);
+        return true;
+      } catch (err) {
+        console.error('Failed to load config:', err);
+        return false;
+      }
+    }
 
     // Elements
     const loadingState = document.getElementById('loading-state');
@@ -600,8 +610,15 @@
       window.location.href = '/app';
     });
 
-    // Initialize
-    init();
+    // Initialize - load config first, then init
+    (async () => {
+      const configLoaded = await loadConfig();
+      if (!configLoaded) {
+        loadingState.textContent = 'Failed to load. Please refresh.';
+        return;
+      }
+      init();
+    })();
   </script>
 
 </body>
