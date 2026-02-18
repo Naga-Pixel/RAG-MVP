@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Account - Oku</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <meta name="description" content="Manage your Oku account settings.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Inter:wght@300;400;500;600;700&family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #0a0a0a;
+      --muted: #666666;
+      --light: #999999;
+      --accent: #32e7a9;
+      --danger: #c0392b;
+      --divider: rgba(0,0,0,0.06);
+      --font: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-heading: "Urbanist", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-numbers: "Bricolage Grotesque", var(--font-heading);
+      --max-width: 600px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--ink);
+    }
+
+    a {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      color: var(--accent);
+    }
+
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      font-family: var(--font-numbers);
+      font-size: 29px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+    }
+
+    .nav a {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav a:hover {
+      color: var(--ink);
+    }
+
+    .nav-btn {
+      background: var(--ink);
+      color: white !important;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: #333;
+      transform: translateY(-1px);
+    }
+
+    /* Content */
+    .account-header {
+      padding: 140px 0 40px;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .account-header h1 {
+      font-family: var(--font-heading);
+      font-size: clamp(28px, 5vw, 36px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .account-content {
+      padding: 40px 0 120px;
+    }
+
+    .account-section {
+      padding: 32px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .account-section:last-child {
+      border-bottom: none;
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .section-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+    }
+
+    .section-label {
+      font-size: 15px;
+      color: var(--ink);
+    }
+
+    .section-value {
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .section-description {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 50px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--ink);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #333;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--divider);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--ink);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-connected {
+      background: rgba(50, 231, 169, 0.15);
+      color: #1a9a6a;
+    }
+
+    .status-disconnected {
+      background: rgba(0,0,0,0.05);
+      color: var(--muted);
+    }
+
+    .legal-links {
+      display: flex;
+      gap: 24px;
+      margin-top: 8px;
+    }
+
+    .legal-links a {
+      font-size: 14px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .legal-links a:hover {
+      color: var(--ink);
+      text-decoration: underline;
+    }
+
+    /* Loading state */
+    .loading {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--muted);
+    }
+
+    /* Not logged in state */
+    .not-logged-in {
+      text-align: center;
+      padding: 60px 0;
+    }
+
+    .not-logged-in p {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 48px 0;
+      background: var(--ink);
+      text-align: center;
+    }
+
+    .footer p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .footer a {
+      color: rgba(255,255,255,0.6);
+      margin: 0 12px;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: white;
+    }
+
+    @media (max-width: 768px) {
+      .header-inner {
+        padding: 20px 24px;
+      }
+      .nav {
+        display: none;
+      }
+      .account-header {
+        padding: 100px 0 30px;
+      }
+      .section-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">Oku</a>
+      <nav class="nav">
+        <a href="/app">Back to App</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Account Header -->
+  <section class="account-header">
+    <div class="container">
+      <h1>Account</h1>
+    </div>
+  </section>
+
+  <!-- Account Content -->
+  <section class="account-content">
+    <div class="container">
+
+      <!-- Loading state -->
+      <div id="loading-state" class="loading">
+        Loading...
+      </div>
+
+      <!-- Not logged in state -->
+      <div id="not-logged-in" class="not-logged-in hidden">
+        <p>You need to be logged in to view your account.</p>
+        <a href="/app" class="btn btn-primary">Go to App</a>
+      </div>
+
+      <!-- Account details (shown when logged in) -->
+      <div id="account-details" class="hidden">
+
+        <!-- Profile Section -->
+        <div class="account-section">
+          <div class="section-title">Profile</div>
+          <div class="section-row">
+            <span class="section-label">Email</span>
+            <span class="section-value" id="user-email">-</span>
+          </div>
+        </div>
+
+        <!-- Connections Section -->
+        <div class="account-section">
+          <div class="section-title">Connections</div>
+          <div class="section-row">
+            <div>
+              <span class="section-label">Google Drive</span>
+              <p class="section-description">Sync documents from your Google Drive for AI-powered search.</p>
+            </div>
+            <div id="drive-status">
+              <span class="status-badge status-disconnected">Not connected</span>
+            </div>
+          </div>
+          <div class="section-row" id="drive-disconnect-row" style="display: none;">
+            <span class="section-label"></span>
+            <button class="btn btn-secondary" id="btn-disconnect-drive">Disconnect Google Drive</button>
+          </div>
+        </div>
+
+        <!-- Data Section -->
+        <div class="account-section">
+          <div class="section-title">Your Data</div>
+          <div class="section-row">
+            <div>
+              <span class="section-label">Delete all data</span>
+              <p class="section-description">Permanently delete all your documents, search history, and connections. This cannot be undone.</p>
+            </div>
+            <button class="btn btn-danger" id="btn-delete-data">Delete my data</button>
+          </div>
+        </div>
+
+        <!-- Legal Section -->
+        <div class="account-section">
+          <div class="section-title">Legal</div>
+          <div class="legal-links">
+            <a href="/privacy" target="_blank">Privacy Policy</a>
+            <a href="/terms" target="_blank">Terms of Service</a>
+          </div>
+        </div>
+
+        <!-- Session Section -->
+        <div class="account-section">
+          <div class="section-title">Session</div>
+          <div class="section-row">
+            <span class="section-label">Sign out of Oku</span>
+            <button class="btn btn-secondary" id="btn-logout">Log out</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+      </p>
+      <p style="margin-top: 16px;">&copy; 2026 Oku. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://mndbdmnrikztonfypsj.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uZGJkbW5yaWt6dG9uZnlwc2oiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczNjcwNjgxOCwiZXhwIjoyMDUyMjgyODE4fQ.JCOXKNvkpBS5j-FOnl68Y-c8YR6FTk5IYjAxuPyxXOA';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Elements
+    const loadingState = document.getElementById('loading-state');
+    const notLoggedIn = document.getElementById('not-logged-in');
+    const accountDetails = document.getElementById('account-details');
+    const userEmailEl = document.getElementById('user-email');
+    const driveStatus = document.getElementById('drive-status');
+    const driveDisconnectRow = document.getElementById('drive-disconnect-row');
+    const btnDisconnectDrive = document.getElementById('btn-disconnect-drive');
+    const btnDeleteData = document.getElementById('btn-delete-data');
+    const btnLogout = document.getElementById('btn-logout');
+
+    let accessToken = null;
+
+    // API helper
+    async function apiFetch(path, options = {}) {
+      const res = await fetch(path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          ...(options.headers || {})
+        }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || res.statusText);
+      }
+      return res.json();
+    }
+
+    // Check auth and load account
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        loadingState.classList.add('hidden');
+        notLoggedIn.classList.remove('hidden');
+        return;
+      }
+
+      accessToken = session.access_token;
+      userEmailEl.textContent = session.user.email;
+
+      // Check Drive connection status
+      try {
+        const driveData = await apiFetch('/sources/drive/folders');
+        if (driveData && driveData.length >= 0) {
+          driveStatus.innerHTML = '<span class="status-badge status-connected">Connected</span>';
+          driveDisconnectRow.style.display = 'flex';
+        }
+      } catch (err) {
+        // Not connected or error - show disconnected state
+        driveStatus.innerHTML = '<span class="status-badge status-disconnected">Not connected</span>';
+        driveDisconnectRow.style.display = 'none';
+      }
+
+      loadingState.classList.add('hidden');
+      accountDetails.classList.remove('hidden');
+    }
+
+    // Disconnect Drive
+    btnDisconnectDrive.addEventListener('click', async () => {
+      if (!confirm('Disconnect Google Drive? Your folder selections will be removed.')) {
+        return;
+      }
+
+      btnDisconnectDrive.disabled = true;
+      btnDisconnectDrive.textContent = 'Disconnecting...';
+
+      try {
+        await apiFetch('/sources/drive/disconnect', { method: 'POST' });
+        driveStatus.innerHTML = '<span class="status-badge status-disconnected">Not connected</span>';
+        driveDisconnectRow.style.display = 'none';
+        alert('Google Drive disconnected.');
+      } catch (err) {
+        alert('Failed to disconnect: ' + err.message);
+      } finally {
+        btnDisconnectDrive.disabled = false;
+        btnDisconnectDrive.textContent = 'Disconnect Google Drive';
+      }
+    });
+
+    // Delete all data
+    btnDeleteData.addEventListener('click', async () => {
+      const confirmText = prompt(
+        'This will permanently delete ALL your data from Oku:\n' +
+        '- All synced documents\n' +
+        '- Search history\n' +
+        '- Google Drive connections\n\n' +
+        'This action cannot be undone.\n\n' +
+        'Type DELETE to confirm:'
+      );
+
+      if (confirmText !== 'DELETE') {
+        if (confirmText !== null) {
+          alert('Deletion cancelled. You must type DELETE exactly.');
+        }
+        return;
+      }
+
+      btnDeleteData.disabled = true;
+      btnDeleteData.textContent = 'Deleting...';
+
+      try {
+        await apiFetch('/users/me?confirm=DELETE_MY_DATA', { method: 'DELETE' });
+        alert('All your data has been deleted.');
+        await supabase.auth.signOut();
+        window.location.href = '/app';
+      } catch (err) {
+        alert('Failed to delete data: ' + err.message);
+        btnDeleteData.disabled = false;
+        btnDeleteData.textContent = 'Delete my data';
+      }
+    });
+
+    // Logout
+    btnLogout.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = '/app';
+    });
+
+    // Initialize
+    init();
+  </script>
+
+</body>
+</html>

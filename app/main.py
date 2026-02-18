@@ -284,6 +284,15 @@ def serve_terms():
     raise HTTPException(status_code=404, detail="Terms of service not found")
 
 
+@app.get("/account")
+def serve_account():
+    """Serve the account management page."""
+    account_path = static_dir / "account.html"
+    if account_path.exists():
+        return FileResponse(account_path)
+    raise HTTPException(status_code=404, detail="Account page not found")
+
+
 @app.get("/health")
 def health_check():
     """
