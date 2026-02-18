@@ -501,9 +501,26 @@
     }
 
     // Check auth and load account
-    function init() {
-      // Listen for auth state changes
+    async function init() {
+      console.log('Init starting...');
+
+      // First try to get existing session
+      const { data: { session }, error } = await sb.auth.getSession();
+      console.log('getSession result:', { session: !!session, error });
+
+      if (session) {
+        loadAccount(session);
+        return;
+      }
+
+      // If no session found, wait a moment for auth state to settle
+      // then check once more via onAuthStateChange
+      let handled = false;
+
       sb.auth.onAuthStateChange((event, session) => {
+        if (handled) return;
+        handled = true;
+
         if (session) {
           loadAccount(session);
         } else {
@@ -511,6 +528,15 @@
           notLoggedIn.classList.remove('hidden');
         }
       });
+
+      // Fallback timeout if onAuthStateChange doesn't fire
+      setTimeout(() => {
+        if (!handled) {
+          handled = true;
+          loadingState.classList.add('hidden');
+          notLoggedIn.classList.remove('hidden');
+        }
+      }, 2000);
     }
 
     // Disconnect Drive
