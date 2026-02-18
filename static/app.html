@@ -2294,7 +2294,10 @@
       try {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: window.location.origin + '/app' }
+          options: {
+            redirectTo: window.location.origin + '/app',
+            scopes: 'email'
+          }
         });
         if (error) {
           showAuthStatus(error.message, 'error');
