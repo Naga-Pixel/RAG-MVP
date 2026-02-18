@@ -2146,7 +2146,7 @@
             <div class="section-name">
               <img src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png" alt="Drive" style="width: 18px; height: 18px;">
               Google Drive
-              <span class="badge" id="drive-badge">Not connected</span>
+              <span class="badge hidden" id="drive-badge"></span>
             </div>
             <div class="section-actions" id="drive-actions-connect">
               <button class="linkbtn" id="btn-connect-drive">Connect to Google Drive</button>
@@ -3530,13 +3530,14 @@
         driveActionsConnect.classList.add('hidden');
         driveActionsConnected.classList.remove('hidden');
         driveBadge.textContent = `${driveFolders.length} folder${driveFolders.length !== 1 ? 's' : ''}`;
+        driveBadge.classList.remove('hidden');
         renderDriveFolders();
       } else {
         driveNotConnected.classList.remove('hidden');
         driveConnected.classList.add('hidden');
         driveActionsConnect.classList.remove('hidden');
         driveActionsConnected.classList.add('hidden');
-        driveBadge.textContent = 'Not connected';
+        driveBadge.classList.add('hidden');
       }
     }
 
@@ -3831,7 +3832,7 @@
         driveConnected.classList.add('hidden');
         driveActionsConnect.classList.remove('hidden');
         driveActionsConnected.classList.add('hidden');
-        driveBadge.textContent = 'Not connected';
+        driveBadge.classList.add('hidden');
         showDriveStatus('Google Drive connection expired. Please reconnect.', 'error');
         return true;
       }
