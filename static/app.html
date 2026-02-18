@@ -967,19 +967,17 @@
     /* Disconnect link */
     .disconnect-link {
       display: block;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--divider);
-      font-size: 12px;
-      color: var(--muted);
+      margin-top: 16px;
+      font-size: 11px;
       text-align: center;
     }
     .disconnect-link a {
-      color: #c0392b;
+      color: var(--light);
       text-decoration: none;
       cursor: pointer;
     }
     .disconnect-link a:hover {
+      color: var(--muted);
       text-decoration: underline;
     }
 
@@ -1398,21 +1396,18 @@
     /* Composer footer links */
     .composer-footer {
       text-align: center;
-      margin-top: 16px;
-      font-size: 11px;
-      color: var(--muted);
+      margin-top: 12px;
+      font-size: 10px;
+      color: var(--light);
     }
     .composer-footer a {
-      color: var(--muted);
-      text-decoration: none;
+      color: var(--light);
+      text-decoration: underline;
+      text-decoration-color: rgba(0,0,0,0.15);
+      text-underline-offset: 2px;
     }
     .composer-footer a:hover {
-      color: var(--ink);
-      text-decoration: underline;
-    }
-    .composer-footer span {
-      margin: 0 8px;
-      opacity: 0.5;
+      color: var(--muted);
     }
 
     /* New chat button in header - hidden on desktop (sidebar has "New" button) */
@@ -1989,9 +1984,7 @@
               </select>
             </div>
             <div class="composer-footer">
-              <a href="/privacy" target="_blank">Privacy Policy</a>
-              <span>·</span>
-              <a href="/terms" target="_blank">Terms of Service</a>
+              Learn how we protect your data. <a href="/privacy" target="_blank">Privacy Policy</a> · <a href="/terms" target="_blank">Terms</a>
             </div>
           </div>
         </div>
@@ -2060,9 +2053,7 @@
               </select>
             </div>
             <div class="composer-footer">
-              <a href="/privacy" target="_blank">Privacy Policy</a>
-              <span>·</span>
-              <a href="/terms" target="_blank">Terms of Service</a>
+              Learn how we protect your data. <a href="/privacy" target="_blank">Privacy Policy</a> · <a href="/terms" target="_blank">Terms</a>
             </div>
           </div>
         </div>
@@ -2180,7 +2171,7 @@
               <!-- Drive folders/files will be rendered here -->
             </div>
             <div class="disconnect-link">
-              <a href="#" id="btn-disconnect-drive-visible">Disconnect Google Drive</a>
+              <a href="#" id="btn-disconnect-drive-visible">Disconnect</a>
             </div>
           </div>
 
