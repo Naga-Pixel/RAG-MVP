@@ -480,32 +480,38 @@
 
     // Check auth and load account
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (!session) {
+        if (error || !session) {
+          loadingState.classList.add('hidden');
+          notLoggedIn.classList.remove('hidden');
+          return;
+        }
+
+        accessToken = session.access_token;
+        userEmailEl.textContent = session.user.email;
+
+        // Check Drive connection status
+        try {
+          const driveData = await apiFetch('/sources/drive/folders');
+          if (driveData && Array.isArray(driveData)) {
+            driveStatus.innerHTML = '<span class="status-badge status-connected">Connected</span>';
+            driveDisconnectRow.style.display = 'flex';
+          }
+        } catch (err) {
+          // Not connected or error - show disconnected state
+          driveStatus.innerHTML = '<span class="status-badge status-disconnected">Not connected</span>';
+          driveDisconnectRow.style.display = 'none';
+        }
+
+        loadingState.classList.add('hidden');
+        accountDetails.classList.remove('hidden');
+      } catch (err) {
+        console.error('Init error:', err);
         loadingState.classList.add('hidden');
         notLoggedIn.classList.remove('hidden');
-        return;
       }
-
-      accessToken = session.access_token;
-      userEmailEl.textContent = session.user.email;
-
-      // Check Drive connection status
-      try {
-        const driveData = await apiFetch('/sources/drive/folders');
-        if (driveData && driveData.length >= 0) {
-          driveStatus.innerHTML = '<span class="status-badge status-connected">Connected</span>';
-          driveDisconnectRow.style.display = 'flex';
-        }
-      } catch (err) {
-        // Not connected or error - show disconnected state
-        driveStatus.innerHTML = '<span class="status-badge status-disconnected">Not connected</span>';
-        driveDisconnectRow.style.display = 'none';
-      }
-
-      loadingState.classList.add('hidden');
-      accountDetails.classList.remove('hidden');
     }
 
     // Disconnect Drive
@@ -570,7 +576,10 @@
     });
 
     // Initialize
-    init();
+    init().catch(err => {
+      console.error('Init failed:', err);
+      loadingState.textContent = 'Failed to load account. Please try again.';
+    });
   </script>
 
 </body>
