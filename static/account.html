@@ -446,7 +446,7 @@
     const SUPABASE_URL = 'https://mndbdmnrikztonfypsj.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uZGJkbW5yaWt6dG9uZnlwc2oiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczNjcwNjgxOCwiZXhwIjoyMDUyMjgyODE4fQ.JCOXKNvkpBS5j-FOnl68Y-c8YR6FTk5IYjAxuPyxXOA';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Elements
     const loadingState = document.getElementById('loading-state');
@@ -481,7 +481,7 @@
     // Check auth and load account
     async function init() {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await sb.auth.getSession();
 
         if (error || !session) {
           loadingState.classList.add('hidden');
@@ -560,7 +560,7 @@
       try {
         await apiFetch('/users/me?confirm=DELETE_MY_DATA', { method: 'DELETE' });
         alert('All your data has been deleted.');
-        await supabase.auth.signOut();
+        await sb.auth.signOut();
         window.location.href = '/app';
       } catch (err) {
         alert('Failed to delete data: ' + err.message);
@@ -571,7 +571,7 @@
 
     // Logout
     btnLogout.addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       window.location.href = '/app';
     });
 
