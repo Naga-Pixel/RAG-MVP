@@ -1191,6 +1191,25 @@
       background: #333;
     }
 
+    /* Delete data link */
+    .delete-data-link {
+      display: block;
+      padding: 8px var(--pad);
+      font-size: 11px;
+      color: var(--light);
+      text-align: center;
+      border-bottom: 1px solid var(--divider);
+    }
+    .delete-data-link a {
+      color: var(--light);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .delete-data-link a:hover {
+      color: #c0392b;
+      text-decoration: underline;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -2077,6 +2096,9 @@
         </div>
         <button class="logout-btn" id="btn-logout">Log Out</button>
       </div>
+      <div class="delete-data-link">
+        <a href="#" id="btn-delete-data">Delete all my data</a>
+      </div>
 
       <div class="col-scroll">
         <!-- Document Search with Autocomplete -->
@@ -2781,6 +2803,36 @@
 
     // Logout button
     btnLogout.addEventListener('click', logout);
+
+    // Delete all data button
+    const btnDeleteData = document.getElementById('btn-delete-data');
+    btnDeleteData?.addEventListener('click', async (e) => {
+      e.preventDefault();
+
+      const confirmText = prompt(
+        'This will permanently delete ALL your data from Oku:\n' +
+        '• All synced documents\n' +
+        '• Search history\n' +
+        '• Google Drive connections\n\n' +
+        'This action cannot be undone.\n\n' +
+        'Type DELETE to confirm:'
+      );
+
+      if (confirmText !== 'DELETE') {
+        if (confirmText !== null) {
+          alert('Deletion cancelled. You must type DELETE exactly.');
+        }
+        return;
+      }
+
+      try {
+        await apiFetch('/users/me?confirm=DELETE_MY_DATA', { method: 'DELETE' });
+        alert('All your data has been deleted.');
+        logout();
+      } catch (err) {
+        alert('Failed to delete data: ' + err.message);
+      }
+    });
 
     // =================================================================
     // Push-to-Talk (PTT) Recording
