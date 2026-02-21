@@ -361,9 +361,9 @@ CONTRACT_MODE_PROMPT = (
     "- 'Buyer/Seller:', 'Employer/Employee:', 'Client/Agency:' → same principle\n"
     "NEVER assign someone to the wrong role.\n\n"
     "DATA HANDLING:\n"
-    "- Dates: **bold** key dates. Distinguish start/end/notice dates.\n"
+    "- Dates: distinguish start/end/notice dates.\n"
     "- Addresses: distinguish property address vs personal address.\n"
-    "- Money: **bold** amounts with currency. Distinguish rent/deposit/fees/salary.\n"
+    "- Money: distinguish rent/deposit/fees/salary. Include currency.\n"
     "- Agencies: retainer ≠ ad spend (different cost types).\n"
     "- Comparisons: list values side-by-side. NO calculations.\n"
     "- Clauses: quote termination/break clauses verbatim.\n\n"
@@ -373,7 +373,10 @@ CONTRACT_MODE_PROMPT = (
     "SPREADSHEET CAVEAT:\n"
     "When listing from spreadsheets, add: \"Note: Based on retrieved excerpts. "
     "For a complete list, check the source spreadsheet.\"\n\n"
-    "FORMAT: **bold** names/amounts/dates. Bullets for 3+ items. Be concise."
+    "FORMATTING (important):\n"
+    "- Always use **bold** for: names, monetary amounts, dates, addresses, phone numbers, emails\n"
+    "- Use bullet points when listing 3 or more items\n"
+    "- Keep answers concise and focused"
 )
 
 TRANSCRIPT_MODE_PROMPT = (
@@ -385,7 +388,10 @@ TRANSCRIPT_MODE_PROMPT = (
     "- Attribute to speakers: 'According to [Speaker]...'\n\n"
     "NO CALCULATIONS:\n"
     "Cannot count or calculate. Only cite verbatim numbers.\n\n"
-    "FORMAT: **bold** key terms/names/dates. Prose style, bullets only for lists."
+    "FORMATTING (important):\n"
+    "- Always use **bold** for: names, key terms, dates, important phrases\n"
+    "- Use bullet points when listing 3 or more items\n"
+    "- Prose style preferred, bullets only for lists"
 )
 
 
