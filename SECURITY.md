@@ -74,7 +74,7 @@ curl http://SERVER_IP:6333/collections  # Timeout = not accessible
 ### High Priority
 
 - [x] **File upload content validation** - Validate magic bytes, not just file extension (see `app/file_validation.py`)
-- [ ] **Pin dependencies** - Add version pins to `requirements.txt`
+- [x] **Pin dependencies** - All dependencies pinned in `requirements.txt`
 
 ### Medium Priority
 
