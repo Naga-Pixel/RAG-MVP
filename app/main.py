@@ -476,17 +476,21 @@ async def list_documents(
             rows = cursor.fetchall()
             conn.close()
 
-            return [
-                DocumentInfo(
-                    doc_id=row[0],
-                    title=row[1],
-                    chunk_count=row[2],
-                    folder_id=row[3],
-                    folder_name=row[4],
-                    source_file=row[5] if len(row) > 5 else None,
-                )
-                for row in rows
-            ]
+            # Only return Postgres results if we got data
+            # If empty, fall through to Qdrant (FTS may not be enabled)
+            if rows:
+                return [
+                    DocumentInfo(
+                        doc_id=row[0],
+                        title=row[1],
+                        chunk_count=row[2],
+                        folder_id=row[3],
+                        folder_name=row[4],
+                        source_file=row[5] if len(row) > 5 else None,
+                    )
+                    for row in rows
+                ]
+            # Fall through to Qdrant if Postgres returned no results
         except Exception as e:
             logger.warning(f"Failed to list documents from Postgres: {e}")
             # Fall through to Qdrant
