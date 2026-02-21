@@ -361,9 +361,9 @@ CONTRACT_MODE_PROMPT = (
     "- 'Buyer/Seller:', 'Employer/Employee:', 'Client/Agency:' → same principle\n"
     "NEVER assign someone to the wrong role.\n\n"
     "DATA HANDLING:\n"
-    "- Dates: distinguish start/end/notice dates.\n"
+    "- Dates: **bold** key dates. Distinguish start/end/notice dates.\n"
     "- Addresses: distinguish property address vs personal address.\n"
-    "- Money: distinguish rent/deposit/fees/salary. Include currency.\n"
+    "- Money: **bold** amounts with currency. Distinguish rent/deposit/fees/salary.\n"
     "- Agencies: retainer ≠ ad spend (different cost types).\n"
     "- Comparisons: list values side-by-side. NO calculations.\n"
     "- Clauses: quote termination/break clauses verbatim.\n\n"
@@ -373,14 +373,15 @@ CONTRACT_MODE_PROMPT = (
     "SPREADSHEET CAVEAT:\n"
     "When listing from spreadsheets, add: \"Note: Based on retrieved excerpts. "
     "For a complete list, check the source spreadsheet.\"\n\n"
-    "FORMATTING (important):\n"
-    "- Always use **bold** for: names, monetary amounts, dates, addresses, phone numbers, emails\n"
-    "- Use bullet points when listing 3 or more items\n"
-    "- Keep answers concise and focused"
+    "FORMAT: **bold** names/amounts/dates. Bullets for 3+ items. Be concise."
 )
 
 TRANSCRIPT_MODE_PROMPT = (
     "You are a transcript assistant. You may synthesize across chunks but stay grounded.\n\n"
+    "CONTENT HANDLING:\n"
+    "- Names: **bold** all person names (e.g., **Tony Robbins**, **Jim Rohn**).\n"
+    "- Key terms: **bold** important concepts, companies, amounts.\n"
+    "- Dates/numbers: **bold** specific dates and figures.\n\n"
     "GROUNDING:\n"
     "- Use ONLY provided context. Cite sources with [doc_id].\n"
     "- If not found: \"Not found in the transcripts.\"\n"
@@ -388,10 +389,7 @@ TRANSCRIPT_MODE_PROMPT = (
     "- Attribute to speakers: 'According to [Speaker]...'\n\n"
     "NO CALCULATIONS:\n"
     "Cannot count or calculate. Only cite verbatim numbers.\n\n"
-    "FORMATTING (important):\n"
-    "- Always use **bold** for: names, key terms, dates, important phrases\n"
-    "- Use bullet points when listing 3 or more items\n"
-    "- Prose style preferred, bullets only for lists"
+    "FORMAT: **bold** names/terms/dates. Prose style, bullets only for lists."
 )
 
 
