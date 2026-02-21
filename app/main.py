@@ -443,31 +443,35 @@ async def list_documents(
     # Try Postgres FTS table first (faster for distinct queries)
     if settings.database_url:
         try:
+            from psycopg2 import sql
+
             conn = psycopg2.connect(settings.database_url)
             cursor = conn.cursor()
 
-            fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+            fts_table = settings.get_fts_table_sql()
 
             if folder_id:
-                cursor.execute(f"""
+                query = sql.SQL("""
                     SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
                            MAX(folder_id) as folder_id, MAX(folder_name) as folder_name,
                            MAX(source_file) as source_file
-                    FROM {fqtn}
+                    FROM {}
                     WHERE tenant_id = %s AND folder_id = %s
                     GROUP BY doc_id
                     ORDER BY MAX(title) NULLS LAST, doc_id
-                """, (tenant_id, folder_id))
+                """).format(fts_table)
+                cursor.execute(query, (tenant_id, folder_id))
             else:
-                cursor.execute(f"""
+                query = sql.SQL("""
                     SELECT doc_id, MAX(title) as title, COUNT(*) as chunk_count,
                            MAX(folder_id) as folder_id, MAX(folder_name) as folder_name,
                            MAX(source_file) as source_file
-                    FROM {fqtn}
+                    FROM {}
                     WHERE tenant_id = %s
                     GROUP BY doc_id
                     ORDER BY MAX(title) NULLS LAST, doc_id
-                """, (tenant_id,))
+                """).format(fts_table)
+                cursor.execute(query, (tenant_id,))
 
             rows = cursor.fetchall()
             conn.close()
