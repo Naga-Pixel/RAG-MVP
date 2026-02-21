@@ -12,6 +12,7 @@ IMPORTANT: This module is for LOGGING ONLY.
 Feature flag: KEYWORD_RETRIEVAL_LOGGING_ENABLED
 """
 import psycopg2
+from psycopg2 import sql
 
 from app.config import settings
 from app.logging_config import get_logger
@@ -20,8 +21,13 @@ logger = get_logger(__name__)
 
 
 def _get_fts_table_fqtn() -> str:
-    """Return fully-qualified table name for FTS queries."""
+    """Return fully-qualified table name for FTS queries (for logging only)."""
     return f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+
+
+def _get_fts_table_sql():
+    """Return safe SQL composable for FTS table name."""
+    return settings.get_fts_table_sql()
 
 
 def _get_fts_connection():
@@ -82,13 +88,13 @@ def keyword_retrieve(
         # Build SQL with optional folder_id and doc_ids filters
         params = [query, tenant_id, query]
 
-        scope_filter_sql = ""
+        scope_filter_parts = []
         if folder_id:
-            scope_filter_sql += " AND folder_id = %s"
+            scope_filter_parts.append(sql.SQL(" AND folder_id = %s"))
             params.append(folder_id)
         if doc_ids:
             # Use ANY() for efficient array matching
-            scope_filter_sql += " AND doc_id = ANY(%s)"
+            scope_filter_parts.append(sql.SQL(" AND doc_id = ANY(%s)"))
             params.append(doc_ids)
 
         params.append(limit)
@@ -96,7 +102,8 @@ def keyword_retrieve(
         # FTS query using websearch_to_tsquery for natural language parsing
         # Rank using ts_rank_cd (cover density ranking)
         # Match against combined title + text tsvector
-        retrieve_sql = f"""
+        # Using safe SQL composition for table name
+        retrieve_sql = sql.SQL("""
             SELECT
                 chunk_id,
                 doc_id,
@@ -105,14 +112,17 @@ def keyword_retrieve(
                     websearch_to_tsquery('english', %s)
                 ) AS rank,
                 folder_id
-            FROM {fqtn}
+            FROM {}
             WHERE tenant_id = %s
               AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(text, ''))
                   @@ websearch_to_tsquery('english', %s)
-              {scope_filter_sql}
+              {}
             ORDER BY rank DESC
             LIMIT %s
-        """
+        """).format(
+            _get_fts_table_sql(),
+            sql.SQL("").join(scope_filter_parts) if scope_filter_parts else sql.SQL("")
+        )
 
         cursor.execute(retrieve_sql, params)
         rows = cursor.fetchall()

@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 import psycopg2
+from psycopg2 import sql
 import sentry_sdk
 
 from app.config import settings
@@ -102,9 +103,11 @@ def delete_all_user_data(user_id: str) -> dict:
         else:
             cursor = conn.cursor()
 
-            # Delete from FTS shadow table
-            fts_table = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-            cursor.execute(f"DELETE FROM {fts_table} WHERE tenant_id = %s", (user_id,))
+            # Delete from FTS shadow table (using safe SQL composition)
+            delete_fts_query = sql.SQL("DELETE FROM {} WHERE tenant_id = %s").format(
+                settings.get_fts_table_sql()
+            )
+            cursor.execute(delete_fts_query, (user_id,))
             results["fts_chunks"] = cursor.rowcount
             logger.info(f"gdpr_delete_fts ok | user={user_id} | rows={results['fts_chunks']}")
 
@@ -339,12 +342,11 @@ def get_user_data_summary(user_id: str) -> dict:
         if conn:
             cursor = conn.cursor()
 
-            # Count distinct documents
-            fts_table = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-            cursor.execute(
-                f"SELECT COUNT(DISTINCT doc_id) FROM {fts_table} WHERE tenant_id = %s",
-                (user_id,)
-            )
+            # Count distinct documents (using safe SQL composition)
+            count_docs_query = sql.SQL(
+                "SELECT COUNT(DISTINCT doc_id) FROM {} WHERE tenant_id = %s"
+            ).format(settings.get_fts_table_sql())
+            cursor.execute(count_docs_query, (user_id,))
             result = cursor.fetchone()
             summary["documents_count"] = result[0] if result else 0
 

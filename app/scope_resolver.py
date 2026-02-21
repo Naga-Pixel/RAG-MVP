@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass
 
 import psycopg2
+from psycopg2 import sql
 
 from app.config import settings
 from app.logging_config import get_logger
@@ -143,14 +144,13 @@ def _match_folder(
         conn = psycopg2.connect(settings.database_url)
         cursor = conn.cursor()
 
-        fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-
-        # Get distinct folder names for this tenant
-        cursor.execute(f"""
+        # Get distinct folder names for this tenant (using safe SQL composition)
+        query = sql.SQL("""
             SELECT DISTINCT folder_id, folder_name
-            FROM {fqtn}
+            FROM {}
             WHERE tenant_id = %s AND folder_id IS NOT NULL
-        """, (tenant_id,))
+        """).format(settings.get_fts_table_sql())
+        cursor.execute(query, (tenant_id,))
 
         rows = cursor.fetchall()
 
@@ -198,15 +198,14 @@ def _match_document(
         conn = psycopg2.connect(settings.database_url)
         cursor = conn.cursor()
 
-        fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-
-        # Get distinct documents for this tenant
-        cursor.execute(f"""
+        # Get distinct documents for this tenant (using safe SQL composition)
+        query = sql.SQL("""
             SELECT DISTINCT doc_id, MAX(title) as title
-            FROM {fqtn}
+            FROM {}
             WHERE tenant_id = %s
             GROUP BY doc_id
-        """, (tenant_id,))
+        """).format(settings.get_fts_table_sql())
+        cursor.execute(query, (tenant_id,))
 
         rows = cursor.fetchall()
 
@@ -326,18 +325,18 @@ def get_folders(tenant_id: str) -> list[dict]:
         conn = psycopg2.connect(settings.database_url)
         cursor = conn.cursor()
 
-        fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
-
-        cursor.execute(f"""
+        # Get folders for tenant (using safe SQL composition)
+        query = sql.SQL("""
             SELECT
                 folder_id,
                 MAX(folder_name) as folder_name,
                 COUNT(DISTINCT doc_id) as doc_count
-            FROM {fqtn}
+            FROM {}
             WHERE tenant_id = %s AND folder_id IS NOT NULL
             GROUP BY folder_id
             ORDER BY MAX(folder_name) NULLS LAST, folder_id
-        """, (tenant_id,))
+        """).format(settings.get_fts_table_sql())
+        cursor.execute(query, (tenant_id,))
 
         rows = cursor.fetchall()
 
@@ -383,34 +382,38 @@ def get_documents_in_folder(
         conn = psycopg2.connect(settings.database_url)
         cursor = conn.cursor()
 
-        fqtn = f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+        fts_table = settings.get_fts_table_sql()
 
         if folder_id:
-            cursor.execute(f"""
+            # Get documents in specific folder (using safe SQL composition)
+            query = sql.SQL("""
                 SELECT
                     doc_id,
                     MAX(title) as title,
                     COUNT(*) as chunk_count,
                     MAX(folder_id) as folder_id,
                     MAX(folder_name) as folder_name
-                FROM {fqtn}
+                FROM {}
                 WHERE tenant_id = %s AND folder_id = %s
                 GROUP BY doc_id
                 ORDER BY MAX(title) NULLS LAST, doc_id
-            """, (tenant_id, folder_id))
+            """).format(fts_table)
+            cursor.execute(query, (tenant_id, folder_id))
         else:
-            cursor.execute(f"""
+            # Get all documents for tenant (using safe SQL composition)
+            query = sql.SQL("""
                 SELECT
                     doc_id,
                     MAX(title) as title,
                     COUNT(*) as chunk_count,
                     MAX(folder_id) as folder_id,
                     MAX(folder_name) as folder_name
-                FROM {fqtn}
+                FROM {}
                 WHERE tenant_id = %s
                 GROUP BY doc_id
                 ORDER BY MAX(title) NULLS LAST, doc_id
-            """, (tenant_id,))
+            """).format(fts_table)
+            cursor.execute(query, (tenant_id,))
 
         rows = cursor.fetchall()
 

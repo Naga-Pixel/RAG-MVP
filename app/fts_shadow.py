@@ -17,6 +17,7 @@ Note: Keyword retrieval (Phase B) is in app/keyword_retrieval.py
 import time
 
 import psycopg2
+from psycopg2 import sql
 from psycopg2.extras import execute_values
 import sentry_sdk
 
@@ -30,8 +31,13 @@ _PG_BATCH_SIZE = 250
 
 
 def _get_fts_table_fqtn() -> str:
-    """Return fully-qualified table name for FTS shadow writes."""
+    """Return fully-qualified table name for FTS shadow writes (for logging only)."""
     return f"{settings.fts_shadow_schema}.{settings.fts_shadow_table}"
+
+
+def _get_fts_table_sql():
+    """Return safe SQL composable for FTS table name."""
+    return settings.get_fts_table_sql()
 
 
 def _get_fts_connection():
@@ -118,10 +124,10 @@ def upsert_chunks_to_fts(
                 external_id,
             ))
 
-        # Build upsert SQL with fully-qualified table name
+        # Build upsert SQL with safe table name composition
         # Note: external_id column added in migration 006
-        upsert_sql = f"""
-            INSERT INTO {fqtn} (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name, source_file, external_id)
+        upsert_sql = sql.SQL("""
+            INSERT INTO {} (tenant_id, chunk_id, doc_id, title, text, folder_id, folder_name, source_file, external_id)
             VALUES %s
             ON CONFLICT (tenant_id, chunk_id) DO UPDATE SET
                 doc_id = EXCLUDED.doc_id,
@@ -131,12 +137,14 @@ def upsert_chunks_to_fts(
                 folder_name = EXCLUDED.folder_name,
                 source_file = EXCLUDED.source_file,
                 external_id = EXCLUDED.external_id
-        """
+        """).format(_get_fts_table_sql())
 
         # Upsert in internal batches (no per-batch logging)
+        # Convert SQL composable to string for execute_values
+        upsert_sql_str = upsert_sql.as_string(conn)
         for i in range(0, len(values), _PG_BATCH_SIZE):
             batch = values[i:i + _PG_BATCH_SIZE]
-            execute_values(cursor, upsert_sql, batch, page_size=_PG_BATCH_SIZE)
+            execute_values(cursor, upsert_sql_str, batch, page_size=_PG_BATCH_SIZE)
 
         conn.commit()
         elapsed_ms = int((time.perf_counter() - start_ms) * 1000)
@@ -199,10 +207,10 @@ def delete_chunks_by_external_id(tenant_id: str, external_id: str) -> int:
             return 0
 
         cursor = conn.cursor()
-        cursor.execute(
-            f"DELETE FROM {fqtn} WHERE tenant_id = %s AND external_id = %s",
-            (tenant_id, external_id)
-        )
+        delete_query = sql.SQL(
+            "DELETE FROM {} WHERE tenant_id = %s AND external_id = %s"
+        ).format(_get_fts_table_sql())
+        cursor.execute(delete_query, (tenant_id, external_id))
         deleted_count = cursor.rowcount
         conn.commit()
 
@@ -263,10 +271,10 @@ def delete_chunks_by_doc_id(tenant_id: str, doc_id: str) -> int:
             return 0
 
         cursor = conn.cursor()
-        cursor.execute(
-            f"DELETE FROM {fqtn} WHERE tenant_id = %s AND doc_id = %s",
-            (tenant_id, doc_id)
-        )
+        delete_query = sql.SQL(
+            "DELETE FROM {} WHERE tenant_id = %s AND doc_id = %s"
+        ).format(_get_fts_table_sql())
+        cursor.execute(delete_query, (tenant_id, doc_id))
         deleted_count = cursor.rowcount
         conn.commit()
 

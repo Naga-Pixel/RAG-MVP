@@ -1,5 +1,44 @@
-from pydantic import Field
+import re
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# SQL identifier pattern: alphanumeric and underscore only, must start with letter/underscore
+SQL_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def validate_sql_identifier(value: str, field_name: str) -> str:
+    """
+    Validate that a string is a safe SQL identifier.
+
+    Prevents SQL injection by ensuring schema/table names contain only
+    alphanumeric characters and underscores, and start with a letter or underscore.
+
+    Args:
+        value: The identifier to validate
+        field_name: Name of the field (for error messages)
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If the identifier contains invalid characters
+    """
+    if not value:
+        raise ValueError(f"{field_name} cannot be empty")
+
+    if len(value) > 63:  # PostgreSQL identifier limit
+        raise ValueError(f"{field_name} exceeds maximum length of 63 characters")
+
+    if not SQL_IDENTIFIER_PATTERN.match(value):
+        raise ValueError(
+            f"{field_name} contains invalid characters. "
+            f"Only alphanumeric characters and underscores are allowed, "
+            f"and it must start with a letter or underscore. Got: {value!r}"
+        )
+
+    return value
 
 
 class Settings(BaseSettings):
@@ -275,6 +314,34 @@ class Settings(BaseSettings):
         alias="CREDENTIALS_DIRECTORY",
         description="Directory where credentials files must be located",
     )
+
+    # ---- Validation ----
+
+    @model_validator(mode='after')
+    def validate_sql_identifiers(self) -> 'Settings':
+        """Validate SQL identifier fields to prevent SQL injection."""
+        validate_sql_identifier(self.fts_shadow_schema, 'fts_shadow_schema')
+        validate_sql_identifier(self.fts_shadow_table, 'fts_shadow_table')
+        return self
+
+    def get_fts_table_sql(self):
+        """
+        Get a psycopg2.sql composable for the FTS table name.
+
+        Returns a SQL composable that safely handles schema.table identifier.
+        Use with cursor.execute() by composing with other SQL parts.
+
+        Example:
+            query = sql.SQL("SELECT * FROM {} WHERE tenant_id = %s").format(
+                settings.get_fts_table_sql()
+            )
+            cursor.execute(query, (tenant_id,))
+        """
+        from psycopg2 import sql
+        return sql.SQL("{}.{}").format(
+            sql.Identifier(self.fts_shadow_schema),
+            sql.Identifier(self.fts_shadow_table)
+        )
 
     # ---- Compatibility properties ----
 
