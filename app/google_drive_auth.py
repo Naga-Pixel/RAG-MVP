@@ -212,8 +212,16 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
         except Exception as e:
             logger.warning(f"Could not read JWT header: {e}")
 
+        # Determine expected algorithm based on configuration
+        # Supabase uses HS256 with JWT secret, or ES256 with JWKS (newer setup)
+        # SECURITY: We must validate the token's algorithm matches our expectation
+        # to prevent algorithm confusion attacks
+
+        use_asymmetric = bool(settings.supabase_url)  # JWKS available via OpenID discovery
+        use_symmetric = bool(settings.supabase_jwt_secret)
+
         # Handle ES256 (asymmetric) - fetch public key from JWKS via OpenID discovery
-        if token_alg == "ES256":
+        if use_asymmetric and token_alg == "ES256":
             # Discover JWKS URI and fetch keys (raises HTTPException(401) on failure)
             jwks_uri = _discover_jwks_uri()
             _get_jwks_public_key()
@@ -230,7 +238,7 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
             payload = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=["ES256"],
+                algorithms=["ES256"],  # Only accept ES256 for asymmetric
                 audience="authenticated",
                 options={
                     "require": ["exp", "sub"],
@@ -239,11 +247,13 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
                 }
             )
         # Handle HS256 (symmetric) - use JWT secret
-        elif settings.supabase_jwt_secret:
+        elif use_symmetric and token_alg == "HS256":
+            # SECURITY: Only accept HS256 - Supabase uses HS256 exclusively
+            # Accepting other algorithms (HS384, HS512) is unnecessary and risky
             payload = jwt.decode(
                 token,
                 settings.supabase_jwt_secret,
-                algorithms=["HS256", "HS384", "HS512"],
+                algorithms=["HS256"],  # Only accept HS256 for Supabase
                 audience="authenticated",
                 options={
                     "require": ["exp", "sub"],
@@ -251,6 +261,10 @@ async def verify_supabase_token(authorization: str | None = Header(None)) -> dic
                     "verify_aud": True,
                 }
             )
+        elif token_alg and token_alg not in ("ES256", "HS256"):
+            # Token uses unexpected algorithm - reject it
+            logger.warning(f"JWT uses unexpected algorithm: {token_alg}")
+            raise HTTPException(status_code=401, detail="Invalid token algorithm")
         else:
             # No verification method available - fail closed
             logger.error("No JWT verification method configured (no SUPABASE_URL or SUPABASE_JWT_SECRET)")
