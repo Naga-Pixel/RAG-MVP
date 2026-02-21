@@ -8,6 +8,36 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 SQL_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 
+def validate_fernet_key(value: str, field_name: str) -> str:
+    """
+    Validate that a string is a valid Fernet encryption key.
+
+    Fernet keys must be 32 url-safe base64-encoded bytes.
+
+    Args:
+        value: The key to validate
+        field_name: Name of the field (for error messages)
+
+    Returns:
+        The validated key
+
+    Raises:
+        ValueError: If the key is not a valid Fernet key
+    """
+    from cryptography.fernet import Fernet
+
+    try:
+        # This will raise ValueError if the key is invalid
+        Fernet(value.encode())
+        return value
+    except Exception as e:
+        raise ValueError(
+            f"{field_name} is not a valid Fernet key. "
+            f"Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\". "
+            f"Error: {e}"
+        )
+
+
 def validate_sql_identifier(value: str, field_name: str) -> str:
     """
     Validate that a string is a safe SQL identifier.
@@ -318,10 +348,17 @@ class Settings(BaseSettings):
     # ---- Validation ----
 
     @model_validator(mode='after')
-    def validate_sql_identifiers(self) -> 'Settings':
-        """Validate SQL identifier fields to prevent SQL injection."""
+    def validate_settings(self) -> 'Settings':
+        """Validate configuration values at startup."""
+        # Validate SQL identifiers to prevent SQL injection
         validate_sql_identifier(self.fts_shadow_schema, 'fts_shadow_schema')
         validate_sql_identifier(self.fts_shadow_table, 'fts_shadow_table')
+
+        # Validate Fernet encryption key if provided
+        # This catches invalid keys at startup rather than at runtime
+        if self.drive_token_encryption_key:
+            validate_fernet_key(self.drive_token_encryption_key, 'drive_token_encryption_key')
+
         return self
 
     def get_fts_table_sql(self):
