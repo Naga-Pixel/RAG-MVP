@@ -24,6 +24,7 @@ from app.rag_service import answer_question, answer_question_stream
 from app.config import settings
 from app.google_drive_auth import router as drive_router, verify_supabase_token
 from app.qdrant_client import client as qdrant_client, check_qdrant_health
+from app.file_validation import validate_file_content
 
 logger = get_logger(__name__)
 
@@ -812,6 +813,13 @@ async def sync_upload(
             # Read file content
             content_bytes = await upload_file.read()
             filename = upload_file.filename
+            ext = Path(filename).suffix.lower()
+
+            # Validate file content matches claimed extension (security check)
+            is_valid, validation_error = validate_file_content(content_bytes, ext)
+            if not is_valid:
+                errors.append(f"Rejected {filename}: {validation_error}")
+                continue
 
             # Generate a stable ID from content hash (for idempotent upserts)
             content_hash = hashlib.sha256(content_bytes).hexdigest()[:16]
