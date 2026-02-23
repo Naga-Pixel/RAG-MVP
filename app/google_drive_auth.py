@@ -4,6 +4,7 @@ Google Drive OAuth and Sync module.
 Provides user-based Google Drive authentication via OAuth,
 folder selection via Google Picker, and on-demand sync.
 """
+import os
 import secrets
 import tempfile
 import time
@@ -380,7 +381,7 @@ async def start_drive_oauth(user: dict = Depends(verify_supabase_token)):
         "client_id": settings.google_drive_client_id,
         "redirect_uri": settings.google_drive_redirect_uri,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/drive.readonly",
+        "scope": os.environ.get("GOOGLE_DRIVE_SCOPE", "https://www.googleapis.com/auth/drive.readonly"),
         "access_type": "offline",
         "prompt": "consent",
         "include_granted_scopes": "true",
