@@ -3725,17 +3725,47 @@
         const top = window.screenY + (window.innerHeight - height) / 2;
         const popup = window.open(authUrl, 'drive_oauth', `width=${width},height=${height},left=${left},top=${top}`);
 
-        const messageHandler = async (event) => {
-          if (event.data?.type === 'drive_oauth_success') {
-            window.removeEventListener('message', messageHandler);
+        let handled = false;
+        const cleanup = () => {
+          window.removeEventListener('message', messageHandler);
+          window.removeEventListener('storage', storageHandler);
+        };
+
+        const handleResult = async (type, error) => {
+          if (handled) return;
+          handled = true;
+          cleanup();
+          localStorage.removeItem('drive_oauth_result');
+          if (type === 'drive_oauth_success') {
             await refreshDriveStatus();
             showDriveStatus('Google Drive connected!', 'success');
-          } else if (event.data?.type === 'drive_oauth_error') {
-            window.removeEventListener('message', messageHandler);
-            showDriveStatus('Connection failed', 'error');
+          } else {
+            showDriveStatus('Connection failed: ' + (error || 'Unknown error'), 'error');
           }
         };
+
+        const messageHandler = async (event) => {
+          if (event.data?.type === 'drive_oauth_success') {
+            await handleResult('drive_oauth_success');
+          } else if (event.data?.type === 'drive_oauth_error') {
+            await handleResult('drive_oauth_error', event.data.error);
+          }
+        };
+
+        // Fallback: listen for localStorage changes (fires when popup writes to localStorage)
+        const storageHandler = async (event) => {
+          if (event.key === 'drive_oauth_result' && event.newValue) {
+            try {
+              const result = JSON.parse(event.newValue);
+              await handleResult(result.type, result.error);
+            } catch (e) {
+              console.error('Failed to parse oauth result:', e);
+            }
+          }
+        };
+
         window.addEventListener('message', messageHandler);
+        window.addEventListener('storage', storageHandler);
       } catch (err) {
         showDriveStatus('Failed to connect: ' + err.message, 'error');
       } finally {

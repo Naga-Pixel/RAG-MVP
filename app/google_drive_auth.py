@@ -406,24 +406,34 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
     # Determine origin for postMessage
     origin = settings.google_drive_redirect_uri.rsplit("/oauth", 1)[0]
 
+    def _oauth_response_html(msg_type: str, error_msg: str | None = None) -> str:
+        """Generate HTML that communicates result via postMessage + localStorage fallback."""
+        payload = f'{{type: "{msg_type}"' + (f', error: "{error_msg}"' if error_msg else '') + '}'
+        user_msg = "Connected! You can close this window." if msg_type == "drive_oauth_success" else f"Error: {error_msg}"
+        return f"""
+            <html><body><script>
+                try {{
+                    if (window.opener && !window.opener.closed) {{
+                        window.opener.postMessage({payload}, "{origin}");
+                    }}
+                }} catch (e) {{
+                    console.warn("postMessage failed:", e);
+                }}
+                localStorage.setItem("drive_oauth_result", JSON.stringify({{type: "{msg_type}", error: "{error_msg or ''}", ts: Date.now()}}));
+                window.close();
+            </script>
+            <p>{user_msg}</p>
+            </body></html>
+        """
+
     # Log callback origin for domain migration debugging
     logger.info(f"[drive_oauth_callback] postMessage_origin={origin} has_code={code is not None} has_error={error is not None}")
 
     if error:
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "{error}"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", error))
 
     if not code or not state:
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "Missing code or state"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "Missing code or state"))
 
     # Verify state and get user_id
     conn = _get_db()
@@ -438,12 +448,7 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
         if not row:
             cursor.close()
             conn.close()
-            return HTMLResponse(f"""
-                <html><body><script>
-                    window.opener.postMessage({{type: "drive_oauth_error", error: "Invalid state"}}, "{origin}");
-                    window.close();
-                </script></body></html>
-            """)
+            return HTMLResponse(_oauth_response_html("drive_oauth_error", "Invalid state"))
 
         user_id = row["user_id"]
         expires_at = row["expires_at"]
@@ -455,24 +460,14 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
         cursor.close()
         conn.close()
         logger.error(f"OAuth callback DB error: {e}")
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "Database error"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "Database error"))
     finally:
         cursor.close()
         conn.close()
 
     # Check expiration (expires_at is already a datetime from Postgres)
     if datetime.utcnow() > expires_at.replace(tzinfo=None):
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "State expired"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "State expired"))
 
     # Exchange code for tokens
     try:
@@ -490,32 +485,17 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
 
             if response.status_code != 200:
                 error_msg = response.json().get("error_description", "Token exchange failed")
-                return HTMLResponse(f"""
-                    <html><body><script>
-                        window.opener.postMessage({{type: "drive_oauth_error", error: "{error_msg}"}}, "{origin}");
-                        window.close();
-                    </script></body></html>
-                """)
+                return HTMLResponse(_oauth_response_html("drive_oauth_error", error_msg))
 
             tokens = response.json()
     except Exception as e:
         logger.error(f"Token exchange failed: {e}")
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "Token exchange failed"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "Token exchange failed"))
 
     # Encrypt and store refresh token
     refresh_token = tokens.get("refresh_token")
     if not refresh_token:
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "No refresh token received"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "No refresh token received"))
 
     encrypted_token = _encrypt_token(refresh_token)
     scope = tokens.get("scope", "")
@@ -534,22 +514,12 @@ async def drive_oauth_callback(code: str | None = None, state: str | None = None
         conn.commit()
     except psycopg2.Error as e:
         logger.error(f"Failed to store Drive token: {e}")
-        return HTMLResponse(f"""
-            <html><body><script>
-                window.opener.postMessage({{type: "drive_oauth_error", error: "Failed to save token"}}, "{origin}");
-                window.close();
-            </script></body></html>
-        """)
+        return HTMLResponse(_oauth_response_html("drive_oauth_error", "Failed to save token"))
     finally:
         cursor.close()
         conn.close()
 
-    return HTMLResponse(f"""
-        <html><body><script>
-            window.opener.postMessage({{type: "drive_oauth_success"}}, "{origin}");
-            window.close();
-        </script></body></html>
-    """)
+    return HTMLResponse(_oauth_response_html("drive_oauth_success"))
 
 
 # ============== Status & Folders Endpoints ==============
