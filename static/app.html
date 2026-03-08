@@ -3837,6 +3837,7 @@
           }
         }
         await loadDocuments();
+        await refreshDriveStatus();  // Refresh folder document counts
       } catch (err) {
         showDriveStatus('Sync failed: ' + err.message, 'error');
       } finally {
